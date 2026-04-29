@@ -223,7 +223,7 @@ export const LocationProvider = ({ children }) => {
 
       // Native Flutter Bridge
       if (window.Flutter) {
-        import("../../lib/appZetoBridge").then(async (m) => {
+        import("../../../lib/appZetoBridge").then(async (m) => {
           const AppZetoBridge = m.default;
           const coords = await AppZetoBridge.getLocation();
           if (coords && coords.lat && coords.lng) {
