@@ -71,6 +71,38 @@ const AppZetoBridge = {
         }
       }, 10000);
     });
+  },
+
+  /**
+   * Request Location from Flutter and return it as a Promise
+   * @returns {Promise<{lat: number, lng: number}|null>}
+   */
+  getLocation: () => {
+    return new Promise((resolve) => {
+      if (!window.Flutter) {
+        resolve(null);
+        return;
+      }
+
+      const originalOnResponse = window.onFlutterResponse;
+      window.onFlutterResponse = (response) => {
+        if (response.type === 'location_response') {
+          window.onFlutterResponse = originalOnResponse;
+          resolve(response.data);
+        } else if (originalOnResponse) {
+          originalOnResponse(response);
+        }
+      };
+
+      window.Flutter.postMessage("get_location");
+      
+      setTimeout(() => {
+        if (window.onFlutterResponse !== originalOnResponse) {
+          window.onFlutterResponse = originalOnResponse;
+          resolve(null);
+        }
+      }, 15000); // Higher timeout for GPS
+    });
   }
 };
 
