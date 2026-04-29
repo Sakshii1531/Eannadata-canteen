@@ -1,6 +1,7 @@
 import { isSupported, getMessaging, getToken, onMessage } from "firebase/messaging";
 import { getFirebaseApp } from "./client";
 import axiosInstance from "@core/api/axios";
+import AppZetoBridge from "../../lib/appZetoBridge";
 
 let foregroundListenerStarted = false;
 let foregroundUnsubscribe = null;
@@ -56,6 +57,10 @@ export function describePushSupport() {
       reason: "ios-safari-not-standalone",
       message: "On iPhone/iPad Safari, push notifications work only after installing the app to Home Screen.",
     };
+  }
+
+  if (window.Flutter) {
+    return { supported: true, reason: "flutter-native" };
   }
 
   return { supported: true, reason: "ok" };
@@ -149,31 +154,45 @@ export async function ensureFcmTokenRegistered({
     throw new Error(support.message || `Push unsupported: ${support.reason}`);
   }
 
-  const supported = await isSupported().catch(() => false);
-  if (!supported) {
-    throw new Error("Firebase Messaging is not supported in this environment");
+  if (!window.Flutter) {
+    const supported = await isSupported().catch(() => false);
+    if (!supported) {
+      throw new Error("Firebase Messaging is not supported in this environment");
+    }
   }
 
-  const app = getFirebaseApp();
-  if (!app) {
-    throw new Error("Firebase is not configured (missing VITE_FIREBASE_* env)");
-  }
+  let token = "";
 
-  const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-  if (!vapidKey) {
-    throw new Error("Missing VITE_FIREBASE_VAPID_KEY");
-  }
+  if (window.Flutter) {
+    // Get token from Flutter native layer
+    token = await AppZetoBridge.getFcmToken();
+    if (!token) {
+      throw new Error("Failed to obtain native FCM token from Flutter");
+    }
+    // Set platform to android/ios instead of web for native tokens
+    platform = /android/i.test(navigator.userAgent) ? "android" : "ios";
+  } else {
+    const app = getFirebaseApp();
+    if (!app) {
+      throw new Error("Firebase is not configured (missing VITE_FIREBASE_* env)");
+    }
 
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") {
-    throw new Error("Notification permission not granted");
-  }
+    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+    if (!vapidKey) {
+      throw new Error("Missing VITE_FIREBASE_VAPID_KEY");
+    }
 
-  const swRegistration = await ensureServiceWorkerRegistration();
-  const messaging = getMessaging(app);
-  const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
-  if (!token) {
-    throw new Error("Failed to obtain FCM token");
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      throw new Error("Notification permission not granted");
+    }
+
+    const swRegistration = await ensureServiceWorkerRegistration();
+    const messaging = getMessaging(app);
+    token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
+    if (!token) {
+      throw new Error("Failed to obtain FCM token");
+    }
   }
 
   await axiosInstance.post("/push/register", {
@@ -255,11 +274,19 @@ export async function startForegroundPushListener() {
     return foregroundUnsubscribe;
   }
 
-  const supported = await isSupported().catch(() => false);
-  if (!supported) return () => {};
+  if (!window.Flutter) {
+    const supported = await isSupported().catch(() => false);
+    if (!supported) return () => {};
+  }
 
   const app = getFirebaseApp();
-  if (!app) return () => {};
+  if (!app && !window.Flutter) return () => {};
+
+  // If in Flutter, the native app handles foreground notifications, 
+  // but we can still return a dummy unsubscribe.
+  if (window.Flutter) {
+    return () => {};
+  }
 
   // Ensure SW exists (helps with consistent notification center behavior).
   try {
