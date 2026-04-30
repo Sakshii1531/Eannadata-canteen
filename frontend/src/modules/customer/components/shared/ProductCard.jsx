@@ -156,10 +156,9 @@ const ProductCard = React.memo(
     );
 
     return (
-      <motion.div
-        whileHover={{ scale: 1.02 }}
+      <div
         className={cn(
-          "flex-shrink-0 w-full rounded-xl sm:rounded-2xl overflow-hidden flex flex-col h-full shadow-sm cursor-pointer transition-all duration-300",
+          "flex-shrink-0 w-full rounded-xl sm:rounded-2xl overflow-hidden flex flex-col h-full shadow-sm cursor-pointer transition-all duration-300 hover:scale-[1.02]",
           compact
             ? "bg-white border-[1.5px] border-brand-50 shadow-[0_8px_20px_-8px_rgba(0,0,0,0.08)]"
             : neutralBg
@@ -337,22 +336,21 @@ const ProductCard = React.memo(
                   </button>
                 </div>
               ) : (
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
+                <button
                   onClick={handleAddToCart}
                   className={cn(
-                    "bg-white border-[1.5px] border-primary text-primary rounded-lg font-black shadow-sm hover:bg-primary/5 mb-0 transition-all uppercase tracking-wide leading-none",
+                    "bg-white border-[1.5px] border-primary text-primary rounded-lg font-black shadow-sm hover:bg-primary/5 mb-0 transition-all uppercase tracking-wide leading-none active:scale-95",
                     compact
                       ? "px-2.5 py-1 text-[10px]"
                       : "px-3.5 py-1.5 text-[11px] sm:px-7 sm:py-2 sm:text-[13px] md:text-sm md:px-8 md:py-2.5",
                   )}>
                   ADD
-                </motion.button>
+                </button>
               )}
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     );
   },
 );

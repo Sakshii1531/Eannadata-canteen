@@ -1,9 +1,15 @@
 import { useEffect } from 'react';
 import Lenis from 'lenis';
 import 'lenis/dist/lenis.css';
+import { isMobileOrWebView } from '@/core/utils/deviceUtils';
 
 const LenisScroll = () => {
     useEffect(() => {
+        // Disable Lenis on mobile devices and Flutter WebViews to use native hardware-accelerated scrolling
+        if (isMobileOrWebView()) {
+            return;
+        }
+
         const lenis = new Lenis({
             duration: 1.2,
             easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),

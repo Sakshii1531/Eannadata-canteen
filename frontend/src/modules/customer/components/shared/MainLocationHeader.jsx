@@ -97,7 +97,7 @@ function CategoryNavColumn({
           />
         ) : (
           <img
-            src={applyCloudinaryTransform(cat.icon)}
+            src={applyCloudinaryTransform(cat.icon, "f_auto,q_auto,w_100")}
             alt={cat.name}
             loading="lazy"
             className="h-5 w-5 object-contain md:h-6 md:w-6"

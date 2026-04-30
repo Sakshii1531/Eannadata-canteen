@@ -7,6 +7,8 @@ import {
   isCloudinaryUrl,
 } from "@/core/utils/imageUtils";
 
+import { isMobileOrWebView } from "@/core/utils/deviceUtils";
+
 const BANNER_CHUNK_SIZE = 20;
 
 const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap = 0, edgeToEdge = false }) => {
@@ -75,7 +77,7 @@ const ExperienceBannerCarousel = ({ section, items, fullWidth = false, slideGap 
         dragElastic={0.2}
         onDragEnd={handleDragEnd}
         animate={{ x: `-${(activeIndex / totalItems) * 100}%` }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        transition={isMobileOrWebView() ? { type: "tween", ease: "easeInOut", duration: 0.3 } : { type: "spring", stiffness: 300, damping: 30 }}
         className="flex"
         style={{ width: `${totalItems * 100}%` }}
       >

@@ -189,7 +189,7 @@ const ProductDetailPage = () => {
                 <div className="lg:w-[45%] xl:w-[40%] space-y-4">
                     <div className="relative aspect-square rounded-[2rem] overflow-hidden bg-white border border-slate-100 shadow-sm transition-all hover:shadow-xl group">
                         <img
-                            src={applyCloudinaryTransform(activeImage)}
+                            src={applyCloudinaryTransform(activeImage, "f_auto,q_auto,w_800")}
                             alt={product.name}
                             loading="lazy"
                             className="w-full h-full object-contain p-2 md:p-4 transition-transform duration-700 group-hover:scale-105"
@@ -215,7 +215,7 @@ const ProductDetailPage = () => {
                                     activeImage === img ? "border-primary shadow-lg scale-95" : "border-transparent opacity-70 hover:opacity-100"
                                 )}
                             >
-                                <img src={applyCloudinaryTransform(img)} alt={`Angle ${idx}`} loading="lazy" className="w-full h-full object-contain p-1" />
+                                <img src={applyCloudinaryTransform(img, "f_auto,q_auto,w_150")} alt={`Angle ${idx}`} loading="lazy" className="w-full h-full object-contain p-1" />
                             </button>
                         ))}
                     </div>
