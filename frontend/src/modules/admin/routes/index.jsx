@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
 import { useSupportUnread } from "@core/context/SupportUnreadContext";
+import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import {
   LayoutDashboard,
   Tag,
@@ -210,6 +211,10 @@ const navItems = [
 const BillingCharges = React.lazy(() => import("../pages/BillingCharges"));
 
 const AdminRoutes = () => {
+  useEffect(() => {
+    setActiveRole(ROLES.ADMIN);
+  }, []);
+
   const { totalUnread } = useSupportUnread();
 
   const navItemsWithBadges = React.useMemo(() => {

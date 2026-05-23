@@ -5,9 +5,7 @@ import Transaction from "../models/transaction.js";
 import StockHistory from "../models/stockHistory.js";
 import Seller from "../models/seller.js";
 import Delivery from "../models/delivery.js";
-import Setting from "../models/setting.js";
 import User from "../models/customer.js";
-import CheckoutGroup from "../models/checkoutGroup.js";
 import Payout from "../models/payout.js";
 import OrderOtp from "../models/orderOtp.js";
 import handleResponse from "../utils/helper.js";
@@ -20,7 +18,6 @@ import {
   sellerRejectAtomic,
   deliveryAcceptAtomic,
   customerCancelV2,
-  resolveWorkflowStatus,
 } from "../services/orderWorkflowService.js";
 import { applyDeliveredSettlement } from "../services/orderSettlement.js";
 import {
@@ -35,11 +32,11 @@ import { distanceMeters } from "../utils/geoUtils.js";
 import {
   fetchAvailableOrdersForDelivery,
   fetchSellerOrdersPage,
+  getCustomerOrders,
+  getOrderWithAccess,
+  getSellerReturns as getSellerReturnsFromService,
 } from "../services/orderQueryService.js";
-import {
-  orderMatchQueryFromRouteParam,
-  orderMatchQueryFlexible,
-} from "../utils/orderLookup.js";
+import { orderMatchQueryFromRouteParam } from "../utils/orderLookup.js";
 import { createFinanceOrderSchema } from "../validation/financeValidation.js";
 import { placeOrderAtomic } from "../services/orderPlacementService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
@@ -54,10 +51,11 @@ import {
 import * as walletService from "../services/finance/walletService.js";
 import { OWNER_TYPE } from "../constants/finance.js";
 import { processPayout } from "../services/finance/payoutService.js";
-import { buildKey, getOrSet, getTTL, invalidate } from "../services/cacheService.js";
+import { buildKey, invalidate } from "../services/cacheService.js";
 import { computeReturnWindowForOrder } from "../utils/returnWindow.js";
 import logger from "../services/logger.js";
 import { validateBody as validateWithJoi } from "../middleware/validate.js";
+import OrderReturnService from "../services/order/orderReturnService.js";
 
 function normalizePaymentMode(value) {
   const raw = String(value || "").trim().toUpperCase();
@@ -178,6 +176,8 @@ export const placeOrder = async (req, res) => {
     } catch (cacheErr) {
       logger.warn("placeOrder cache invalidation failed", {
         scope: "placeOrder",
+        customerId,
+        correlationId: req.correlationId,
         error: cacheErr.message,
       });
     }
@@ -201,7 +201,12 @@ export const placeOrder = async (req, res) => {
       },
     );
   } catch (error) {
-    logger.error("Place Order Error", { scope: "placeOrder", error });
+    logger.error("Place Order Error", {
+      scope: "placeOrder",
+      customerId: req.user?.id,
+      correlationId: req.correlationId,
+      error,
+    });
     return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
@@ -210,44 +215,14 @@ export const placeOrder = async (req, res) => {
 ================================ */
 export const getMyOrders = async (req, res) => {
   try {
-    const customerId = req.user.id;
-    const { page, limit, skip } = getPagination(req, {
+    const pagination = getPagination(req, {
       defaultLimit: 20,
       maxLimit: 100,
     });
-
-    const cacheKey = buildKey("orders", "customer", `${customerId}:p${page}:l${limit}`);
-
-    const result = await getOrSet(
-      cacheKey,
-      async () => {
-        const [orders, total] = await Promise.all([
-          Order.find({ customer: customerId })
-            .select(
-              "orderId checkoutGroupId customer seller items address payment pricing status workflowStatus workflowVersion returnStatus timeSlot createdAt",
-            )
-            .sort({ createdAt: -1, _id: -1 })
-            .skip(skip)
-            .limit(limit)
-            .populate("items.product", "name mainImage price salePrice")
-            .lean(),
-          Order.countDocuments({ customer: customerId }),
-        ]);
-
-        return {
-          items: orders,
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit) || 1,
-        };
-      },
-      getTTL("orders"),
-    );
-
+    const result = await getCustomerOrders(req.user.id, pagination);
     return handleResponse(res, 200, "Orders fetched successfully", result);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
 
@@ -256,216 +231,53 @@ export const getMyOrders = async (req, res) => {
 ================================ */
 export const getSellerReturns = async (req, res) => {
   try {
-    const { id: userId, role } = req.user;
-    const { status, startDate, endDate } = req.query;
-
-    const query = {};
-
-    if (role !== "admin") {
-      query.seller = userId;
-    }
-
-    query.returnStatus = { $ne: "none" };
-
-    if (status && status !== "all") {
-      query.returnStatus = status;
-    }
-
-    if (startDate || endDate) {
-      query.returnRequestedAt = {};
-      if (startDate) {
-        query.returnRequestedAt.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        query.returnRequestedAt.$lte = end;
-      }
-    }
-
-    const { page, limit, skip } = getPagination(req, {
+    const pagination = getPagination(req, {
       defaultLimit: 25,
       maxLimit: 100,
     });
-
-    const [orders, total] = await Promise.all([
-      Order.find(query)
-        .sort({ returnRequestedAt: -1, createdAt: -1, _id: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate("customer", "name phone")
-        .populate("returnDeliveryBoy", "name phone")
-        .lean(),
-      Order.countDocuments(query),
-    ]);
-
-    return handleResponse(res, 200, "Seller returns fetched", {
-      items: orders,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit) || 1,
+    const result = await getSellerReturnsFromService({
+      role: req.user.role,
+      userId: req.user.id,
+      filters: req.query || {},
+      pagination,
     });
+    return handleResponse(res, 200, "Seller returns fetched", result);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
-
-/** Populated ref `{ _id, ... }` or raw ObjectId string — safe id string for ACL checks */
-function refToIdString(ref) {
-  if (ref == null) return "";
-  if (typeof ref === "object" && ref._id != null) return String(ref._id);
-  return String(ref);
-}
 
 /* ===============================
    GET ORDER DETAILS
 ================================ */
 export const getOrderDetails = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const { role } = req.user;
-    const userId = req.user?.id ?? req.user?._id;
-    const uid = userId != null ? String(userId).trim() : "";
-
-    const orderKey = orderMatchQueryFlexible(orderId);
-    if (!orderKey) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    let order = await Order.findOne(orderKey)
-      .populate("customer", "name email phone")
-      .populate("items.product", "name mainImage price salePrice")
-      .populate("deliveryBoy", "name phone")
-      .populate("returnDeliveryBoy", "name phone")
-      .populate("seller", "shopName name address phone location")
-      .lean();
-
-    if (!order) {
-      if (orderId && orderId.startsWith("CHK-")) {
-        const group = await CheckoutGroup.findOne({ checkoutGroupId: orderId }).lean();
-        if (group) {
-          // Construct virtual summary from snapshots
-          const virtualSummary = {
-            orderId: group.checkoutGroupId,
-            status: group.status?.toLowerCase() || "pending",
-            orderStatus: group.status?.toLowerCase() || "pending",
-            paymentStatus: group.paymentStatus === "CAPTURED" ? "PAID" : (group.paymentStatus || "CREATED"),
-            workflowStatus: group.status || "CREATED",
-            pricing: {
-              subtotal: group.pricingSummary?.subtotal || 0,
-              deliveryFee: group.pricingSummary?.deliveryFee || 0,
-              platformFee: group.pricingSummary?.platformFee || 0,
-              total: group.pricingSummary?.totalAmount || 0,
-            },
-            address: group.addressSnapshot || {},
-            items: [], // Snapshots can be complex; return empty for now to avoid display errors
-            createdAt: group.createdAt,
-            isGroupSummary: true,
-            isFragmented: true, // Indicates this is a summary of potentially multiple orders
-          };
-          return handleResponse(res, 200, "Group summary retrieved", virtualSummary);
-        }
-      }
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    // BUGFIX: Defensive check for customer reference integrity
-    // If customer field is null or undefined, log error and attempt recovery
-    if (!order.customer) {
-      logger.error("Order has null/undefined customer field", {
-        scope: "ORDER_BUG",
-        orderId: order.orderId,
-        _id: order._id,
-        workflowStatus: order.workflowStatus,
-      });
-
-      // Attempt to fetch order without populate to check raw customer field
-      const rawOrder = await Order.findOne(orderKey).lean();
-      if (rawOrder && rawOrder.customer) {
-        // Customer reference exists but failed to populate
-        logger.error("Customer reference exists but failed to populate", {
-          scope: "ORDER_BUG",
-          orderId: order.orderId,
-          customerRef: rawOrder.customer,
-        });
-        // Use the raw customer reference for authorization
-        order.customer = rawOrder.customer;
-      } else {
-        // Customer field is truly null/undefined in database
-        logger.error("Customer field is null in database", {
-          scope: "ORDER_BUG",
-          orderId: order.orderId,
-        });
-        return handleResponse(
-          res,
-          500,
-          "Order data integrity error: customer reference is missing",
-        );
-      }
-    }
-
-    if (!order.workflowStatus) {
-      order.workflowStatus = resolveWorkflowStatus(order);
-    }
-
-    // --- Data Isolation Check ---
-    const roleNorm = String(role || "").toLowerCase();
-    const sellerIdStr =
-      typeof order.seller === "object" && order.seller?._id
-        ? order.seller._id.toString()
-        : order.seller?.toString();
-
-    // BUGFIX: Normalize customer reference to handle both populated and unpopulated cases
-    const customerIdStr = refToIdString(order.customer);
-
-    const isOwnerCustomer =
-      (roleNorm === "customer" || roleNorm === "user") &&
-      order.customer &&
-      customerIdStr === uid;
-    const isOwnerSeller = role === "seller" && sellerIdStr === uid;
-    const primaryRiderId = refToIdString(order.deliveryBoy);
-    const returnRiderId = refToIdString(order.returnDeliveryBoy);
-    const isAssignedDeliveryBoy =
-      role === "delivery" &&
-      (primaryRiderId === uid || returnRiderId === uid);
-    
-    // ALLOW view if it is a broadcasted delivery or return that is not yet assigned
-    const isBroadcastedOrder = 
-      role === "delivery" && 
-      ((!order.deliveryBoy && order.workflowStatus === WORKFLOW_STATUS.DELIVERY_SEARCH) || 
-       (!order.returnDeliveryBoy && ["return_approved", "return_pickup_assigned"].includes(order.returnStatus)));
-
-    const isAdmin = role === "admin";
-
-    if (
-      !isOwnerCustomer &&
-      !isOwnerSeller &&
-      !isAssignedDeliveryBoy &&
-      !isBroadcastedOrder &&
-      !isAdmin
-    ) {
-      // BUGFIX: Improved error message to distinguish authorization failure from missing order
-      logger.warn("Authorization denied for order", {
-        scope: "ORDER_ACCESS",
-        orderId: order.orderId,
-        requestedBy: uid,
-        role: roleNorm,
-        customerIdStr,
-        hasCustomer: !!order.customer,
-      });
+    const userIdRaw = req.user?.id ?? req.user?._id;
+    const result = await getOrderWithAccess(
+      req.params.orderId,
+      userIdRaw,
+      req.user.role,
+    );
+    if (result.isGroupSummary) {
       return handleResponse(
         res,
-        403,
-        "Access denied. You are not authorized to view this order.",
+        200,
+        "Group summary retrieved",
+        result.payload,
       );
     }
-    // -----------------------------
-
-    return handleResponse(res, 200, "Order details fetched", order);
+    return handleResponse(res, 200, "Order details fetched", result.payload);
   } catch (error) {
-    logger.error("Error fetching order details", { scope: "ORDER_ERROR", error });
-    return handleResponse(res, 500, error.message);
+    if (!error.statusCode || error.statusCode === 500) {
+      logger.error("Error fetching order details", {
+        scope: "ORDER_ERROR",
+        orderId: req.params?.orderId,
+        userId: req.user?.id,
+        correlationId: req.correlationId,
+        error,
+      });
+    }
+    return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
 
@@ -521,6 +333,9 @@ export const cancelOrder = async (req, res) => {
     } catch (cacheErr) {
       logger.warn("cancelOrder cache invalidation failed", {
         scope: "cancelOrder",
+        orderId: order.orderId,
+        customerId,
+        correlationId: req.correlationId,
         error: cacheErr.message,
       });
     }
@@ -534,6 +349,9 @@ export const cancelOrder = async (req, res) => {
       } catch (financeError) {
         logger.warn("cancelOrder finance reversal failed", {
           scope: "cancelOrder",
+          orderId: order.orderId,
+          customerId,
+          correlationId: req.correlationId,
           error: financeError.message,
         });
       }
@@ -550,132 +368,11 @@ export const cancelOrder = async (req, res) => {
 ================================ */
 export const requestReturn = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const customerId = req.user.id;
-    const { items, reason, images, reasonDetail, conditionAssurance } = req.body || {};
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return handleResponse(
-        res,
-        400,
-        "Please select at least one item to return.",
-      );
-    }
-    if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
-      return handleResponse(res, 400, "Return reason is required.");
-    }
-
-    const orderKey = orderMatchQueryFromRouteParam(orderId);
-    if (!orderKey) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    const order = await Order.findOne({ ...orderKey, customer: customerId });
-
-    if (!order) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    if (order.status !== "delivered") {
-      return handleResponse(
-        res,
-        400,
-        "Return can only be requested for delivered orders.",
-      );
-    }
-
-    if (order.returnStatus && order.returnStatus !== "none") {
-      return handleResponse(
-        res,
-        400,
-        "Return request already exists for this order.",
-      );
-    }
-
-    const now = new Date();
-    const { eligibleAt, windowExpiresAt, eligibleDelay, windowMinutes } =
-      computeReturnWindowForOrder(order);
-
-    if (now < eligibleAt) {
-      return handleResponse(
-        res,
-        400,
-        `Return is available after ${eligibleDelay} minutes from delivery. Please try again later.`,
-      );
-    }
-
-    if (windowExpiresAt && now > windowExpiresAt) {
-      return handleResponse(
-        res,
-        400,
-        `Return window has expired. You can only request a return within ${windowMinutes} minutes of delivery.`,
-      );
-    }
-
-    const selectedItems = [];
-    for (const entry of items) {
-      const { itemIndex, quantity } = entry || {};
-      if (
-        typeof itemIndex !== "number" ||
-        itemIndex < 0 ||
-        itemIndex >= order.items.length
-      ) {
-        return handleResponse(res, 400, "Invalid item selection for return.");
-      }
-      const original = order.items[itemIndex];
-      const qty = Number(quantity) || original.quantity;
-      if (qty <= 0 || qty > original.quantity) {
-        return handleResponse(
-          res,
-          400,
-          "Invalid quantity for one of the return items.",
-        );
-      }
-
-      selectedItems.push({
-        product: original.product,
-        name: original.name,
-        quantity: qty,
-        price: original.price,
-        variantSlot: original.variantSlot,
-        itemIndex,
-        status: "requested",
-      });
-    }
-
-    order.returnStatus = "return_requested";
-    order.returnReason = reason.trim();
-    order.returnReasonDetail = reasonDetail?.trim() || "";
-    order.returnConditionAssurance = Boolean(conditionAssurance);
-    order.returnImages = Array.isArray(images) ? images.slice(0, 5) : [];
-    order.returnItems = selectedItems;
-    order.returnRequestedAt = now;
-    order.returnEligibleAt = eligibleAt;
-    order.returnWindowExpiresAt = windowExpiresAt;
-    order.returnDeadline = windowExpiresAt;
-
-    await order.save();
-
-    emitNotificationEvent(NOTIFICATION_EVENTS.RETURN_REQUESTED, {
-      orderId: order.orderId,
-      customerId: order.customer,
-      sellerId: order.seller,
-      data: {
-        reason: order.returnReason,
-        reasonDetail: order.returnReasonDetail,
-      },
-    });
-    emitToSeller(order.seller?.toString(), {
-      event: "return:requested",
-      payload: {
-        orderId: order.orderId,
-        returnStatus: order.returnStatus,
-        returnReason: order.returnReason,
-        returnReasonDetail: order.returnReasonDetail,
-        returnRequestedAt: order.returnRequestedAt,
-      },
-    });
-
+    const order = await OrderReturnService.createReturnRequest(
+      req.user.id,
+      req.params.orderId,
+      req.body || {},
+    );
     return handleResponse(
       res,
       200,
@@ -683,7 +380,7 @@ export const requestReturn = async (req, res) => {
       order,
     );
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
 
@@ -692,97 +389,14 @@ export const requestReturn = async (req, res) => {
 ================================ */
 export const getReturnDetails = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const { id: userId, role } = req.user;
-
-    const orderKey = orderMatchQueryFromRouteParam(orderId);
-    if (!orderKey) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    const order = await Order.findOne(orderKey)
-      .populate("customer", "name phone")
-      .populate("seller", "shopName name")
-      .populate("returnDeliveryBoy", "name phone");
-
-    if (!order) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    const isOwnerCustomer =
-      (role === "customer" || role === "user") &&
-      order.customer?._id?.toString() === userId;
-    const isOwnerSeller =
-      role === "seller" && order.seller?._id?.toString() === userId;
-    const isAssignedReturnDelivery =
-      role === "delivery" &&
-      order.returnDeliveryBoy?._id?.toString() === userId;
-    const isAdmin = role === "admin";
-
-    if (
-      !isOwnerCustomer &&
-      !isOwnerSeller &&
-      !isAssignedReturnDelivery &&
-      !isAdmin
-    ) {
-      return handleResponse(
-        res,
-        403,
-        "Access denied. You are not authorized to view this return.",
-      );
-    }
-
-    let returnDeliveryCommission = order.returnDeliveryCommission;
-    if (
-      returnDeliveryCommission === undefined ||
-      returnDeliveryCommission === null
-    ) {
-      try {
-        const settings = await Setting.findOne({});
-        returnDeliveryCommission = settings?.returnDeliveryCommission ?? 0;
-      } catch {
-        returnDeliveryCommission = 0;
-      }
-    }
-
-    // Fetch active OTP if in pickup assigned status
-    let activeOtp = null;
-    if (order.returnStatus === "return_pickup_assigned") {
-      const otpDoc = await OrderOtp.findOne({
-        orderId: order.orderId,
-        type: "return_pickup",
-        consumedAt: null,
-        expiresAt: { $gt: new Date() },
-      }).sort({ createdAt: -1 });
-      activeOtp = otpDoc?.code || null;
-    }
-
-    const payload = {
-      orderId: order.orderId,
-      status: order.status,
-      returnStatus: order.returnStatus,
-      returnReason: order.returnReason,
-      returnReasonDetail: order.returnReasonDetail,
-      returnConditionAssurance: order.returnConditionAssurance,
-      returnRejectedReason: order.returnRejectedReason,
-      returnRequestedAt: order.returnRequestedAt,
-      returnDeadline: order.returnDeadline,
-      returnEligibleAt: order.returnEligibleAt,
-      returnWindowExpiresAt: order.returnWindowExpiresAt,
-      returnImages: order.returnImages || [],
-      returnItems: order.returnItems || [],
-      returnRefundAmount: order.returnRefundAmount,
-      returnDeliveryCommission,
-      returnDeliveryBoy: order.returnDeliveryBoy || null,
-      returnQcStatus: order.returnQcStatus,
-      returnQcAt: order.returnQcAt,
-      returnQcNote: order.returnQcNote,
-      returnPickupOtp: activeOtp,
-    };
-
+    const payload = await OrderReturnService.getReturnDetails(
+      req.params.orderId,
+      req.user.id,
+      req.user.role,
+    );
     return handleResponse(res, 200, "Return details fetched", payload);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
 
@@ -922,6 +536,9 @@ export const updateOrderStatus = async (req, res) => {
     } catch (cacheErr) {
       logger.warn("updateOrderStatus cache invalidation failed", {
         scope: "updateOrderStatus",
+        orderId: order.orderId,
+        customerId: order.customer?.toString?.(),
+        correlationId: req.correlationId,
         error: cacheErr.message,
       });
     }
@@ -974,132 +591,14 @@ export const updateOrderStatus = async (req, res) => {
 ================================ */
 export const approveReturnRequest = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const { id: userId, role } = req.user;
-
-    const orderKey = orderMatchQueryFromRouteParam(orderId);
-    if (!orderKey) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    const order = await Order.findOne(orderKey);
-
-    if (!order) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    const isOwnerSeller =
-      role === "seller" && order.seller?.toString() === userId;
-    const isAdmin = role === "admin";
-
-    if (!isOwnerSeller && !isAdmin) {
-      return handleResponse(
-        res,
-        403,
-        "Access denied. You are not authorized to approve this return.",
-      );
-    }
-
-    if (order.returnStatus !== "return_requested") {
-      return handleResponse(
-        res,
-        400,
-        "Only pending return requests can be approved.",
-      );
-    }
-
-    if (!Array.isArray(order.returnItems) || order.returnItems.length === 0) {
-      return handleResponse(res, 400, "No return items found for this order.");
-    }
-
-    const refundAmount = order.returnItems.reduce(
-      (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
-      0,
+    const order = await OrderReturnService.approveReturn(
+      req.params.orderId,
+      req.user.id,
+      req.user.role,
     );
-
-    const settings = await Setting.findOne({});
-    const returnCommission = settings?.returnDeliveryCommission ?? 0;
-
-    order.returnItems = order.returnItems.map((item) => ({
-      ...(item.toObject?.() ?? item),
-      status: "approved",
-    }));
-    order.returnRefundAmount = refundAmount;
-    order.returnDeliveryCommission = returnCommission;
-
-    // Move to approved state (broadcast)
-    order.returnStatus = "return_approved";
-    order.returnDeliveryBoy = null;
-    order.skippedBy = [];
-
-    await order.save();
-
-    emitNotificationEvent(NOTIFICATION_EVENTS.RETURN_APPROVED, {
-      orderId: order.orderId,
-      customerId: order.customer,
-      userId: order.customer,
-      sellerId: order.seller,
-      data: {
-        refundAmount,
-      },
-    });
-
-    // Broadcast to nearby delivery partners for return pickup
-    let sellerInfo = null;
-    try {
-      sellerInfo = await Seller.findById(order.seller)
-        .select("shopName address phone")
-        .lean();
-    } catch {
-      sellerInfo = null;
-    }
-
-    // Fetch customer info for enriched ride panel display
-    let customerInfo = null;
-    try {
-      customerInfo = await User.findById(order.customer)
-        .select("name phone")
-        .lean();
-    } catch {
-      customerInfo = null;
-    }
-
-    const payload = {
-      orderId: order.orderId,
-      type: "RETURN_PICKUP",
-      commission: returnCommission,
-      preview: {
-        pickup: order.address?.address || "Customer Address",
-        pickupPhone: order.address?.phone || customerInfo?.phone || "",
-        customerName: order.address?.name || customerInfo?.name || "Customer",
-        drop: sellerInfo?.shopName || "Seller Store",
-        dropAddress: sellerInfo?.address || "",
-        total: order.pricing?.total || 0,
-        returnReason: order.returnReason || "",
-        returnItems: Array.isArray(order.returnItems)
-          ? order.returnItems.map((i) => ({
-            name: i.name || "",
-            quantity: i.quantity || 1,
-            price: i.price || 0,
-            image: i.image || "",
-          }))
-          : [],
-      },
-      deliverySearchExpiresAt: new Date(Date.now() + 60 * 1000).toISOString(),
-    };
-
-    const customerLocation = order.address?.location;
-    emitReturnBroadcastForCustomer(customerLocation, payload);
-    emitNotificationEvent(NOTIFICATION_EVENTS.RETURN_PICKUP_ASSIGNED, {
-      orderId: order.orderId,
-      sellerId: order.seller,
-      customerId: order.customer,
-      data: { commission: returnCommission },
-    });
-
     return handleResponse(res, 200, "Return request approved", order);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
 
@@ -1108,63 +607,15 @@ export const approveReturnRequest = async (req, res) => {
 ================================ */
 export const rejectReturnRequest = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const { id: userId, role } = req.user;
-    const { reason } = req.body || {};
-
-    if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
-      return handleResponse(res, 400, "Rejection reason is required.");
-    }
-
-    const orderKey = orderMatchQueryFromRouteParam(orderId);
-    if (!orderKey) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    const order = await Order.findOne(orderKey);
-
-    if (!order) {
-      return handleResponse(res, 404, "Order not found");
-    }
-
-    const isOwnerSeller =
-      role === "seller" && order.seller?.toString() === userId;
-    const isAdmin = role === "admin";
-
-    if (!isOwnerSeller && !isAdmin) {
-      return handleResponse(
-        res,
-        403,
-        "Access denied. You are not authorized to reject this return.",
-      );
-    }
-
-    if (order.returnStatus !== "return_requested") {
-      return handleResponse(
-        res,
-        400,
-        "Only pending return requests can be rejected.",
-      );
-    }
-
-    order.returnStatus = "return_rejected";
-    order.returnRejectedReason = reason.trim();
-
-    await order.save();
-
-    emitNotificationEvent(NOTIFICATION_EVENTS.RETURN_REJECTED, {
-      orderId: order.orderId,
-      customerId: order.customer,
-      userId: order.customer,
-      sellerId: order.seller,
-      data: {
-        reason: order.returnRejectedReason,
-      },
-    });
-
+    const order = await OrderReturnService.rejectReturn(
+      req.params.orderId,
+      req.user.id,
+      req.user.role,
+      req.body?.reason,
+    );
     return handleResponse(res, 200, "Return request rejected", order);
   } catch (error) {
-    return handleResponse(res, 500, error.message);
+    return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
 

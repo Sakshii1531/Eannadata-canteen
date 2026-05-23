@@ -1,6 +1,5 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
-import { StandardCheckoutClient, Env, StandardCheckoutPayRequest } from '@phonepe-pg/pg-sdk-node';
 
 import Order from "../models/order.js";
 import CheckoutGroup from "../models/checkoutGroup.js";
@@ -9,7 +8,6 @@ import PaymentWebhookEvent from "../models/paymentWebhookEvent.js";
 import { ORDER_PAYMENT_STATUS } from "../constants/finance.js";
 import {
   PAYMENT_EVENT_SOURCE,
-  PAYMENT_GATEWAY,
   PAYMENT_STATUS,
   canTransitionPaymentStatus,
 } from "../constants/payment.js";
@@ -20,31 +18,9 @@ import { releaseReservedStockForOrder } from "./stockService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
 import logger from "./logger.js";
+import { getActivePaymentProvider } from "./payment/providerRegistry.js";
 
-let phonePeClient = null;
 const MAX_MERCHANT_ORDER_ID_LENGTH = 63;
-
-function getPhonePeClient() {
-  if (phonePeClient) return phonePeClient;
-
-  const clientId = String(process.env.PHONEPE_CLIENT_ID || "").trim();
-  const clientSecret = String(process.env.PHONEPE_CLIENT_SECRET || "").trim();
-  const clientVersion = parseInt(process.env.PHONEPE_CLIENT_VERSION || "1", 10);
-  const isProd = String(process.env.PHONEPE_ENV || "").toUpperCase() === "PRODUCTION";
-
-  if (!clientId || !clientSecret) {
-    throw new Error("PhonePe credentials not configured");
-  }
-
-  phonePeClient = StandardCheckoutClient.getInstance(
-    clientId,
-    clientSecret,
-    clientVersion,
-    isProd ? Env.PRODUCTION : Env.SANDBOX
-  );
-
-  return phonePeClient;
-}
 
 function sanitizeGatewayPayload(payload = {}) {
   return {
@@ -230,13 +206,6 @@ function getPayableAmountPaise(target) {
   return Math.round(amountRupees * 100);
 }
 
-function mapPhonePeStatusToInternal(state) {
-  const normalized = String(state || "").toUpperCase();
-  if (normalized === "COMPLETED") return PAYMENT_STATUS.CAPTURED;
-  if (normalized === "FAILED") return PAYMENT_STATUS.FAILED;
-  if (normalized === "PENDING" || normalized === "CREATED") return PAYMENT_STATUS.PENDING;
-  return PAYMENT_STATUS.PENDING;
-}
 
 function paymentStatusToOrderPaymentStatus(status) {
   if (status === PAYMENT_STATUS.CAPTURED) return ORDER_PAYMENT_STATUS.PAID;
@@ -323,6 +292,8 @@ async function moveOrderToSellerPendingAfterPayment(orderId) {
     void afterPlaceOrderV2(updatedOrder).catch((error) => {
       logger.warn("afterPlaceOrderV2 failed", {
         scope: "moveOrderToSellerPendingAfterPayment",
+        orderId: updatedOrder.orderId,
+        orderObjectId: updatedOrder._id?.toString?.(),
         error: error.message,
       });
     });
@@ -548,16 +519,14 @@ export async function createPaymentOrderForOrderRef({
     attemptCount,
   );
 
-  const client = getPhonePeClient();
+  const provider = getActivePaymentProvider();
   const redirectUrl = `${process.env.FRONTEND_URL}/payment-status?merchantOrderId=${merchantOrderId}`;
 
-  const request = StandardCheckoutPayRequest.builder()
-    .merchantOrderId(merchantOrderId)
-    .amount(amountPaise)
-    .redirectUrl(redirectUrl)
-    .build();
-
-  const response = await client.pay(request);
+  const initResult = await provider.initiatePayment({
+    merchantOrderId,
+    amountPaise,
+    redirectUrl,
+  });
 
   const paymentData = {
     order: primaryOrder._id,
@@ -565,7 +534,7 @@ export async function createPaymentOrderForOrderRef({
     checkoutGroupId: target.checkoutGroupId || null,
     publicOrderId: target.publicOrderRef,
     customer: primaryOrder.customer,
-    gatewayName: PAYMENT_GATEWAY.PHONEPE,
+    gatewayName: provider.providerName,
     gatewayOrderId: merchantOrderId,
     amount: amountPaise,
     currency,
@@ -574,7 +543,7 @@ export async function createPaymentOrderForOrderRef({
     idempotencyKey: idempotencyKey || undefined,
     correlationId,
     rawGatewayResponse: {
-      redirectUrl: response.redirectUrl,
+      redirectUrl: initResult.redirectUrl,
       merchantOrderId: merchantOrderId,
       amount: amountPaise,
     },
@@ -583,7 +552,7 @@ export async function createPaymentOrderForOrderRef({
         fromStatus: PAYMENT_STATUS.CREATED,
         toStatus: PAYMENT_STATUS.PENDING,
         source: PAYMENT_EVENT_SOURCE.SYSTEM,
-        reason: "PhonePe checkout initiated",
+        reason: `${provider.providerName} checkout initiated`,
       },
     ],
   };
@@ -596,10 +565,11 @@ export async function createPaymentOrderForOrderRef({
     paymentId: payment._id.toString(),
     gatewayOrderId: payment.gatewayOrderId,
     amount: payment.amount,
-    redirectUrl: response.redirectUrl,
+    redirectUrl: initResult.redirectUrl,
+    provider: provider.providerName,
   });
 
-  return { payment, redirectUrl: response.redirectUrl, duplicate: false };
+  return { payment, redirectUrl: initResult.redirectUrl, duplicate: false };
 }
 
 export async function verifyPhonePePaymentStatus({
@@ -621,22 +591,22 @@ export async function verifyPhonePePaymentStatus({
       throw err;
   }
 
-  const client = getPhonePeClient();
-  const response = await client.getOrderStatus(merchantOrderId);
-  const nextStatus = mapPhonePeStatusToInternal(response.state);
+  const provider = getActivePaymentProvider();
+  const statusResp = await provider.getPaymentStatus({ merchantOrderId });
+  const nextStatus = provider.mapStatusToInternal(statusResp.state);
 
   await transitionPaymentState(payment, {
     nextStatus,
     source: PAYMENT_EVENT_SOURCE.CLIENT_VERIFY,
-    reason: `PhonePe status check: ${response.state}`,
-    gatewayPaymentId: response.transactionId,
-    rawGatewayResponse: response,
+    reason: `${provider.providerName} status check: ${statusResp.state}`,
+    gatewayPaymentId: statusResp.transactionId,
+    rawGatewayResponse: statusResp.gatewayResponse,
   });
 
   await handleOrderSideEffectsFromPaymentStatus(
     payment,
     nextStatus,
-    response.responseCode || response.state,
+    statusResp.responseCode || statusResp.state,
   );
 
   payment.correlationId = correlationId || payment.correlationId;
@@ -646,6 +616,7 @@ export async function verifyPhonePePaymentStatus({
     correlationId,
     merchantOrderId,
     status: nextStatus,
+    provider: provider.providerName,
   });
 
   return {
@@ -659,47 +630,28 @@ export async function processPhonePeWebhook({
   authorization,
   correlationId = null,
 }) {
-  const client = getPhonePeClient();
-  let jsonPayload;
-  try {
-    jsonPayload = JSON.parse(rawBody.toString('utf8'));
-  } catch {
-    const err = new Error("Invalid format: Webhook body must be JSON");
-    err.statusCode = 400;
-    throw err;
-  }
+  const provider = getActivePaymentProvider();
 
-  const base64Response = jsonPayload.response;
-  if (!base64Response) {
-    const err = new Error("Invalid payload: Missing 'response' field");
-    err.statusCode = 400;
-    throw err;
-  }
-
-  const isValid = await client.validateCallback(base64Response, authorization);
+  const isValid = await provider.validateWebhook({ rawBody, authorization });
   if (!isValid) {
-      const err = new Error("Invalid webhook signature");
-      err.statusCode = 401;
-      throw err;
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(Buffer.from(base64Response, 'base64').toString('utf8'));
-  } catch {
-    const err = new Error("Invalid webhook payload: Base64 decode failed");
-    err.statusCode = 400;
+    const err = new Error("Invalid webhook signature");
+    err.statusCode = 401;
     throw err;
   }
 
-  const eventId = payload.transactionId || crypto.randomUUID();
-  const payloadHash = crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
-  const eventType = payload.state || "unknown";
+  const decoded = await provider.decodeWebhookPayload({ rawBody });
+
+  const eventId = decoded.eventId;
+  const payloadHash = crypto
+    .createHash("sha256")
+    .update(JSON.stringify(decoded.raw))
+    .digest("hex");
+  const eventType = decoded.state || "unknown";
 
   try {
     await PaymentWebhookEvent.create({
       eventId,
-      gatewayName: PAYMENT_GATEWAY.PHONEPE,
+      gatewayName: provider.providerName,
       eventType,
       payloadHash,
     });
@@ -710,19 +662,19 @@ export async function processPhonePeWebhook({
     throw error;
   }
 
-  const merchantOrderId = payload.merchantOrderId;
+  const merchantOrderId = decoded.merchantOrderId;
   const payment = await Payment.findOne({ gatewayOrderId: merchantOrderId });
   if (!payment) {
     return { accepted: true, ignored: true, reason: "Payment attempt not found" };
   }
 
-  const nextStatus = mapPhonePeStatusToInternal(payload.state);
+  const nextStatus = provider.mapStatusToInternal(decoded.state);
   await transitionPaymentState(payment, {
     nextStatus,
     source: PAYMENT_EVENT_SOURCE.WEBHOOK,
-    reason: `PhonePe webhook: ${payload.state}`,
-    gatewayPaymentId: payload.transactionId,
-    rawGatewayResponse: payload,
+    reason: `${provider.providerName} webhook: ${decoded.state}`,
+    gatewayPaymentId: decoded.transactionId,
+    rawGatewayResponse: decoded.raw,
   });
 
   payment.correlationId = correlationId || payment.correlationId;
@@ -738,7 +690,11 @@ export async function processPhonePeWebhook({
     },
   );
 
-  await handleOrderSideEffectsFromPaymentStatus(payment, nextStatus, payload.responseCode || payload.state);
+  await handleOrderSideEffectsFromPaymentStatus(
+    payment,
+    nextStatus,
+    decoded.responseCode || decoded.state,
+  );
 
   return {
     accepted: true,

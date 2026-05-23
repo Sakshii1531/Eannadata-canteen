@@ -1,24 +1,49 @@
 import axios from 'axios';
 import { resolveApiBaseUrl } from './resolveApiBaseUrl';
 import { getStoredAuthToken } from '@core/utils/authStorage';
+import { getActiveRole, ROLES } from '@core/auth/activeRoleStore';
 
 const ROLE_STORAGE_KEYS = ['auth_seller', 'auth_admin', 'auth_delivery', 'auth_customer'];
+
+const ROLE_TO_STORAGE_KEY = {
+    [ROLES.SELLER]: 'auth_seller',
+    [ROLES.ADMIN]: 'auth_admin',
+    [ROLES.DELIVERY]: 'auth_delivery',
+    [ROLES.CUSTOMER]: 'auth_customer',
+};
+
+// URL-prefix → storage-key map used as a *fallback* for the few call sites
+// (e.g. an admin page that calls a /products endpoint) where the request URL
+// itself encodes the intended role. The primary source is the activeRoleStore.
+function tokenForRequestUrl(url) {
+    if (!url) return null;
+    if (url.startsWith('/seller')) return getStoredAuthToken('auth_seller');
+    if (url.startsWith('/admin')) return getStoredAuthToken('auth_admin');
+    if (url.startsWith('/delivery')) return getStoredAuthToken('auth_delivery');
+    if (
+        url.startsWith('/customer') ||
+        url.startsWith('/cart') ||
+        url.startsWith('/wishlist') ||
+        url.startsWith('/categories') ||
+        url.startsWith('/products') ||
+        url.startsWith('/payments')
+    ) {
+        return getStoredAuthToken('auth_customer');
+    }
+    return null;
+}
 
 const axiosInstance = axios.create({
     baseURL: resolveApiBaseUrl(),
 });
 
-// Request interceptor for API calls
 axiosInstance.interceptors.request.use(
     (config) => {
-        let token = null;
-        const url = config.url;
-        const pagePath = window.location.pathname;
+        const url = config.url || '';
         const isMultipartRequest =
             typeof FormData !== 'undefined' && config.data instanceof FormData;
 
         if (isMultipartRequest) {
-            // Let the browser set the multipart boundary for FormData uploads.
             if (typeof config.headers?.delete === 'function') {
                 config.headers.delete('Content-Type');
             } else if (config.headers) {
@@ -26,35 +51,28 @@ axiosInstance.interceptors.request.use(
             }
         }
 
-        // Determination strategy: 
-        // 1. If we are on a module-specific page (e.g. /seller/dashboard), prioritize that module's token
-        // This is crucial for shared APIs like /products or /admin/categories
-        if (pagePath.startsWith('/seller')) {
-            token = getStoredAuthToken('auth_seller');
-        } else if (pagePath.startsWith('/admin')) {
-            token = getStoredAuthToken('auth_admin');
-        } else if (pagePath.startsWith('/delivery')) {
-            token = getStoredAuthToken('auth_delivery');
-        } else if (pagePath.startsWith('/customer')) {
-            token = getStoredAuthToken('auth_customer');
-        }
+        // Primary: pick token from the active role (set by the router on mount).
+        const activeRole = getActiveRole();
+        const primaryStorageKey = ROLE_TO_STORAGE_KEY[activeRole];
+        let token = primaryStorageKey ? getStoredAuthToken(primaryStorageKey) : null;
 
-        // 2. Fallback to URL-based detection
+        // Fallback 1: URL-derived token (cross-portal calls, e.g. admin → /products).
         if (!token) {
-            if (url.startsWith('/seller')) token = getStoredAuthToken('auth_seller');
-            else if (url.startsWith('/admin')) token = getStoredAuthToken('auth_admin');
-            else if (url.startsWith('/delivery')) token = getStoredAuthToken('auth_delivery');
-            else if (url.startsWith('/customer') || url.startsWith('/cart') || url.startsWith('/wishlist') || url.startsWith('/categories') || url.startsWith('/products') || url.startsWith('/payments')) {
-                token = getStoredAuthToken('auth_customer');
-            }
+            token = tokenForRequestUrl(url);
         }
 
-        // 3. Final default: if we are on a general page and STILL no token, try customer token
-        if (!token && !pagePath.startsWith('/admin') && !pagePath.startsWith('/seller') && !pagePath.startsWith('/delivery')) {
+        // Fallback 2: customer token for un-prefixed/public-ish endpoints while
+        // the user is not currently inside a privileged portal.
+        if (
+            !token &&
+            activeRole !== ROLES.ADMIN &&
+            activeRole !== ROLES.SELLER &&
+            activeRole !== ROLES.DELIVERY
+        ) {
             token = getStoredAuthToken('auth_customer');
         }
 
-        // 3. Last fallback: Check common 'token' key if implemented
+        // Fallback 3: legacy shared 'token' key.
         if (!token) {
             token = getStoredAuthToken('token');
         }

@@ -27,15 +27,50 @@ const INDEX_DEFINITIONS = {
     { keys: { customer: 1, createdAt: -1, status: 1 }, options: { name: "idx_customer_created_status", background: true } },
     { keys: { seller: 1, status: 1, createdAt: -1 }, options: { name: "idx_seller_status_created", background: true } },
     { keys: { seller: 1, workflowStatus: 1, createdAt: -1 }, options: { name: "idx_seller_workflow_created", background: true } },
+
+    // P6.1 — backs OrderReturnService + admin/seller returns list page.
+    // Filter shape: { seller: <id>, returnStatus: { $ne: "none" }, returnRequestedAt: { $gte, $lte } }
+    { keys: { seller: 1, returnStatus: 1, returnRequestedAt: -1 }, options: { name: "idx_seller_returnStatus_requestedAt", background: true } },
+
+    // P6.1 — backs fetchAvailableOrdersForDelivery return-pickup branch.
+    // Filter shape: { returnStatus: { $in }, returnDeliveryBoy: <id>, skippedBy: { $nin } }
+    { keys: { returnStatus: 1, returnDeliveryBoy: 1, createdAt: -1 }, options: { name: "idx_returnStatus_deliveryBoy_created", background: true, sparse: true } },
+
+    // P6.1 — backs delivery-partner COD cash summary.
+    // Filter shape: { deliveryBoy: <id>, paymentMode: "COD", status: { $ne: "cancelled" } }
+    { keys: { deliveryBoy: 1, paymentMode: 1, createdAt: -1 }, options: { name: "idx_deliveryBoy_paymentMode_created", background: true } },
   ],
   
   transactions: [
     { keys: { userId: 1, createdAt: -1, type: 1 }, options: { name: "idx_user_created_type", background: true } },
     { keys: { userId: 1, status: 1, createdAt: -1 }, options: { name: "idx_user_status_created", background: true } },
+
+    // P6.1 — backs DeliveryEarningsService.getDeliveryStats / getDeliveryEarnings.
+    // Filter shape: { user: <id>, userModel: "Delivery", status: "Settled", createdAt: { $gte } }
+    { keys: { user: 1, userModel: 1, status: 1, createdAt: -1 }, options: { name: "idx_user_userModel_status_created", background: true } },
   ],
   
   notifications: [
     { keys: { recipient: 1, createdAt: -1 }, options: { name: "idx_recipient_created", background: true } },
+  ],
+
+  payments: [
+    // P6.1 — backs paymentService.verifyPhonePePaymentStatus + webhook lookup.
+    // Filter shape: { gatewayOrderId: <merchantOrderId> }
+    { keys: { gatewayOrderId: 1 }, options: { name: "idx_gatewayOrderId", background: true, unique: false } },
+    // Aggregations like `Payment.countDocuments({ order, customer })`.
+    { keys: { order: 1, customer: 1, createdAt: -1 }, options: { name: "idx_order_customer_created", background: true } },
+  ],
+
+  orderotps: [
+    // P6.1 — backs OrderReturnService.getReturnDetails active-OTP lookup.
+    // Filter shape: { orderId, type, consumedAt: null, expiresAt: { $gt } }
+    { keys: { orderId: 1, type: 1, expiresAt: -1 }, options: { name: "idx_orderId_type_expiresAt", background: true } },
+  ],
+
+  deliveryassignments: [
+    // P6.1 — backs orderWorkflowService delivery broadcast lifecycle queries.
+    { keys: { orderId: 1, status: 1, attempt: -1 }, options: { name: "idx_orderId_status_attempt", background: true } },
   ],
 };
 

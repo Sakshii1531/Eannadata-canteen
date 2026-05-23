@@ -2,6 +2,10 @@ import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import axiosInstance from '@core/api/axios';
 import { getWithDedupe } from '@core/api/dedupe';
 import { getStoredAuthToken } from '@core/utils/authStorage';
+import {
+    getActiveRole,
+    subscribeActiveRole,
+} from '@core/auth/activeRoleStore';
 
 const AuthContext = createContext(undefined);
 
@@ -15,15 +19,6 @@ const ROLE_STORAGE_KEYS = {
 const LEGACY_TOKEN_KEY = 'token';
 
 export const AuthProvider = ({ children }) => {
-    // Current role based on URL
-    const getCurrentRoleFromUrl = () => {
-        const path = window.location.pathname;
-        if (path.startsWith('/seller')) return 'seller';
-        if (path.startsWith('/admin')) return 'admin';
-        if (path.startsWith('/delivery')) return 'delivery';
-        return 'customer';
-    };
-
     const getSafeToken = (key) => getStoredAuthToken(ROLE_STORAGE_KEYS[key]);
 
     const [authData, setAuthData] = useState({
@@ -33,7 +28,16 @@ export const AuthProvider = ({ children }) => {
         delivery: getSafeToken('delivery'),
     });
 
-    const currentRole = getCurrentRoleFromUrl();
+    // Subscribe to the activeRoleStore so this context re-renders whenever the
+    // router flips the active portal. The store also falls back to URL
+    // inference on first read, so behavior matches the previous implementation
+    // before any router has explicitly set a role.
+    const [currentRole, setCurrentRole] = useState(getActiveRole());
+    useEffect(() => {
+        const unsub = subscribeActiveRole((next) => setCurrentRole(next));
+        return unsub;
+    }, []);
+
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const token = authData[currentRole];

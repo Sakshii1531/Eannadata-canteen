@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import DeliveryLayout from "../layout/DeliveryLayout";
+import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import Splash from "../pages/Splash";
 import DeliveryAuth from "../pages/DeliveryAuth";
 import Dashboard from "../pages/Dashboard";
@@ -22,6 +23,10 @@ import Withdrawals from "../pages/profile/Withdrawals";
 import Notifications from "../pages/Notifications";
 
 const DeliveryRoutes = () => {
+  useEffect(() => {
+    setActiveRole(ROLES.DELIVERY);
+  }, []);
+
   return (
     <Routes>
       <Route element={<DeliveryLayout />}>

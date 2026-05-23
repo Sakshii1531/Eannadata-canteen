@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
+import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import Orders from "../pages/Orders";
 import {
   HiOutlineSquares2X2,
@@ -60,6 +61,10 @@ const navItems = [
 ];
 
 const SellerRoutes = () => {
+  useEffect(() => {
+    setActiveRole(ROLES.SELLER);
+  }, []);
+
   return (
     <DashboardLayout navItems={navItems} title="Seller Panel">
       <Routes>

@@ -11,12 +11,13 @@ import {
   DEFAULT_DELIVERY_TIMEOUT_MS,
 } from "../constants/orderWorkflow.js";
 import { compensateOrderCancellation } from "./orderCompensation.js";
-import {
-  sellerTimeoutQueue,
-  deliveryTimeoutQueue,
-  JOB_NAMES,
-} from "../queues/orderQueues.js";
 import { getRedisClient } from "../config/redis.js";
+import {
+  scheduleSellerTimeout,
+  removeSellerTimeout,
+  scheduleDeliveryTimeout,
+  removeDeliveryTimeout,
+} from "./workflow/jobSchedulerPort.js";
 import {
   emitOrderStatusUpdate,
   emitToSeller,
@@ -96,152 +97,23 @@ export async function afterPlaceOrderV2(orderDoc) {
   });
 }
 
-const BULL_ADD_TIMEOUT_MS = () =>
-  parseInt(process.env.BULL_ADD_TIMEOUT_MS || "10000", 10);
-
+// Workflow timeout scheduling delegates to the jobSchedulerPort (P2.6).
+// The function names below remain for in-file callers; the implementation
+// lives in services/workflow/bullJobScheduler.js behind the port.
 export async function scheduleSellerTimeoutJob(orderId) {
-  const delay = DEFAULT_SELLER_TIMEOUT_MS();
-  const addPromise = sellerTimeoutQueue
-    .add(
-      JOB_NAMES.SELLER_TIMEOUT,
-      { orderId },
-      {
-        delay,
-        jobId: `order:${orderId}:seller`,
-        removeOnComplete: true,
-      },
-    )
-    .catch((err) => {
-      logger.warn("scheduleSellerTimeoutJob add failed", {
-        scope: "scheduleSellerTimeoutJob",
-        orderId,
-        error: err.message,
-      });
-    });
-  const timeoutMs = BULL_ADD_TIMEOUT_MS();
-  try {
-    await Promise.race([
-      addPromise,
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`seller-timeout queue add exceeded ${timeoutMs}ms`)),
-          timeoutMs,
-        ),
-      ),
-    ]);
-  } catch (e) {
-    logger.warn("scheduleSellerTimeoutJob timed out", {
-      scope: "scheduleSellerTimeoutJob",
-      orderId,
-      error: e.message,
-    });
-  }
+  return scheduleSellerTimeout(orderId);
 }
 
 export async function removeSellerTimeoutJob(orderId) {
-  const timeoutMs = BULL_ADD_TIMEOUT_MS();
-  const work = (async () => {
-    const job = await sellerTimeoutQueue.getJob(`order:${orderId}:seller`);
-    if (job) await job.remove();
-  })().catch((err) => {
-    logger.warn("removeSellerTimeoutJob get/remove failed", {
-      scope: "removeSellerTimeoutJob",
-      orderId,
-      error: err.message,
-    });
-  });
-  try {
-    await Promise.race([
-      work,
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`remove seller job exceeded ${timeoutMs}ms`)),
-          timeoutMs,
-        ),
-      ),
-    ]);
-  } catch (e) {
-    logger.warn("removeSellerTimeoutJob timed out", {
-      scope: "removeSellerTimeoutJob",
-      orderId,
-      error: e.message,
-    });
-  }
+  return removeSellerTimeout(orderId);
 }
 
 export async function scheduleDeliveryTimeoutJob(orderId, attempt = 1) {
-  const delay = DEFAULT_DELIVERY_TIMEOUT_MS();
-  const jobId = `order:${orderId}:delivery:${attempt}`;
-  const addPromise = deliveryTimeoutQueue
-    .add(
-      JOB_NAMES.DELIVERY_TIMEOUT,
-      { orderId, attempt },
-      {
-        delay,
-        jobId,
-        removeOnComplete: true,
-      },
-    )
-    .catch((err) => {
-      logger.warn("scheduleDeliveryTimeoutJob add failed", {
-        scope: "scheduleDeliveryTimeoutJob",
-        orderId,
-        error: err.message,
-      });
-    });
-  const timeoutMs = BULL_ADD_TIMEOUT_MS();
-  try {
-    await Promise.race([
-      addPromise,
-      new Promise((_, reject) =>
-        setTimeout(
-          () =>
-            reject(
-              new Error(`delivery-timeout queue add exceeded ${timeoutMs}ms`),
-            ),
-          timeoutMs,
-        ),
-      ),
-    ]);
-  } catch (e) {
-    logger.warn("scheduleDeliveryTimeoutJob timed out", {
-      scope: "scheduleDeliveryTimeoutJob",
-      orderId,
-      error: e.message,
-    });
-  }
+  return scheduleDeliveryTimeout(orderId, attempt);
 }
 
 export async function removeDeliveryTimeoutJob(orderId, attempt = 1) {
-  const timeoutMs = BULL_ADD_TIMEOUT_MS();
-  const jobKey = `order:${orderId}:delivery:${attempt}`;
-  const work = (async () => {
-    const job = await deliveryTimeoutQueue.getJob(jobKey);
-    if (job) await job.remove();
-  })().catch((err) => {
-    logger.warn("removeDeliveryTimeoutJob get/remove failed", {
-      scope: "removeDeliveryTimeoutJob",
-      orderId,
-      error: err.message,
-    });
-  });
-  try {
-    await Promise.race([
-      work,
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`remove delivery job exceeded ${timeoutMs}ms`)),
-          timeoutMs,
-        ),
-      ),
-    ]);
-  } catch (e) {
-    logger.warn("removeDeliveryTimeoutJob timed out", {
-      scope: "removeDeliveryTimeoutJob",
-      orderId,
-      error: e.message,
-    });
-  }
+  return removeDeliveryTimeout(orderId, attempt);
 }
 
 /**

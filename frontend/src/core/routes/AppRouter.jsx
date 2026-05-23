@@ -1,9 +1,10 @@
-import React, { lazy, useMemo, Suspense } from 'react';
+import React, { lazy, useMemo, useEffect, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Outlet, Navigate } from 'react-router-dom';
 import ProtectedRoute from '../guards/ProtectedRoute';
 import RoleGuard from '../guards/RoleGuard';
 import { UserRole } from '../constants/roles';
 import RootErrorBoundary from '../../shared/components/RootErrorBoundary';
+import { setActiveRole, ROLES } from '../auth/activeRoleStore';
 
 // Providers for Customer Module
 import { WishlistProvider } from '../../modules/customer/context/WishlistContext';
@@ -52,24 +53,30 @@ const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'))
 
 import CustomerLayout from '../../modules/customer/components/layout/CustomerLayout';
 
-const CustomerLayoutWrapper = () => (
-    <LocationProvider>
-        <WishlistProvider>
-            <CartProvider>
-                <CartAnimationProvider>
-                    <ProductDetailProvider>
-                        <ScrollToTop />
-                        <CustomerLayout>
-                            <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
-                                <Outlet />
-                            </Suspense>
-                        </CustomerLayout>
-                    </ProductDetailProvider>
-                </CartAnimationProvider>
-            </CartProvider>
-        </WishlistProvider>
-    </LocationProvider>
-);
+const CustomerLayoutWrapper = () => {
+    useEffect(() => {
+        setActiveRole(ROLES.CUSTOMER);
+    }, []);
+
+    return (
+        <LocationProvider>
+            <WishlistProvider>
+                <CartProvider>
+                    <CartAnimationProvider>
+                        <ProductDetailProvider>
+                            <ScrollToTop />
+                            <CustomerLayout>
+                                <Suspense fallback={<div className="flex h-screen items-center justify-center font-outfit">Loading...</div>}>
+                                    <Outlet />
+                                </Suspense>
+                            </CustomerLayout>
+                        </ProductDetailProvider>
+                    </CartAnimationProvider>
+                </CartProvider>
+            </WishlistProvider>
+        </LocationProvider>
+    );
+};
 
 const AppRouter = () => {
     const router = useMemo(() => createBrowserRouter([

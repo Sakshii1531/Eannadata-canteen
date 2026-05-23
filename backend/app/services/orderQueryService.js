@@ -1,8 +1,27 @@
 import Order from "../models/order.js";
 import Delivery from "../models/delivery.js";
 import Seller from "../models/seller.js";
+import CheckoutGroup from "../models/checkoutGroup.js";
 import { WORKFLOW_STATUS } from "../constants/orderWorkflow.js";
 import { distanceMeters } from "../utils/geoUtils.js";
+import {
+  orderMatchQueryFlexible,
+} from "../utils/orderLookup.js";
+import { buildKey, getOrSet, getTTL } from "./cacheService.js";
+import { resolveWorkflowStatus } from "./orderWorkflowService.js";
+import logger from "./logger.js";
+
+function svcErr(message, statusCode) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+function refToIdString(ref) {
+  if (ref == null) return "";
+  if (typeof ref === "object" && ref._id != null) return String(ref._id);
+  return String(ref);
+}
 
 function normalizeSellerStatusFilter(statusParam) {
   if (!statusParam || statusParam === "all") {
@@ -356,8 +375,252 @@ export async function fetchAvailableOrdersForDelivery({
   };
 }
 
+/**
+ * Customer-facing paginated order list (cached).
+ * Replaces inline logic from orderController.getMyOrders.
+ */
+export async function getCustomerOrders(customerId, pagination) {
+  const { page, limit, skip } = pagination;
+  const cacheKey = buildKey(
+    "orders",
+    "customer",
+    `${customerId}:p${page}:l${limit}`,
+  );
+
+  return getOrSet(
+    cacheKey,
+    async () => {
+      const [orders, total] = await Promise.all([
+        Order.find({ customer: customerId })
+          .select(
+            "orderId checkoutGroupId customer seller items address payment pricing status workflowStatus workflowVersion returnStatus timeSlot createdAt",
+          )
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate("items.product", "name mainImage price salePrice")
+          .lean(),
+        Order.countDocuments({ customer: customerId }),
+      ]);
+
+      return {
+        items: orders,
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      };
+    },
+    getTTL("orders"),
+  );
+}
+
+/**
+ * Fetches an order with role-based access control. Returns a "virtual" group
+ * summary if the ID is a checkout group identifier and no concrete order
+ * exists.
+ *
+ * Throws: 403 (access denied), 404 (not found), 500 (data integrity).
+ */
+export async function getOrderWithAccess(orderId, userId, role) {
+  const orderKey = orderMatchQueryFlexible(orderId);
+  if (!orderKey) {
+    throw svcErr("Order not found", 404);
+  }
+
+  let order = await Order.findOne(orderKey)
+    .populate("customer", "name email phone")
+    .populate("items.product", "name mainImage price salePrice")
+    .populate("deliveryBoy", "name phone")
+    .populate("returnDeliveryBoy", "name phone")
+    .populate("seller", "shopName name address phone location")
+    .lean();
+
+  if (!order) {
+    if (orderId && orderId.startsWith("CHK-")) {
+      const group = await CheckoutGroup.findOne({
+        checkoutGroupId: orderId,
+      }).lean();
+      if (group) {
+        return {
+          isGroupSummary: true,
+          payload: {
+            orderId: group.checkoutGroupId,
+            status: group.status?.toLowerCase() || "pending",
+            orderStatus: group.status?.toLowerCase() || "pending",
+            paymentStatus:
+              group.paymentStatus === "CAPTURED"
+                ? "PAID"
+                : group.paymentStatus || "CREATED",
+            workflowStatus: group.status || "CREATED",
+            pricing: {
+              subtotal: group.pricingSummary?.subtotal || 0,
+              deliveryFee: group.pricingSummary?.deliveryFee || 0,
+              platformFee: group.pricingSummary?.platformFee || 0,
+              total: group.pricingSummary?.totalAmount || 0,
+            },
+            address: group.addressSnapshot || {},
+            items: [],
+            createdAt: group.createdAt,
+            isGroupSummary: true,
+            isFragmented: true,
+          },
+        };
+      }
+    }
+    throw svcErr("Order not found", 404);
+  }
+
+  // Defensive: customer reference integrity check (BUGFIX preserved)
+  if (!order.customer) {
+    logger.error("Order has null/undefined customer field", {
+      scope: "ORDER_BUG",
+      orderId: order.orderId,
+      _id: order._id,
+      workflowStatus: order.workflowStatus,
+    });
+
+    const rawOrder = await Order.findOne(orderKey).lean();
+    if (rawOrder && rawOrder.customer) {
+      logger.error("Customer reference exists but failed to populate", {
+        scope: "ORDER_BUG",
+        orderId: order.orderId,
+        customerRef: rawOrder.customer,
+      });
+      order.customer = rawOrder.customer;
+    } else {
+      logger.error("Customer field is null in database", {
+        scope: "ORDER_BUG",
+        orderId: order.orderId,
+      });
+      throw svcErr(
+        "Order data integrity error: customer reference is missing",
+        500,
+      );
+    }
+  }
+
+  if (!order.workflowStatus) {
+    order.workflowStatus = resolveWorkflowStatus(order);
+  }
+
+  const uid = userId != null ? String(userId).trim() : "";
+  const roleNorm = String(role || "").toLowerCase();
+  const sellerIdStr =
+    typeof order.seller === "object" && order.seller?._id
+      ? order.seller._id.toString()
+      : order.seller?.toString();
+
+  const customerIdStr = refToIdString(order.customer);
+
+  const isOwnerCustomer =
+    (roleNorm === "customer" || roleNorm === "user") &&
+    order.customer &&
+    customerIdStr === uid;
+  const isOwnerSeller = role === "seller" && sellerIdStr === uid;
+  const primaryRiderId = refToIdString(order.deliveryBoy);
+  const returnRiderId = refToIdString(order.returnDeliveryBoy);
+  const isAssignedDeliveryBoy =
+    role === "delivery" &&
+    (primaryRiderId === uid || returnRiderId === uid);
+
+  const isBroadcastedOrder =
+    role === "delivery" &&
+    ((!order.deliveryBoy &&
+      order.workflowStatus === WORKFLOW_STATUS.DELIVERY_SEARCH) ||
+      (!order.returnDeliveryBoy &&
+        ["return_approved", "return_pickup_assigned"].includes(
+          order.returnStatus,
+        )));
+
+  const isAdmin = role === "admin";
+
+  if (
+    !isOwnerCustomer &&
+    !isOwnerSeller &&
+    !isAssignedDeliveryBoy &&
+    !isBroadcastedOrder &&
+    !isAdmin
+  ) {
+    logger.warn("Authorization denied for order", {
+      scope: "ORDER_ACCESS",
+      orderId: order.orderId,
+      requestedBy: uid,
+      role: roleNorm,
+      customerIdStr,
+      hasCustomer: !!order.customer,
+    });
+    throw svcErr(
+      "Access denied. You are not authorized to view this order.",
+      403,
+    );
+  }
+
+  return {
+    isGroupSummary: false,
+    payload: order,
+  };
+}
+
+/**
+ * Returns paginated seller/admin view of orders with active return status.
+ */
+export async function getSellerReturns({
+  role,
+  userId,
+  filters = {},
+  pagination,
+}) {
+  const { status, startDate, endDate } = filters;
+  const { page, limit, skip } = pagination;
+
+  const query = {};
+  if (role !== "admin") {
+    query.seller = userId;
+  }
+  query.returnStatus = { $ne: "none" };
+
+  if (status && status !== "all") {
+    query.returnStatus = status;
+  }
+
+  if (startDate || endDate) {
+    query.returnRequestedAt = {};
+    if (startDate) {
+      query.returnRequestedAt.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.returnRequestedAt.$lte = end;
+    }
+  }
+
+  const [orders, total] = await Promise.all([
+    Order.find(query)
+      .sort({ returnRequestedAt: -1, createdAt: -1, _id: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("customer", "name phone")
+      .populate("returnDeliveryBoy", "name phone")
+      .lean(),
+    Order.countDocuments(query),
+  ]);
+
+  return {
+    items: orders,
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
 export default {
   buildSellerOrdersQuery,
   fetchSellerOrdersPage,
   fetchAvailableOrdersForDelivery,
+  getCustomerOrders,
+  getOrderWithAccess,
+  getSellerReturns,
 };

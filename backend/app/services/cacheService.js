@@ -27,6 +27,14 @@ const TTL_CONFIG = {
   nearbySellers: parseInt(process.env.CACHE_NEARBY_SELLERS_TTL || "300", 10), // 5 minutes
   productList: parseInt(process.env.CACHE_PRODUCT_LIST_TTL || "300", 10), // 5 minutes
   categoryName: parseInt(process.env.CACHE_CATEGORY_NAME_TTL || "3600", 10), // 1 hour
+
+  // P6.2 — hot read paths called out in the refactor plan.
+  // Conservatively short TTLs so write-side invalidations are forgiving.
+  deliveryStats: parseInt(process.env.CACHE_DELIVERY_STATS_TTL || "30", 10), // 30s
+  deliveryEarnings: parseInt(process.env.CACHE_DELIVERY_EARNINGS_TTL || "30", 10), // 30s
+  deliveryCodSummary: parseInt(process.env.CACHE_DELIVERY_COD_SUMMARY_TTL || "30", 10), // 30s
+  sellerStats: parseInt(process.env.CACHE_SELLER_STATS_TTL || "60", 10), // 1 minute
+  sellerReturns: parseInt(process.env.CACHE_SELLER_RETURNS_TTL || "30", 10), // 30s
 };
 
 /**

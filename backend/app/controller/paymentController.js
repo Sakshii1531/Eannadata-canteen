@@ -9,6 +9,7 @@ import {
   verifyPaymentClientSchema,
   validateSchema,
 } from "../validation/paymentValidation.js";
+import logger from "../services/logger.js";
 
 function resolvePaymentErrorMessage(error) {
   const directMessage = String(error?.message || "").trim();
@@ -44,7 +45,8 @@ export const createPaymentOrder = async (req, res) => {
       },
     );
   } catch (error) {
-    console.error("[PaymentController] createPaymentOrder failed", {
+    logger.error("createPaymentOrder failed", {
+      scope: "PaymentController.createPaymentOrder",
       message: error?.message,
       statusCode: error?.statusCode || error?.status || 500,
       code: error?.code || error?.cause?.code || null,
@@ -92,7 +94,11 @@ export const handlePhonePeWebhook = async (req, res) => {
     const rawBody = req.body;
 
     if (!authorization) {
-        console.warn("[PhonePeWebhook] Missing verification header");
+        logger.warn("PhonePe webhook missing verification header", {
+          scope: "PaymentController.handlePhonePeWebhook",
+          correlationId: req.correlationId || null,
+          ip: req.ip,
+        });
         return res.status(401).send("Unauthorized");
     }
 
@@ -108,7 +114,12 @@ export const handlePhonePeWebhook = async (req, res) => {
     
     return res.status(400).send("Bad Request");
   } catch (error) {
-    console.error("[PhonePeWebhook] Error processing webhook:", error.message);
+    logger.error("PhonePe webhook processing failed", {
+      scope: "PaymentController.handlePhonePeWebhook",
+      correlationId: req.correlationId || null,
+      message: error?.message,
+      error,
+    });
     return res.status(500).send("Internal Server Error");
   }
 };

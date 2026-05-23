@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import dns from "node:dns";
 import http from "http";
 import cors from "cors";
 import helmet from "helmet";
@@ -44,6 +45,36 @@ dotenv.config({ path: path.resolve(__dirname, ".env") });
 const PORT = parseInt(process.env.PORT || '7000', 10);
 const HEALTH_CHECK_PORT = parseInt(process.env.HEALTH_CHECK_PORT || '9090', 10);
 const NODE_ENV = process.env.NODE_ENV || "development";
+
+/**
+ * Force public DNS resolvers to avoid local DNS issues (Atlas SRV lookups).
+ * - Enabled by default in development when using `mongodb+srv://`
+ * - Can be forced via `FORCE_PUBLIC_DNS=true` or disabled via `FORCE_PUBLIC_DNS=false`
+ * - Optional override list via `PUBLIC_DNS_SERVERS=8.8.8.8,8.8.4.4,1.1.1.1`
+ */
+function maybeForcePublicDnsResolvers() {
+  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || "";
+  const usesSrv = mongoUri.startsWith("mongodb+srv://");
+
+  const forceFlag = (process.env.FORCE_PUBLIC_DNS || "").toLowerCase();
+  const enabled =
+    usesSrv &&
+    (forceFlag === "true" || (forceFlag !== "false" && NODE_ENV === "development"));
+
+  if (!enabled) return;
+
+  const servers = (process.env.PUBLIC_DNS_SERVERS || "8.8.8.8,8.8.4.4,1.1.1.1")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (servers.length === 0) return;
+
+  dns.setServers(servers);
+  logger.info("Using custom DNS resolvers for SRV lookups", { servers });
+}
+
+maybeForcePublicDnsResolvers();
 
 /**
  * Parse allowed origins from environment

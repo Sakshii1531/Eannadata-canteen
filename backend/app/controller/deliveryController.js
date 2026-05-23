@@ -8,90 +8,25 @@ import handleResponse from "../utils/helper.js";
 import mongoose from "mongoose";
 import { WORKFLOW_STATUS } from "../constants/orderWorkflow.js";
 import { writeDeliveryLocation, appendTrailPoint } from "../services/firebaseService.js";
-import { getRedisClient } from "../config/redis.js";
-import { distanceMeters } from "../utils/geoUtils.js";
 import { applyDeliveredSettlement } from "../services/orderSettlement.js";
 import { roundCurrency } from "../utils/money.js";
 import logger from "../services/logger.js";
-
-const LOC_MIN_INTERVAL_MS = () =>
-  parseInt(process.env.LOCATION_MIN_INTERVAL_MS || "3000", 10);
-const LOC_MIN_MOVE_M = () =>
-  parseInt(process.env.LOCATION_MIN_MOVE_METERS || "20", 10);
-
-async function throttleLocationUpdate(deliveryId, lat, lng) {
-  const redis = getRedisClient();
-  if (!redis) return false;
-  try {
-    const key = `loc:last:${deliveryId}`;
-    const raw = await redis.get(key);
-    const now = Date.now();
-    if (raw) {
-      const prev = JSON.parse(raw);
-      const dt = now - prev.t;
-      const d = distanceMeters(lat, lng, prev.lat, prev.lng);
-      if (dt < LOC_MIN_INTERVAL_MS() && d < LOC_MIN_MOVE_M()) {
-        return true;
-      }
-    }
-    await redis.set(
-      key,
-      JSON.stringify({ lat, lng, t: now }),
-      "EX",
-      3600,
-    );
-  } catch {
-    return false;
-  }
-  return false;
-}
+import { shouldThrottle as throttleLocationUpdate } from "../services/delivery/locationThrottleService.js";
+import {
+  getDeliveryStats as getDeliveryStatsFromService,
+  getDeliveryEarnings as getDeliveryEarningsFromService,
+  getDeliveryCodCashSummary as getDeliveryCodCashSummaryFromService,
+} from "../services/delivery/deliveryEarningsService.js";
 
 /* ===============================
    GET DELIVERY DASHBOARD STATS
 ================================ */
 export const getDeliveryStats = async (req, res) => {
     try {
-        const deliveryBoyId = new mongoose.Types.ObjectId(req.user.id);
-
-        const orders = await Order.find({ deliveryBoy: deliveryBoyId, status: 'delivered' })
-            .select("_id")
-            .lean();
-        const totalDeliveries = orders.length;
-
-        // Today's earnings - Using a more robust date check
-        const startOfToday = new Date();
-        startOfToday.setHours(0, 0, 0, 0);
-
-        const allTransactions = await Transaction.find({
-            user: deliveryBoyId,
-            userModel: 'Delivery',
-            createdAt: { $gte: startOfToday }
-        }).lean();
-
-        const todayEarnings = allTransactions
-            .filter(t => t.status === 'Settled' && (t.type === 'Delivery Earning' || t.type === 'Incentive' || t.type === 'Bonus'))
-            .reduce((acc, t) => acc + t.amount, 0);
-
-        const incentives = allTransactions
-            .filter(t => t.status === 'Settled' && (t.type === 'Incentive' || t.type === 'Bonus'))
-            .reduce((acc, t) => acc + t.amount, 0);
-
-        const wallet = await Wallet.findOne({
-            ownerType: "DELIVERY_PARTNER",
-            ownerId: deliveryBoyId,
-        })
-            .select("cashInHand")
-            .lean();
-        const cashCollected = roundCurrency(wallet?.cashInHand || 0);
-
-        return handleResponse(res, 200, "Stats fetched", {
-            today: todayEarnings,
-            deliveries: totalDeliveries,
-            incentives,
-            cashCollected
-        });
+        const result = await getDeliveryStatsFromService(req.user.id);
+        return handleResponse(res, 200, "Stats fetched", result);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, error.statusCode || 500, error.message);
     }
 };
 
@@ -100,94 +35,10 @@ export const getDeliveryStats = async (req, res) => {
 ================================ */
 export const getDeliveryEarnings = async (req, res) => {
     try {
-        const deliveryBoyId = new mongoose.Types.ObjectId(req.user.id);
-        const transactions = await Transaction.find({ user: deliveryBoyId, userModel: 'Delivery' })
-            .sort({ createdAt: -1 })
-            .limit(200)
-            .populate("order", "orderId pricing paymentBreakdown");
-        const wallet = await Wallet.findOne({
-            ownerType: "DELIVERY_PARTNER",
-            ownerId: deliveryBoyId,
-        })
-            .select("cashInHand")
-            .lean();
-
-        const totalEarnings = transactions
-            .filter(t => t.status === 'Settled' && (t.type === 'Delivery Earning' || t.type === 'Incentive' || t.type === 'Bonus'))
-            .reduce((acc, t) => acc + t.amount, 0);
-
-        const tipsReceived = transactions
-            .filter(t => t.type === 'Delivery Earning' && t.status === 'Settled')
-            .reduce(
-                (acc, t) =>
-                    acc +
-                    Number(
-                        t?.meta?.tipAmount ??
-                        t?.order?.paymentBreakdown?.riderTipAmount ??
-                        t?.order?.pricing?.tip ??
-                        0,
-                    ),
-                0,
-            );
-
-        const onlinePay = transactions
-            .filter(t => t.type === 'Delivery Earning' && t.status === 'Settled')
-            .reduce((acc, t) => acc + t.amount, 0);
-
-        const incentives = transactions
-            .filter(t => (t.type === 'Incentive' || t.type === 'Bonus') && t.status === 'Settled')
-            .reduce((acc, t) => acc + t.amount, 0);
-
-        const cashCollected = roundCurrency(wallet?.cashInHand || 0);
-
-        // Last 7 days aggregation for chart
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-        const dailyAggregation = await Transaction.aggregate([
-            {
-                $match: {
-                    user: deliveryBoyId,
-                    userModel: 'Delivery',
-                    status: 'Settled',
-                    createdAt: { $gte: sevenDaysAgo },
-                    type: { $in: ['Delivery Earning', 'Incentive', 'Bonus'] }
-                }
-            },
-            {
-                $group: {
-                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-                    amount: { $sum: "$amount" }
-                }
-            },
-            { $sort: { _id: 1 } }
-        ]);
-
-        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        const chartData = [];
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
-            const foundAt = dailyAggregation.find(a => a._id === dateStr);
-            chartData.push({
-                name: dayNames[d.getDay()],
-                earnings: foundAt ? foundAt.amount : 0,
-                incentives: 0 // Could be further aggregated if needed
-            });
-        }
-
-        return handleResponse(res, 200, "Earnings fetched", {
-            totalEarnings,
-            onlinePay,
-            incentives,
-            tipsReceived,
-            cashCollected,
-            chartData,
-            transactions: transactions.slice(0, 20)
-        });
+        const result = await getDeliveryEarningsFromService(req.user.id);
+        return handleResponse(res, 200, "Earnings fetched", result);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, error.statusCode || 500, error.message);
     }
 };
 
@@ -197,79 +48,10 @@ export const getDeliveryEarnings = async (req, res) => {
 export const getDeliveryCodCashSummary = async (req, res) => {
     try {
         const rawId = req.user?.id ?? req.user?._id;
-        if (!rawId) {
-            return handleResponse(res, 401, "Unauthorized");
-        }
-        if (!mongoose.Types.ObjectId.isValid(String(rawId))) {
-            return handleResponse(res, 401, "Invalid user id");
-        }
-
-        const deliveryBoyId = new mongoose.Types.ObjectId(String(rawId));
-
-        const wallet = await Wallet.findOne({
-            ownerType: "DELIVERY_PARTNER",
-            ownerId: deliveryBoyId,
-        })
-            .select("cashInHand")
-            .lean();
-
-        const orders = await Order.find({
-            deliveryBoy: deliveryBoyId,
-            paymentMode: "COD",
-            status: { $ne: "cancelled" },
-            orderStatus: { $ne: "cancelled" },
-        })
-            .select(
-                "orderId status orderStatus deliveredAt createdAt financeFlags paymentBreakdown pricing",
-            )
-            .sort({ createdAt: -1 })
-            .limit(200)
-            .lean();
-
-        const normalized = orders.map((order) => {
-            const codMarkedCollected = Boolean(order.financeFlags?.codMarkedCollected);
-            const gross = roundCurrency(order.paymentBreakdown?.grandTotal ?? order.pricing?.total ?? 0);
-            const riderCommission = roundCurrency(order.paymentBreakdown?.riderPayoutTotal ?? 0);
-
-            const estimatedNet = roundCurrency(Math.max(gross - riderCommission, 0));
-            const pendingNet = roundCurrency(order.paymentBreakdown?.codPendingAmount ?? 0);
-            const contribution = codMarkedCollected ? pendingNet : estimatedNet;
-
-            return {
-                orderId: order.orderId,
-                status: order.status,
-                orderStatus: order.orderStatus,
-                deliveredAt: order.deliveredAt || null,
-                createdAt: order.createdAt || null,
-                codMarkedCollected,
-                amountGross: gross,
-                riderCommission,
-                amountNetExpected: estimatedNet,
-                amountNetPending: pendingNet,
-                systemFloatContribution: contribution,
-            };
-        });
-
-        const systemFloatCOD = roundCurrency(
-            normalized.reduce((sum, row) => sum + Number(row.systemFloatContribution || 0), 0),
-        );
-
-        const toRemit = normalized
-            .filter((row) => row.codMarkedCollected && Number(row.amountNetPending || 0) > 0)
-            .slice(0, 50);
-
-        const toCollect = normalized
-            .filter((row) => !row.codMarkedCollected && Number(row.amountNetExpected || 0) > 0)
-            .slice(0, 50);
-
-        return handleResponse(res, 200, "COD cash summary fetched", {
-            systemFloatCOD,
-            cashInHand: roundCurrency(wallet?.cashInHand || 0),
-            toRemit,
-            toCollect,
-        });
+        const result = await getDeliveryCodCashSummaryFromService(rawId);
+        return handleResponse(res, 200, "COD cash summary fetched", result);
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        return handleResponse(res, error.statusCode || 500, error.message);
     }
 };
 

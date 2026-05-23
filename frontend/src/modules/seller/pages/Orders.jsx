@@ -35,6 +35,7 @@ import { getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
 import { Loader2 } from 'lucide-react';
 import Pagination from '@shared/components/ui/Pagination';
 import { DatePicker } from "@/components/ui/date-picker";
+import { getOrderStatusVariant } from '../components/orders';
 
 
 const Orders = () => {
@@ -207,18 +208,7 @@ const Orders = () => {
         }
     ], [summary]);
 
-    const getStatusColor = (status) => {
-        const s = status.toLowerCase();
-        switch (s) {
-            case 'pending': return 'warning';
-            case 'confirmed': return 'info';
-            case 'packed': return 'primary';
-            case 'out_for_delivery': return 'secondary';
-            case 'delivered': return 'success';
-            case 'cancelled': return 'error';
-            default: return 'secondary';
-        }
-    };
+    const getStatusColor = getOrderStatusVariant;
 
     const handleViewDetails = (order) => {
         setSelectedOrder(order);
