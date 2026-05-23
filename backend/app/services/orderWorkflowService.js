@@ -28,6 +28,7 @@ import { distanceMeters } from "../utils/geoUtils.js";
 import { applyDeliveredSettlement } from "./orderSettlement.js";
 import { requireCanonicalOrderId } from "../utils/orderLookup.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
+import logger from "./logger.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
 
 const DELIVERY_SEARCH_MAX_ATTEMPTS = () =>
@@ -111,7 +112,11 @@ export async function scheduleSellerTimeoutJob(orderId) {
       },
     )
     .catch((err) => {
-      console.warn("[scheduleSellerTimeoutJob] add failed", orderId, err.message);
+      logger.warn("scheduleSellerTimeoutJob add failed", {
+        scope: "scheduleSellerTimeoutJob",
+        orderId,
+        error: err.message,
+      });
     });
   const timeoutMs = BULL_ADD_TIMEOUT_MS();
   try {
@@ -125,7 +130,11 @@ export async function scheduleSellerTimeoutJob(orderId) {
       ),
     ]);
   } catch (e) {
-    console.warn("[scheduleSellerTimeoutJob]", orderId, e.message);
+    logger.warn("scheduleSellerTimeoutJob timed out", {
+      scope: "scheduleSellerTimeoutJob",
+      orderId,
+      error: e.message,
+    });
   }
 }
 
@@ -135,7 +144,11 @@ export async function removeSellerTimeoutJob(orderId) {
     const job = await sellerTimeoutQueue.getJob(`order:${orderId}:seller`);
     if (job) await job.remove();
   })().catch((err) => {
-    console.warn("[removeSellerTimeoutJob] get/remove failed", orderId, err.message);
+    logger.warn("removeSellerTimeoutJob get/remove failed", {
+      scope: "removeSellerTimeoutJob",
+      orderId,
+      error: err.message,
+    });
   });
   try {
     await Promise.race([
@@ -148,7 +161,11 @@ export async function removeSellerTimeoutJob(orderId) {
       ),
     ]);
   } catch (e) {
-    console.warn("[removeSellerTimeoutJob]", orderId, e.message);
+    logger.warn("removeSellerTimeoutJob timed out", {
+      scope: "removeSellerTimeoutJob",
+      orderId,
+      error: e.message,
+    });
   }
 }
 
@@ -166,11 +183,11 @@ export async function scheduleDeliveryTimeoutJob(orderId, attempt = 1) {
       },
     )
     .catch((err) => {
-      console.warn(
-        "[scheduleDeliveryTimeoutJob] add failed",
+      logger.warn("scheduleDeliveryTimeoutJob add failed", {
+        scope: "scheduleDeliveryTimeoutJob",
         orderId,
-        err.message,
-      );
+        error: err.message,
+      });
     });
   const timeoutMs = BULL_ADD_TIMEOUT_MS();
   try {
@@ -187,7 +204,11 @@ export async function scheduleDeliveryTimeoutJob(orderId, attempt = 1) {
       ),
     ]);
   } catch (e) {
-    console.warn("[scheduleDeliveryTimeoutJob]", orderId, e.message);
+    logger.warn("scheduleDeliveryTimeoutJob timed out", {
+      scope: "scheduleDeliveryTimeoutJob",
+      orderId,
+      error: e.message,
+    });
   }
 }
 
@@ -198,7 +219,11 @@ export async function removeDeliveryTimeoutJob(orderId, attempt = 1) {
     const job = await deliveryTimeoutQueue.getJob(jobKey);
     if (job) await job.remove();
   })().catch((err) => {
-    console.warn("[removeDeliveryTimeoutJob] get/remove failed", orderId, err.message);
+    logger.warn("removeDeliveryTimeoutJob get/remove failed", {
+      scope: "removeDeliveryTimeoutJob",
+      orderId,
+      error: err.message,
+    });
   });
   try {
     await Promise.race([
@@ -211,7 +236,11 @@ export async function removeDeliveryTimeoutJob(orderId, attempt = 1) {
       ),
     ]);
   } catch (e) {
-    console.warn("[removeDeliveryTimeoutJob]", orderId, e.message);
+    logger.warn("removeDeliveryTimeoutJob timed out", {
+      scope: "removeDeliveryTimeoutJob",
+      orderId,
+      error: e.message,
+    });
   }
 }
 
@@ -1057,10 +1086,10 @@ export async function verifyHandoffOtpAndDeliver(deliveryId, orderId, code) {
 
   // BUGFIX: Verify customer field is preserved after update
   if (!updated.customer) {
-    console.error(`[ORDER_BUG] Customer field lost during delivery completion`, {
+    logger.error("Customer field lost during delivery completion", {
+      scope: "ORDER_BUG",
       orderId,
       _id: updated._id,
-      timestamp: new Date().toISOString(),
     });
     const err = new Error("Order data integrity error: customer reference lost during update");
     err.statusCode = 500;

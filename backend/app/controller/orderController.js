@@ -55,19 +55,9 @@ import * as walletService from "../services/finance/walletService.js";
 import { OWNER_TYPE } from "../constants/finance.js";
 import { processPayout } from "../services/finance/payoutService.js";
 import { buildKey, getOrSet, getTTL, invalidate } from "../services/cacheService.js";
-
-function validateWithJoi(schema, payload) {
-  const { error, value } = schema.validate(payload, {
-    abortEarly: false,
-    stripUnknown: true,
-  });
-  if (error) {
-    const err = new Error(error.details.map((item) => item.message).join("; "));
-    err.statusCode = 400;
-    throw err;
-  }
-  return value;
-}
+import { computeReturnWindowForOrder } from "../utils/returnWindow.js";
+import logger from "../services/logger.js";
+import { validateBody as validateWithJoi } from "../middleware/validate.js";
 
 function normalizePaymentMode(value) {
   const raw = String(value || "").trim().toUpperCase();
@@ -100,39 +90,6 @@ function inferPaymentMode(payment = {}) {
     return "COD";
   }
   return null;
-}
-
-function parsePositiveInt(value, fallback) {
-  const parsed = parseInt(value, 10);
-  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
-  return fallback;
-}
-
-function getReturnEligibilityDelayMinutes() {
-  return parsePositiveInt(process.env.RETURN_ELIGIBILITY_DELAY_MINUTES, 2);
-}
-
-function getReturnWindowMinutes() {
-  return parsePositiveInt(process.env.RETURN_WINDOW_MINUTES, 2);
-}
-
-function computeReturnWindowForOrder(order) {
-  const base = order?.deliveredAt || order?.createdAt || new Date();
-  const deliveredAt = base instanceof Date ? base : new Date(base);
-  const eligibleDelay = getReturnEligibilityDelayMinutes();
-  const windowMinutes = getReturnWindowMinutes();
-  const eligibleAt = order?.returnEligibleAt || new Date(deliveredAt.getTime() + eligibleDelay * 60 * 1000);
-  let windowExpiresAt = order?.returnWindowExpiresAt || new Date(deliveredAt.getTime() + windowMinutes * 60 * 1000);
-  if (windowExpiresAt < eligibleAt) {
-    windowExpiresAt = eligibleAt;
-  }
-
-  return {
-    eligibleAt,
-    windowExpiresAt,
-    eligibleDelay,
-    windowMinutes,
-  };
 }
 
 async function deriveDistanceKm({ sellerId, addressLocation }) {
@@ -219,7 +176,10 @@ export const placeOrder = async (req, res) => {
     try {
       await invalidate(buildKey("orders", "customer", `${customerId}:*`));
     } catch (cacheErr) {
-      console.warn("[placeOrder] cache invalidation failed:", cacheErr.message);
+      logger.warn("placeOrder cache invalidation failed", {
+        scope: "placeOrder",
+        error: cacheErr.message,
+      });
     }
 
     return handleResponse(
@@ -241,7 +201,7 @@ export const placeOrder = async (req, res) => {
       },
     );
   } catch (error) {
-    console.error("Place Order Error:", error);
+    logger.error("Place Order Error", { scope: "placeOrder", error });
     return handleResponse(res, error.statusCode || 500, error.message);
   }
 };
@@ -413,18 +373,19 @@ export const getOrderDetails = async (req, res) => {
     // BUGFIX: Defensive check for customer reference integrity
     // If customer field is null or undefined, log error and attempt recovery
     if (!order.customer) {
-      console.error(`[ORDER_BUG] Order ${orderId} has null/undefined customer field`, {
+      logger.error("Order has null/undefined customer field", {
+        scope: "ORDER_BUG",
         orderId: order.orderId,
         _id: order._id,
         workflowStatus: order.workflowStatus,
-        timestamp: new Date().toISOString(),
       });
 
       // Attempt to fetch order without populate to check raw customer field
       const rawOrder = await Order.findOne(orderKey).lean();
       if (rawOrder && rawOrder.customer) {
         // Customer reference exists but failed to populate
-        console.error(`[ORDER_BUG] Customer reference exists but failed to populate`, {
+        logger.error("Customer reference exists but failed to populate", {
+          scope: "ORDER_BUG",
           orderId: order.orderId,
           customerRef: rawOrder.customer,
         });
@@ -432,7 +393,8 @@ export const getOrderDetails = async (req, res) => {
         order.customer = rawOrder.customer;
       } else {
         // Customer field is truly null/undefined in database
-        console.error(`[ORDER_BUG] Customer field is null in database`, {
+        logger.error("Customer field is null in database", {
+          scope: "ORDER_BUG",
           orderId: order.orderId,
         });
         return handleResponse(
@@ -484,7 +446,8 @@ export const getOrderDetails = async (req, res) => {
       !isAdmin
     ) {
       // BUGFIX: Improved error message to distinguish authorization failure from missing order
-      console.warn(`[ORDER_ACCESS] Authorization denied for order ${orderId}`, {
+      logger.warn("Authorization denied for order", {
+        scope: "ORDER_ACCESS",
         orderId: order.orderId,
         requestedBy: uid,
         role: roleNorm,
@@ -501,7 +464,7 @@ export const getOrderDetails = async (req, res) => {
 
     return handleResponse(res, 200, "Order details fetched", order);
   } catch (error) {
-    console.error(`[ORDER_ERROR] Error fetching order details:`, error);
+    logger.error("Error fetching order details", { scope: "ORDER_ERROR", error });
     return handleResponse(res, 500, error.message);
   }
 };
@@ -556,7 +519,10 @@ export const cancelOrder = async (req, res) => {
     try {
       await invalidate(buildKey("orders", "customer", `${customerId}:*`));
     } catch (cacheErr) {
-      console.warn("[cancelOrder] cache invalidation failed:", cacheErr.message);
+      logger.warn("cancelOrder cache invalidation failed", {
+        scope: "cancelOrder",
+        error: cacheErr.message,
+      });
     }
 
     if (order.paymentBreakdown?.grandTotal != null) {
@@ -566,7 +532,10 @@ export const cancelOrder = async (req, res) => {
           reason: reason || "Cancelled by customer before acceptance",
         });
       } catch (financeError) {
-        console.warn("[cancelOrder] finance reversal failed:", financeError.message);
+        logger.warn("cancelOrder finance reversal failed", {
+          scope: "cancelOrder",
+          error: financeError.message,
+        });
       }
     }
 
@@ -951,7 +920,10 @@ export const updateOrderStatus = async (req, res) => {
     try {
       await invalidate(buildKey("orders", "customer", `${order.customer.toString()}:*`));
     } catch (cacheErr) {
-      console.warn("[updateOrderStatus] cache invalidation failed:", cacheErr.message);
+      logger.warn("updateOrderStatus cache invalidation failed", {
+        scope: "updateOrderStatus",
+        error: cacheErr.message,
+      });
     }
 
     if (status === "confirmed" && role === "seller") {
@@ -1261,7 +1233,10 @@ export const updateReturnQcStatus = async (req, res) => {
         try {
           await processPayout(payout._id);
         } catch (error) {
-          console.warn("[ReturnQC] Auto-release payout failed:", error.message);
+          logger.warn("Auto-release payout failed", {
+            scope: "ReturnQC",
+            error: error.message,
+          });
         }
       }
     } else {
@@ -1438,7 +1413,10 @@ export const acceptReturnPickup = async (req, res) => {
       try {
         await retractDeliveryBroadcastForOrder(order.orderId, userId);
       } catch (e) {
-        console.warn("[acceptReturnPickup] retract broadcast failed:", e.message);
+        logger.warn("acceptReturnPickup retract broadcast failed", {
+          scope: "acceptReturnPickup",
+          error: e.message,
+        });
       }
 
       // Notify customer their return pickup is assigned
@@ -1578,7 +1556,11 @@ export const completeReturnAndRefund = async (order) => {
           });
         }
       } catch (error) {
-        console.error(`[ReturnFinance] Payout cancellation failed for seller ${order.seller}`, error.message);
+        logger.error("Payout cancellation failed for seller", {
+          scope: "ReturnFinance",
+          sellerId: order.seller,
+          error: error.message,
+        });
       }
     } else {
       // If payment was already released (Available balance), we must debit to recover funds.
@@ -1592,7 +1574,11 @@ export const completeReturnAndRefund = async (order) => {
           bucket: "available",
         });
       } catch (error) {
-        console.warn(`[ReturnFinance] Wallet debit failed for seller ${order.seller}.`, error.message);
+        logger.warn("Wallet debit failed for seller", {
+          scope: "ReturnFinance",
+          sellerId: order.seller,
+          error: error.message,
+        });
       }
     }
 
@@ -1621,7 +1607,11 @@ export const completeReturnAndRefund = async (order) => {
         bucket: "available"
       });
     } catch (error) {
-      console.error(`[ReturnFinance] Failed to credit delivery boy ${order.returnDeliveryBoy}`, error.message);
+      logger.error("Failed to credit delivery boy", {
+        scope: "ReturnFinance",
+        deliveryBoyId: order.returnDeliveryBoy,
+        error: error.message,
+      });
     }
 
     await Transaction.create({

@@ -9,6 +9,7 @@ import {
   PAYOUT_TYPE,
 } from "../../constants/finance.js";
 import { addMoney, roundCurrency } from "../../utils/money.js";
+import { computeReturnWindowDates } from "../../utils/returnWindow.js";
 import { createLedgerEntry } from "./ledgerService.js";
 import { createFinanceAuditLog } from "./auditLogService.js";
 import {
@@ -97,33 +98,6 @@ function ensurePaymentBreakdownSnapshots(order) {
     categoryCommissionSettings: [],
     handlingFeeStrategy: null,
     handlingCategoryUsed: {},
-  };
-}
-
-function parsePositiveInt(value, fallback) {
-  const parsed = parseInt(value, 10);
-  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
-  return fallback;
-}
-
-function getReturnEligibilityDelayMinutes() {
-  return parsePositiveInt(process.env.RETURN_ELIGIBILITY_DELAY_MINUTES, 2);
-}
-
-function getReturnWindowMinutes() {
-  return parsePositiveInt(process.env.RETURN_WINDOW_MINUTES, 2);
-}
-
-function computeReturnWindowDates(deliveredAt) {
-  const eligibleDelay = getReturnEligibilityDelayMinutes();
-  const windowMinutes = getReturnWindowMinutes();
-  const start = deliveredAt instanceof Date ? deliveredAt : new Date();
-  const eligibleAt = new Date(start.getTime() + eligibleDelay * 60 * 1000);
-  const windowExpiresAt = new Date(start.getTime() + windowMinutes * 60 * 1000);
-
-  return {
-    eligibleAt,
-    windowExpiresAt,
   };
 }
 

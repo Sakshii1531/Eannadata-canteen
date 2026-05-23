@@ -12,6 +12,7 @@ import {
 } from "../services/searchSyncService.js";
 import { buildKey, getOrSet, getTTL, invalidate } from "../services/cacheService.js";
 import { uploadToCloudinary } from "../services/mediaService.js";
+import logger from "../services/logger.js";
 import { resolveCategoryName, resolveSellerName } from "../services/entityNameCache.js";
 import {
   PRODUCT_APPROVAL_STATUS,
@@ -591,7 +592,10 @@ export const createProduct = async (req, res) => {
             galleryUrls.push(url);
           }
         } catch (err) {
-          console.error("Cloudinary upload failed:", err);
+          logger.error("Cloudinary upload failed", {
+            scope: "createProduct",
+            error: err,
+          });
         }
       }
       if (galleryUrls.length > 0) {
@@ -604,7 +608,10 @@ export const createProduct = async (req, res) => {
       try {
         productData.variants = JSON.parse(productData.variants);
       } catch (e) {
-        console.error("Failed to parse variants JSON:", e);
+        logger.error("Failed to parse variants JSON", {
+          scope: "createProduct",
+          error: e,
+        });
       }
     }
     if (typeof productData.tags === "string" && productData.tags.startsWith("[")) {
@@ -690,7 +697,10 @@ export const createProduct = async (req, res) => {
       await invalidate(buildKey("catalog", "productList", "*"));
       await invalidate("cache:offersections:public:*");
     } catch (cacheErr) {
-      console.error("Cache invalidation error (createProduct):", cacheErr);
+      logger.error("Cache invalidation error", {
+        scope: "createProduct",
+        error: cacheErr,
+      });
     }
 
     return handleResponse(
@@ -700,7 +710,7 @@ export const createProduct = async (req, res) => {
       normalizeProductDocumentModeration(product?.toObject?.() || product),
     );
   } catch (error) {
-    console.error("Create Product Error:", error);
+    logger.error("Create Product Error", { scope: "createProduct", error });
     if (error.code === 11000) {
       return handleResponse(res, 400, "Slug or SKU already exists");
     }
@@ -742,7 +752,10 @@ export const updateProduct = async (req, res) => {
             galleryUrls.push(url);
           }
         } catch (err) {
-          console.error("Cloudinary upload failed during update:", err);
+          logger.error("Cloudinary upload failed during update", {
+            scope: "updateProduct",
+            error: err,
+          });
         }
       }
       if (galleryUrls.length > 0) {
@@ -755,7 +768,10 @@ export const updateProduct = async (req, res) => {
       try {
         productData.variants = JSON.parse(productData.variants);
       } catch (e) {
-        console.error("Failed to parse variants JSON during update:", e);
+        logger.error("Failed to parse variants JSON during update", {
+          scope: "updateProduct",
+          error: e,
+        });
       }
     }
     if (typeof productData.tags === "string" && productData.tags.startsWith("[")) {
@@ -848,7 +864,10 @@ export const updateProduct = async (req, res) => {
       await invalidate(buildKey("catalog", "productList", "*"));
       await invalidate("cache:offersections:public:*");
     } catch (cacheErr) {
-      console.error("Cache invalidation error (updateProduct):", cacheErr);
+      logger.error("Cache invalidation error", {
+        scope: "updateProduct",
+        error: cacheErr,
+      });
     }
 
     return handleResponse(
@@ -858,7 +877,7 @@ export const updateProduct = async (req, res) => {
       normalizeProductDocumentModeration(updatedProduct?.toObject?.() || updatedProduct),
     );
   } catch (error) {
-    console.error("Update Product Error:", error);
+    logger.error("Update Product Error", { scope: "updateProduct", error });
     if (error.name === "ValidationError") {
       return handleResponse(
         res,
@@ -902,7 +921,10 @@ export const deleteProduct = async (req, res) => {
       await invalidate(buildKey("catalog", "productList", "*"));
       await invalidate("cache:offersections:public:*");
     } catch (cacheErr) {
-      console.error("Cache invalidation error (deleteProduct):", cacheErr);
+      logger.error("Cache invalidation error", {
+        scope: "deleteProduct",
+        error: cacheErr,
+      });
     }
 
     return handleResponse(res, 200, "Product deleted successfully");

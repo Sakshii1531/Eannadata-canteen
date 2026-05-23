@@ -19,6 +19,7 @@ import { afterPlaceOrderV2 } from "./orderWorkflowService.js";
 import { releaseReservedStockForOrder } from "./stockService.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
+import logger from "./logger.js";
 
 let phonePeClient = null;
 const MAX_MERCHANT_ORDER_ID_LENGTH = 63;
@@ -320,7 +321,10 @@ async function moveOrderToSellerPendingAfterPayment(orderId) {
   );
   if (updatedOrder) {
     void afterPlaceOrderV2(updatedOrder).catch((error) => {
-      console.warn("[moveOrderToSellerPendingAfterPayment] afterPlaceOrderV2:", error.message);
+      logger.warn("afterPlaceOrderV2 failed", {
+        scope: "moveOrderToSellerPendingAfterPayment",
+        error: error.message,
+      });
     });
   }
 }
@@ -586,19 +590,14 @@ export async function createPaymentOrderForOrderRef({
 
   const payment = await Payment.create(paymentData);
 
-  console.log(
-    JSON.stringify({
-      level: "info",
-      ts: new Date().toISOString(),
-      event: "payment_order_created",
-      correlationId,
-      publicOrderId: payment.publicOrderId,
-      paymentId: payment._id.toString(),
-      gatewayOrderId: payment.gatewayOrderId,
-      amount: payment.amount,
-      redirectUrl: response.redirectUrl,
-    }),
-  );
+  logger.info("payment_order_created", {
+    correlationId,
+    publicOrderId: payment.publicOrderId,
+    paymentId: payment._id.toString(),
+    gatewayOrderId: payment.gatewayOrderId,
+    amount: payment.amount,
+    redirectUrl: response.redirectUrl,
+  });
 
   return { payment, redirectUrl: response.redirectUrl, duplicate: false };
 }
@@ -643,16 +642,11 @@ export async function verifyPhonePePaymentStatus({
   payment.correlationId = correlationId || payment.correlationId;
   await payment.save();
 
-  console.log(
-    JSON.stringify({
-      level: "info",
-      ts: new Date().toISOString(),
-      event: "payment_status_verified",
-      correlationId,
-      merchantOrderId,
-      status: nextStatus,
-    }),
-  );
+  logger.info("payment_status_verified", {
+    correlationId,
+    merchantOrderId,
+    status: nextStatus,
+  });
 
   return {
     payment,

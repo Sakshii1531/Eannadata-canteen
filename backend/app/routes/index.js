@@ -34,6 +34,10 @@ const setupRoutes = (app) => {
 
     router.use("/customer", customerRoute);
     router.use("/delivery", deliveryRoute);
+    // categoryRoute is mounted twice on purpose:
+    //   /admin/categories → admin category management (auth enforced inside the router)
+    //   /categories       → public category browsing (read-only handlers)
+    // Same router, two URL surfaces. Do not deduplicate without coordinated frontend changes.
     router.use("/admin/categories", categoryRoute);
     router.use("/admin", adminRoute);
     router.use("/seller", sellerRoute);
@@ -46,6 +50,14 @@ const setupRoutes = (app) => {
     router.use("/payments", paymentRoute);
     router.use("/maps", mapsRoute);
     router.use("/media", mediaRoute);
+    // experienceRoute, offerRoute, couponRoute are mounted at "/" intentionally:
+    // each of these routers declares ABSOLUTE paths internally (e.g.
+    //   router.get("/experience", ...), router.get("/offers", ...),
+    //   router.get("/admin-offers", ...), router.get("/admin/coupons", ...))
+    // Mounting them under an explicit prefix would double the path
+    // ("/offers/offers", etc.) and break every existing frontend caller.
+    // The right cleanup is to rewrite each router to use a relative prefix
+    // and update the frontend in the same PR. Until then, keep the "/" mount.
     router.use("/", experienceRoute);
     router.use("/", offerRoute);
     router.use("/", couponRoute);

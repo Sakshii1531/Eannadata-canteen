@@ -17,20 +17,7 @@ import { placeOrderAtomic } from "../services/orderPlacementService.js";
 import { orderMatchQueryFromRouteParam } from "../utils/orderLookup.js";
 import { verifyClientPaymentCallback } from "../services/paymentService.js";
 import { buildCheckoutPricingSnapshot } from "../services/checkoutPricingService.js";
-
-function validateWithJoi(schema, payload) {
-  const { error, value } = schema.validate(payload, {
-    abortEarly: false,
-    stripUnknown: true,
-  });
-  if (error) {
-    const details = error.details.map((item) => item.message).join("; ");
-    const err = new Error(details);
-    err.statusCode = 400;
-    throw err;
-  }
-  return value;
-}
+import { validateBody as validateWithJoi } from "../middleware/validate.js";
 
 export const previewCheckoutFinance = async (req, res) => {
   try {

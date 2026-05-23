@@ -12,6 +12,7 @@ import { getRedisClient } from "../config/redis.js";
 import { distanceMeters } from "../utils/geoUtils.js";
 import { applyDeliveredSettlement } from "../services/orderSettlement.js";
 import { roundCurrency } from "../utils/money.js";
+import logger from "../services/logger.js";
 
 const LOC_MIN_INTERVAL_MS = () =>
   parseInt(process.env.LOCATION_MIN_INTERVAL_MS || "3000", 10);
@@ -823,7 +824,10 @@ export const generateDeliveryOtp = async (req, res) => {
             io.to(`order:${order.orderId}`).emit('delivery:otp:generated', otpPayload);
             io.to(`order:${order.orderId}`).emit('order:otp', otpPayload);
         } catch (socketError) {
-            console.error('[generateDeliveryOtp] Error emitting Socket.IO event:', socketError);
+            logger.error("Error emitting Socket.IO event", {
+                scope: "generateDeliveryOtp",
+                error: socketError,
+            });
         }
 
         return handleResponse(res, 200, "OTP generated and sent to customer", {
@@ -835,7 +839,10 @@ export const generateDeliveryOtp = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error in generateDeliveryOtp controller:', error);
+        logger.error("Error in generateDeliveryOtp controller", {
+            scope: "generateDeliveryOtp",
+            error,
+        });
         return handleResponse(res, 500, "Failed to generate OTP", {
             error: {
                 code: "GENERATION_FAILED",
@@ -967,7 +974,10 @@ export const validateDeliveryOtp = async (req, res) => {
             try {
                 await applyDeliveredSettlement(updatedOrder, order.orderId);
             } catch (settlementError) {
-                console.error("[validateDeliveryOtp] Settlement failed after delivery:", settlementError);
+                logger.error("Settlement failed after delivery", {
+                    scope: "validateDeliveryOtp",
+                    error: settlementError,
+                });
                 // Order has already been marked delivered; don't fail OTP validation due to finance sync issues.
                 return handleResponse(res, 200, "Order delivered successfully (finance pending)", {
                     success: true,
@@ -1005,7 +1015,10 @@ export const validateDeliveryOtp = async (req, res) => {
                 deliveredAt: now.toISOString()
             });
         } catch (socketError) {
-            console.error('Error emitting Socket.IO event:', socketError);
+            logger.error("Error emitting Socket.IO event", {
+                scope: "validateDeliveryOtp",
+                error: socketError,
+            });
             // Don't fail the request if socket emission fails
         }
 
@@ -1018,7 +1031,10 @@ export const validateDeliveryOtp = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error in validateDeliveryOtp controller:', error);
+        logger.error("Error in validateDeliveryOtp controller", {
+            scope: "validateDeliveryOtp",
+            error,
+        });
         return handleResponse(res, 500, "Failed to validate OTP", {
             error: {
                 code: "VALIDATION_FAILED",

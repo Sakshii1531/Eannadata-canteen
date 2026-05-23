@@ -21,23 +21,7 @@ import {
   payoutProcessSchema,
   updateDeliverySettingsSchema,
 } from "../validation/financeValidation.js";
-
-function validateWithJoi(schema, payload) {
-  const { error, value } = schema.validate(payload, {
-    abortEarly: false,
-    stripUnknown: true,
-  });
-  if (error) {
-    return {
-      isValid: false,
-      message: error.details.map((item) => item.message).join("; "),
-    };
-  }
-  return {
-    isValid: true,
-    value,
-  };
-}
+import { validateBodySafe as validateWithJoi } from "../middleware/validate.js";
 
 export const getAdminFinanceSummaryController = async (req, res) => {
   try {
