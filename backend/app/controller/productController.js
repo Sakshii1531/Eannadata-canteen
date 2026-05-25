@@ -23,6 +23,18 @@ import {
   sanitizeApprovalNote,
   resolveProductApprovalStatus,
 } from "../services/productModerationService.js";
+import { buildSearchRegex } from "../utils/regex.js";
+
+// Phase 3 P3-5: when search term is reasonably specific and the env flag
+// is enabled, prefer Mongo's `name + tags` text index over case-insensitive
+// regex. Default OFF — keeps existing substring-search semantics so the
+// behavior of the customer-facing search bar is unchanged unless explicitly
+// opted in by ops.
+function isProductTextSearchEnabled() {
+  return (
+    String(process.env.PRODUCT_SEARCH_USE_TEXT || "false").toLowerCase() === "true"
+  );
+}
 
 function buildProductListKey(queryParams) {
   const sorted = Object.keys(queryParams)
@@ -216,7 +228,17 @@ export const getProducts = async (req, res) => {
 
     const query = {};
     if (search) {
-      query.name = { $regex: search, $options: "i" };
+      const term = String(search).trim();
+      if (term) {
+        if (isProductTextSearchEnabled() && term.length >= 3) {
+          query.$text = { $search: term };
+        } else {
+          // P3-5: substring search is preserved (so customer-facing UX
+          // doesn't shift) but the term is now regex-escaped to avoid
+          // injection and runtime errors on `(`, `*`, etc.
+          query.name = buildSearchRegex(term, { anchored: false });
+        }
+      }
     }
 
     // Support both field names for flexibility (backward compatibility)
@@ -1049,11 +1071,17 @@ export const getModerationProducts = async (req, res) => {
 
     if (search && String(search).trim()) {
       const term = String(search).trim();
-      baseQuery.$or = [
-        { name: { $regex: term, $options: "i" } },
-        { slug: { $regex: term, $options: "i" } },
-        { sku: { $regex: term, $options: "i" } },
-      ];
+      if (isProductTextSearchEnabled() && term.length >= 3) {
+        baseQuery.$text = { $search: term };
+      } else {
+        // P3-5: same substring semantics, now safely escaped.
+        const safe = buildSearchRegex(term, { anchored: false });
+        baseQuery.$or = [
+          { name: safe },
+          { slug: safe },
+          { sku: safe },
+        ];
+      }
     }
 
     let moderatedQuery = { ...baseQuery };

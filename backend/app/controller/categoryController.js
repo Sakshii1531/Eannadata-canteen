@@ -5,6 +5,7 @@ import { buildKey, getOrSet, getTTL, invalidate } from "../services/cacheService
 import { uploadToCloudinary } from "../services/mediaService.js";
 import mongoose from "mongoose";
 import { invalidateCategoryName } from "../services/entityNameCache.js";
+import { buildSearchRegex } from "../utils/regex.js";
 
 function normalizeUrl(value) {
   if (!value || typeof value !== "string") return "";
@@ -92,9 +93,11 @@ export const getCategories = async (req, res) => {
       const parentId = req.query.parentId || req.query.parentId; // Support both naming variants
 
       if (search) {
+        // P3-5: same substring search; user input is now regex-escaped.
+        const safe = buildSearchRegex(String(search), { anchored: false });
         query.$or = [
-          { name: { $regex: search, $options: "i" } },
-          { slug: { $regex: search, $options: "i" } },
+          { name: safe },
+          { slug: safe },
         ];
       }
       

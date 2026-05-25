@@ -1,6 +1,7 @@
 import Coupon from "../models/coupon.js";
 import handleResponse from "../utils/helper.js";
 import Order from "../models/order.js";
+import { buildSearchRegex } from "../utils/regex.js";
 
 export const listCoupons = async (req, res) => {
     try {
@@ -18,10 +19,12 @@ export const listCoupons = async (req, res) => {
 
         if (search) {
             const term = search.trim();
+            // P3-5: substring search preserved; user input is regex-escaped.
+            const safe = buildSearchRegex(term, { anchored: false });
             query.$or = [
-                { code: { $regex: term, $options: "i" } },
-                { title: { $regex: term, $options: "i" } },
-                { description: { $regex: term, $options: "i" } },
+                { code: safe },
+                { title: safe },
+                { description: safe },
             ];
         }
 

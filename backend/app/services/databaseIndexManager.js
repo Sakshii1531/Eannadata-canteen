@@ -9,21 +9,42 @@ import * as logger from "./logger.js";
  */
 
 /**
- * Index definitions for all collections
- * Each entry specifies the collection name and its required indexes
+ * Index definitions for all collections.
+ *
+ * Phase 3 (P3-2/P3-3/P3-4) rule: this file declares only indexes that are
+ * truly *additive* to what model schemas already declare. Any index that
+ * already lives on a schema (e.g. `transactionSchema.index({...})`) is NOT
+ * repeated here — Mongo would silently no-op the duplicate, but the
+ * duplicate misleads future devs into thinking the manager owns it.
+ *
+ * Removed in Phase 3:
+ *   - transactions: two indexes on a `userId` field that does not exist
+ *     (schema field is `user`). Replaced with one real-shape index
+ *     (`user + userModel + type + createdAt`) that backs withdrawal-history
+ *     queries which the legacy indexes failed to cover.
+ *   - notifications: index on `read` which is actually `isRead`. Schema
+ *     already declares `(recipient, isRead)` and
+ *     `(recipient, recipientModel, isRead, createdAt)`, so the manager
+ *     entry was both dead and redundant.
+ *   - ledgerentries: index on `ownerType`/`ownerId` (schema fields are
+ *     `actorType`/`actorId`). Replaced with the real-shape index.
+ *   - withdrawals: an entire dead collection block — withdrawals live in
+ *     `transactions` with `type:"Withdrawal"`, so the manager was creating
+ *     an empty collection on every boot.
+ *   - paymentwebhookevents.eventId: schema declares `unique:true`, so
+ *     the manager entry was a duplicate that risked an
+ *     `IndexOptionsConflict` if options diverged.
+ *   - payments.gatewayOrderId: schema declares `unique:true`; the manager
+ *     declared `unique:false`. Mongo throws code 85 which the
+ *     `createAllIndexes` try/catch silently swallowed.
  */
 const INDEX_DEFINITIONS = {
-  // Only define indexes here that are NOT already in the model schemas
-  // or that need specific centralized management.
-  
   products: [
-    // These are managed here to ensure background: true and specific naming
     { keys: { status: 1, categoryId: 1, createdAt: -1 }, options: { name: "idx_status_category_created", background: true } },
     { keys: { status: 1, sellerId: 1, createdAt: -1 }, options: { name: "idx_status_seller_created", background: true } },
   ],
-  
+
   orders: [
-    // These are already in Order.js, keeping only if we want explicit background creation
     { keys: { customer: 1, createdAt: -1, status: 1 }, options: { name: "idx_customer_created_status", background: true } },
     { keys: { seller: 1, status: 1, createdAt: -1 }, options: { name: "idx_seller_status_created", background: true } },
     { keys: { seller: 1, workflowStatus: 1, createdAt: -1 }, options: { name: "idx_seller_workflow_created", background: true } },
@@ -40,90 +61,80 @@ const INDEX_DEFINITIONS = {
     // Filter shape: { deliveryBoy: <id>, paymentMode: "COD", status: { $ne: "cancelled" } }
     { keys: { deliveryBoy: 1, paymentMode: 1, createdAt: -1 }, options: { name: "idx_deliveryBoy_paymentMode_created", background: true } },
   ],
-  
+
   transactions: [
-    { keys: { userId: 1, createdAt: -1, type: 1 }, options: { name: "idx_user_created_type", background: true } },
-    { keys: { userId: 1, status: 1, createdAt: -1 }, options: { name: "idx_user_status_created", background: true } },
-
-    // P6.1 — backs DeliveryEarningsService.getDeliveryStats / getDeliveryEarnings.
-    // Filter shape: { user: <id>, userModel: "Delivery", status: "Settled", createdAt: { $gte } }
-    { keys: { user: 1, userModel: 1, status: 1, createdAt: -1 }, options: { name: "idx_user_userModel_status_created", background: true } },
+    // P3-2 fix: the `type:"Withdrawal"` history filter (used by
+    // walletAdminService.getSellerWithdrawalsData and the seller wallet
+    // history endpoint) needs `type` in the index. Schema already covers
+    // `(user, userModel, status, createdAt)` so we add only the type
+    // variant here.
+    { keys: { user: 1, userModel: 1, type: 1, createdAt: -1 }, options: { name: "idx_user_userModel_type_created", background: true } },
   ],
-  
+
   notifications: [
+    // Schema covers `(recipient, isRead)` and
+    // `(recipient, recipientModel, isRead, createdAt)`. The remaining
+    // additive needs are the cleanup-job-by-type and the bare
+    // recipient+createdAt range scan.
     { keys: { recipient: 1, createdAt: -1 }, options: { name: "idx_recipient_created", background: true } },
-
-    // P6.1 Part 3 — backs unread-count badge query.
-    // Filter shape: { recipient, read: false }
-    { keys: { recipient: 1, read: 1, createdAt: -1 }, options: { name: "idx_recipient_read_created", background: true } },
-
-    // P6.1 Part 3 — backs notification cleanup job (delete >30d, by type).
     { keys: { type: 1, createdAt: -1 }, options: { name: "idx_type_created", background: true } },
   ],
 
-  // P6.1 Part 3 — sellers collection (verification + nearby lookup).
   sellers: [
-    // Backs admin verification / pending-sellers list.
     { keys: { isVerified: 1, isActive: 1, createdAt: -1 }, options: { name: "idx_isVerified_isActive_created", background: true } },
-    // Backs seller-by-email auth lookup.
     { keys: { email: 1 }, options: { name: "idx_email", background: true, sparse: true } },
-    // Backs seller-by-phone OTP signup lookup.
     { keys: { phone: 1 }, options: { name: "idx_phone", background: true, sparse: true } },
   ],
 
-  // P6.1 Part 3 — customers / users collection (auth + addresses).
   customers: [
     { keys: { phone: 1 }, options: { name: "idx_phone", background: true, sparse: true } },
     { keys: { email: 1 }, options: { name: "idx_email", background: true, sparse: true } },
     { keys: { createdAt: -1 }, options: { name: "idx_created", background: true } },
   ],
 
-  // P6.1 Part 3 — delivery partners collection.
   deliveries: [
     { keys: { phone: 1 }, options: { name: "idx_phone", background: true, sparse: true } },
     { keys: { isOnline: 1, isVerified: 1, isActive: 1 }, options: { name: "idx_online_verified_active", background: true } },
   ],
 
-  // P6.1 Part 3 — wishlist lookup is always per-customer.
   wishlists: [
     { keys: { customerId: 1 }, options: { name: "idx_customerId", background: true } },
     { keys: { customerId: 1, "items.productId": 1 }, options: { name: "idx_customerId_itemsProductId", background: true } },
   ],
 
-  // P6.1 Part 3 — cart lookup is always per-customer.
   carts: [
     { keys: { customerId: 1 }, options: { name: "idx_customerId_unique", background: true, unique: true } },
   ],
 
-  // P6.1 Part 3 — withdrawals admin queue + per-user history.
-  withdrawals: [
-    { keys: { status: 1, createdAt: -1 }, options: { name: "idx_status_created", background: true } },
-    { keys: { user: 1, userModel: 1, createdAt: -1 }, options: { name: "idx_user_userModel_created", background: true } },
-  ],
+  // NOTE: the `withdrawals` block previously declared here was a phantom
+  // collection — withdrawals are stored as `Transaction.type:"Withdrawal"`
+  // rows in the `transactions` collection. Removed in P3-2. The migration
+  // script `backend/scripts/migrations/drop-dead-indexes.js` drops the
+  // empty stray collection on existing deployments.
 
-  // P6.1 Part 3 — support tickets admin queue.
   tickets: [
     { keys: { status: 1, priority: 1, createdAt: -1 }, options: { name: "idx_status_priority_created", background: true } },
     { keys: { userId: 1, status: 1, createdAt: -1 }, options: { name: "idx_userId_status_created", background: true } },
   ],
 
-  // P6.1 Part 3 — finance ledger lookups (already common but explicit).
   ledgerentries: [
+    // P3-2 fix: schema fields are `actorType` + `actorId`, not
+    // `ownerType` + `ownerId`. The old manager index was dead.
     { keys: { orderId: 1, actorType: 1, createdAt: -1 }, options: { name: "idx_orderId_actorType_created", background: true } },
-    { keys: { ownerType: 1, ownerId: 1, createdAt: -1 }, options: { name: "idx_ownerType_ownerId_created", background: true } },
+    { keys: { actorType: 1, actorId: 1, createdAt: -1 }, options: { name: "idx_actorType_actorId_created", background: true } },
   ],
 
-  // P6.1 Part 3 — webhook idempotency lookup.
   paymentwebhookevents: [
-    { keys: { eventId: 1 }, options: { name: "idx_eventId_unique", background: true, unique: true } },
+    // P3-3 fix: schema already declares `eventId: { unique:true }`. The
+    // additive index here is for `(gatewayName, createdAt)` admin filters.
     { keys: { gatewayName: 1, createdAt: -1 }, options: { name: "idx_gatewayName_created", background: true } },
   ],
 
   payments: [
-    // P6.1 — backs paymentService.verifyPhonePePaymentStatus + webhook lookup.
-    // Filter shape: { gatewayOrderId: <merchantOrderId> }
-    { keys: { gatewayOrderId: 1 }, options: { name: "idx_gatewayOrderId", background: true, unique: false } },
-    // Aggregations like `Payment.countDocuments({ order, customer })`.
+    // P3-3 fix: schema declares `gatewayOrderId: { unique:true }`. The
+    // manager previously declared a conflicting `unique:false` variant.
+    // Removed. The additive index below is for the admin
+    // `(order, customer)` history aggregation.
     { keys: { order: 1, customer: 1, createdAt: -1 }, options: { name: "idx_order_customer_created", background: true } },
   ],
 
@@ -136,6 +147,29 @@ const INDEX_DEFINITIONS = {
   deliveryassignments: [
     // P6.1 — backs orderWorkflowService delivery broadcast lifecycle queries.
     { keys: { orderId: 1, status: 1, attempt: -1 }, options: { name: "idx_orderId_status_attempt", background: true } },
+  ],
+
+  // ---- P3-4: missing performance indexes ----
+
+  wallets: [
+    // Backs wallet-status filters and the wallet-ledger verifier cron
+    // (P2-9), which scans most-recently-touched wallets and computes
+    // ledger drift per owner. Schema declares the unique
+    // `(ownerType, ownerId)` index but not the status-filtered variant.
+    { keys: { ownerType: 1, ownerId: 1, status: 1 }, options: { name: "idx_ownerType_ownerId_status", background: true } },
+  ],
+
+  payouts: [
+    // Schema declares `(beneficiaryId, payoutType, status)`. The seller /
+    // rider history page sorts by `createdAt:-1` — extending the compound
+    // with the sort key avoids an in-memory sort step on hot pages.
+    { keys: { beneficiaryId: 1, payoutType: 1, status: 1, createdAt: -1 }, options: { name: "idx_beneficiary_payoutType_status_created", background: true } },
+  ],
+
+  financeauditlogs: [
+    // Backs "show all audit events for order X" — current schema covers
+    // each field individually but not the `(orderId, action)` compound.
+    { keys: { orderId: 1, action: 1, createdAt: -1 }, options: { name: "idx_orderId_action_created", background: true } },
   ],
 };
 

@@ -1,6 +1,7 @@
 import FAQ from '../models/faq.js';
 import { handleResponse } from '../utils/helper.js';
 import getPagination from '../utils/pagination.js';
+import { buildSearchRegex } from '../utils/regex.js';
 
 export const getFAQs = async (req, res) => {
     try {
@@ -10,9 +11,11 @@ export const getFAQs = async (req, res) => {
         if (status) query.status = status;
 
         if (search && search.trim()) {
+            // P3-5: substring search preserved; user input is regex-escaped.
+            const safe = buildSearchRegex(search.trim(), { anchored: false });
             query.$or = [
-                { question: { $regex: search.trim(), $options: 'i' } },
-                { answer: { $regex: search.trim(), $options: 'i' } }
+                { question: safe },
+                { answer: safe }
             ];
         }
 

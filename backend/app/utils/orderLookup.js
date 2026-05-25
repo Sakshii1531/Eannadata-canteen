@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Order from "../models/order.js";
+import { escapeRegex } from "./regex.js";
 
 export function normalizeOrderRouteParam(raw) {
   return decodeURIComponent(String(raw ?? "")).trim();
@@ -12,10 +13,6 @@ function isStrictObjectIdString(s) {
     mongoose.Types.ObjectId.isValid(s) &&
     new mongoose.Types.ObjectId(s).toString() === s
   );
-}
-
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
