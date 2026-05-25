@@ -12,6 +12,10 @@ import { getProcessRole, isComponentEnabled, validateProcessRole } from './proce
 import { isRedisEnabled, getRedisClient, waitForRedis } from '../config/redis.js';
 import { createAllIndexes } from '../services/databaseIndexManager.js';
 import { startSearchIndexWorker } from '../services/searchSyncService.js';
+// Side-effect import: registers every Mongoose model so the boot-time
+// `assertAllModelsRegistered()` check below works regardless of which
+// controllers the process role pulls in. Audit-plan ticket P1-5.
+import { assertAllModelsRegistered } from './modelRegistry.js';
 
 /**
  * Validation result structure
@@ -243,7 +247,23 @@ async function startup() {
       validation.errors.forEach(error => console.error(`  - ${error}`));
       throw new Error('Startup validation failed: ' + validation.errors.join('; '));
     }
-    
+
+    // Step 5: Boot-time model-registry assertion.
+    //
+    // Verifies that every model name expected by schema `ref:` / `refPath:`
+    // strings is actually registered with mongoose.model(...). A mismatch
+    // here is the exact bug the audit-plan critical findings C-1 and C-9
+    // describe — populate() silently returns null at request time. We
+    // crash the process instead so the regression is caught at deploy.
+    // Audit-plan ticket P1-5.
+    try {
+      const { registeredCount } = assertAllModelsRegistered();
+      console.log(`[Startup] Model registry healthy: ${registeredCount} models registered`);
+    } catch (error) {
+      console.error('[Startup] FATAL: model registry check failed:', error.message);
+      throw error;
+    }
+
     // Step 6: Create database indexes
     try {
       await createAllIndexes();

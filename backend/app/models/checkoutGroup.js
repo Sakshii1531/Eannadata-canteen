@@ -16,7 +16,10 @@ const checkoutGroupSchema = new mongoose.Schema(
     },
     customer: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Customer",
+      // The customer file registers as mongoose.model("User", ...).
+      // Audit-plan critical finding C-1: legacy "Customer" ref silently
+      // broke every populate("customer") on checkout groups.
+      ref: "User",
       required: true,
       index: true,
     },

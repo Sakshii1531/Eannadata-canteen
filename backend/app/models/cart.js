@@ -4,7 +4,12 @@ const cartSchema = new mongoose.Schema(
     {
         customerId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "Customer",
+            // NOTE: customer model file (app/models/customer.js) registers
+            // as mongoose.model("User", ...). The legacy "Customer" ref
+            // here silently broke every populate() call. Fixed in Phase 1
+            // (audit-plan critical finding C-1). Do not change without
+            // updating the registered model name in customer.js too.
+            ref: "User",
             required: true,
             unique: true,
         },

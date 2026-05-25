@@ -4,7 +4,9 @@ const wishlistSchema = new mongoose.Schema(
     {
         customerId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "Customer",
+            // See cart.js for the rationale; "Customer" was an unregistered
+            // model name. Audit-plan critical finding C-1.
+            ref: "User",
             required: true,
             unique: true,
         },

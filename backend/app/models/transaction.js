@@ -18,7 +18,25 @@ const transactionSchema = new mongoose.Schema(
         },
         type: {
             type: String,
-            enum: ["Order Payment", "Delivery Earning", "Withdrawal", "Refund", "Incentive", "Bonus", "Cash Collection", "Cash Settlement"],
+            // "Wallet Payment" / "Wallet Refund" added in Phase 1 to fix
+            // audit-plan critical finding C-2: orderPlacementService and
+            // refund flows were writing these literals, but the schema
+            // enum rejected them, aborting wallet-redemption checkouts.
+            // The Transaction model is the legacy ledger; Phase 4 migrates
+            // these writes onto LedgerEntry. Until then this enum must
+            // accept what callers already emit.
+            enum: [
+                "Order Payment",
+                "Delivery Earning",
+                "Withdrawal",
+                "Refund",
+                "Incentive",
+                "Bonus",
+                "Cash Collection",
+                "Cash Settlement",
+                "Wallet Payment",
+                "Wallet Refund",
+            ],
             required: true,
         },
         amount: {

@@ -247,6 +247,14 @@ const orderSchema = new mongoose.Schema(
       sellerPayoutQueued: { type: Boolean, default: false },
       riderPayoutQueued: { type: Boolean, default: false },
       adminEarningCredited: { type: Boolean, default: false },
+      // Added in Phase 1 (audit-plan ticket P1-3). These flags were
+      // already written and read by orderController, orderFinanceService,
+      // orderWorkflowController, and returnWindowReleaseJob, but they
+      // weren't declared on the schema, so Mongoose silently dropped
+      // every write. Declaring them here makes the existing logic
+      // actually take effect; no code change is needed elsewhere.
+      sellerPayoutHeld: { type: Boolean, default: false },
+      returnPickupCommissionPaid: { type: Boolean, default: false },
     },
     status: {
       type: String,

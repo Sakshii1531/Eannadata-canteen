@@ -21,18 +21,38 @@ function joinJoiMessages(error) {
   return error.details.map((detail) => detail.message).join("; ");
 }
 
+const ALLOWED_SOURCES = new Set(["body", "query", "params", "headers"]);
+
 /**
- * Express middleware factory. Validates `req.body` against the supplied Joi
- * schema, replaces `req.body` with the sanitized value on success, and
- * responds 400 with a uniform error envelope on failure.
+ * Express middleware factory. Validates a request input source against the
+ * supplied Joi schema, replaces the source with the sanitized value on
+ * success, and responds 400 with a uniform error envelope on failure.
  *
- *   router.post("/orders", validate(createOrderSchema), placeOrder);
+ *   router.post("/orders",    validate(createOrderSchema),               placeOrder);
+ *   router.get ("/orders",    validate(listOrdersSchema,    "query"),    listOrders);
+ *   router.delete("/orders/:id", validate(orderParamsSchema, "params"),  cancelOrder);
+ *
+ * The `source` parameter is optional and defaults to `"body"`, so every
+ * existing `validate(schema)` call site continues to behave identically.
+ * Added in Phase 1 (audit-plan ticket P1-4) so route files can validate
+ * URL params and query strings without falling back to inline checks.
  *
  * @param {import('joi').Schema} schema
+ * @param {"body"|"query"|"params"|"headers"} [source="body"]
  */
-export function validate(schema) {
+export function validate(schema, source = "body") {
+  if (!ALLOWED_SOURCES.has(source)) {
+    throw new Error(
+      `validate(): unsupported source "${source}". Expected one of: ${[...ALLOWED_SOURCES].join(", ")}.`,
+    );
+  }
   return (req, res, next) => {
-    const { error, value } = schema.validate(req.body, JOI_OPTIONS);
+    // `convert: true` only when validating non-body sources, where values
+    // arrive as strings (e.g. "?page=2") and the schema expects numbers.
+    // Keep body validation strict to preserve existing behavior.
+    const options =
+      source === "body" ? JOI_OPTIONS : { ...JOI_OPTIONS, convert: true };
+    const { error, value } = schema.validate(req[source], options);
     if (error) {
       return res.status(400).json({
         success: false,
@@ -40,7 +60,10 @@ export function validate(schema) {
         message: joinJoiMessages(error),
       });
     }
-    req.body = value;
+    // Mutating req.query / req.params is supported by Express and matches
+    // the pre-existing req.body pattern; downstream handlers see the
+    // sanitized value transparently.
+    req[source] = value;
     return next();
   };
 }
