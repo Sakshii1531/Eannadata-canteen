@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@core/context/AuthContext";
-import { disconnectOrderSocket, onTicketMessage } from "@core/services/orderSocket";
+import { onTicketMessage } from "@core/services/orderSocket";
 
 const SupportUnreadContext = createContext(undefined);
 
@@ -116,8 +116,14 @@ export const SupportUnreadProvider = ({ children }) => {
     if (!token) return;
     const r = String(role || "").toLowerCase();
     if (r !== "admin" && r !== "customer" && r !== "user") return;
+    // On /admin/settings the admin shouldn't accumulate unread-ticket
+    // counts (the page already manages its own ticket view). Skip
+    // attaching this listener — and let React's effect cleanup detach
+    // any listener from the previous path. Do NOT tear down the
+    // shared singleton socket: every other module (orders, OTP,
+    // delivery broadcasts, chat, etc.) shares it and would go deaf
+    // until something else re-instantiated the client.
     if (r === "admin" && pathname.startsWith("/admin/settings")) {
-      disconnectOrderSocket();
       return;
     }
 
