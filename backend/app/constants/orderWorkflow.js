@@ -21,6 +21,20 @@ export const DEFAULT_DELIVERY_TIMEOUT_MS = () =>
   parseInt(process.env.DELIVERY_TIMEOUT_MS || "60000", 10);
 
 /**
+ * Return-pickup broadcast assignment knobs — mirror the
+ * delivery-search state machine so returns get the same
+ * scheduler / radius-expansion / give-up semantics.
+ */
+export const DEFAULT_RETURN_PICKUP_TIMEOUT_MS = () =>
+  parseInt(process.env.RETURN_PICKUP_TIMEOUT_MS || "60000", 10);
+export const RETURN_PICKUP_SEARCH_MAX_ATTEMPTS = () =>
+  parseInt(process.env.RETURN_PICKUP_MAX_ATTEMPTS || "3", 10);
+export const INITIAL_RETURN_PICKUP_RADIUS_M = () =>
+  parseInt(process.env.INITIAL_RETURN_PICKUP_RADIUS_METERS || "5000", 10);
+export const RETURN_PICKUP_RADIUS_MULTIPLIER = () =>
+  parseFloat(process.env.RETURN_PICKUP_RADIUS_MULTIPLIER || "1.5");
+
+/**
  * Map workflow -> legacy `status` string (existing enum on Order schema).
  */
 export function legacyStatusFromWorkflow(workflowStatus) {

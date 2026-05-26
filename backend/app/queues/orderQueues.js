@@ -38,7 +38,16 @@ export const deliveryTimeoutQueue = isRedisEnabled()
     })
   : createNoopQueue();
 
+export const returnPickupTimeoutQueue = isRedisEnabled()
+  ? new Bull("return-pickup-timeout", {
+      redis: redisOpts,
+      createClient: createBullRedisClient,
+      settings: queueSettings,
+    })
+  : createNoopQueue();
+
 export const JOB_NAMES = {
   SELLER_TIMEOUT: "seller-timeout",
   DELIVERY_TIMEOUT: "delivery-timeout",
+  RETURN_PICKUP_TIMEOUT: "return-pickup-timeout",
 };

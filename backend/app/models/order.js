@@ -435,6 +435,15 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Delivery",
     },
+    // Return-pickup assignment workflow (mirrors deliverySearch*). Only
+    // populated while `returnStatus === "return_pickup_assigned"` and the
+    // pickup is in the broadcast / radius-expansion phase.
+    returnSearchExpiresAt: Date,
+    returnSearchMeta: {
+      radiusMeters: { type: Number, default: 5000 },
+      attempt: { type: Number, default: 1 },
+      lastBroadcastAt: Date,
+    },
     returnDeliveryCommission: {
       type: Number,
       default: 0,
@@ -494,6 +503,7 @@ orderSchema.index({ status: 1, expiresAt: 1 });
 orderSchema.index({ seller: 1, returnStatus: 1, returnRequestedAt: -1 });
 orderSchema.index({ workflowStatus: 1, sellerPendingExpiresAt: 1 });
 orderSchema.index({ workflowStatus: 1, deliverySearchExpiresAt: 1 });
+orderSchema.index({ returnStatus: 1, returnSearchExpiresAt: 1 });
 orderSchema.index({ deliveryBoy: 1, workflowStatus: 1 });
 orderSchema.index({ paymentMode: 1, paymentStatus: 1, createdAt: -1 });
 orderSchema.index({ orderStatus: 1, "settlementStatus.overall": 1, createdAt: -1 });

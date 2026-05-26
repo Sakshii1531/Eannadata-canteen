@@ -13,11 +13,13 @@
 import {
   sellerTimeoutQueue,
   deliveryTimeoutQueue,
+  returnPickupTimeoutQueue,
   JOB_NAMES,
 } from "../../queues/orderQueues.js";
 import {
   DEFAULT_SELLER_TIMEOUT_MS,
   DEFAULT_DELIVERY_TIMEOUT_MS,
+  DEFAULT_RETURN_PICKUP_TIMEOUT_MS,
 } from "../../constants/orderWorkflow.js";
 import logger from "../logger.js";
 
@@ -30,6 +32,10 @@ function sellerJobId(orderId) {
 
 function deliveryJobId(orderId, attempt) {
   return `order:${orderId}:delivery:${attempt}`;
+}
+
+function returnPickupJobId(orderId, attempt) {
+  return `order:${orderId}:return-pickup:${attempt}`;
 }
 
 async function raceWithTimeout(promise, timeoutMs, timeoutMessage) {
