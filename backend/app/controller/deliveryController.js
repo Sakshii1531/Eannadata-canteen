@@ -370,20 +370,51 @@ export const updateDeliveryLocation = async (req, res) => {
             return handleResponse(res, 404, "Delivery partner not found");
         }
 
-        // Optional: if orderId is provided, verify assignment asynchronously
-        // Don't await — resolve activeOrderId optimistically and let Firebase writes use it
-        let activeOrderId = orderId || null;
+        // SECURITY: when an orderId is supplied, the rider is telling us which
+        // active delivery this ping belongs to. We MUST verify the assignment
+        // synchronously before fanning out to Firebase — otherwise a rider can
+        // pollute another order's live-tracking path (and the customer map
+        // would render the wrong rider). The previous fire-and-forget check
+        // ran *after* the Firebase write and never blocked anything.
+        //
+        // Rules:
+        //   - orderId omitted          -> only the delivery-keyed RTDB entry is
+        //                                 written (no per-order fanout). Trail
+        //                                 is skipped. This preserves the
+        //                                 "background heartbeat" code path.
+        //   - orderId references a doc -> rider must equal order.deliveryBoy,
+        //                                 otherwise 403/404 and no RTDB write.
+        //   - canonical orderId        -> always read from Mongo, never from
+        //                                 the request body, so the RTDB path
+        //                                 cannot be spoofed via case-drift or
+        //                                 alternate ids.
+        let activeOrderId = null;
         if (orderId) {
-            // Fire-and-forget verification; if order lookup fails, Firebase just gets the raw orderId
-            Order.findOne(orderMatchQueryFromRouteParam(orderId) || {})
+            const orderMatch = orderMatchQueryFromRouteParam(orderId);
+            if (!orderMatch) {
+                return handleResponse(res, 400, "Invalid orderId");
+            }
+
+            const order = await Order.findOne(orderMatch)
                 .select("orderId deliveryBoy")
-                .lean()
-                .then((order) => {
-                    if (!order || order.deliveryBoy?.toString() !== deliveryId) {
-                        // Mismatch — no further action needed, already responded
-                    }
-                })
-                .catch(() => {});
+                .lean();
+
+            if (!order) {
+                return handleResponse(res, 404, "Order not found");
+            }
+
+            const assignedRiderId = order.deliveryBoy
+                ? String(order.deliveryBoy)
+                : null;
+            if (assignedRiderId !== String(deliveryId)) {
+                return handleResponse(
+                    res,
+                    403,
+                    "Order is not assigned to this delivery partner"
+                );
+            }
+
+            activeOrderId = order.orderId;
         }
 
         const snapshot = {
@@ -397,7 +428,9 @@ export const updateDeliveryLocation = async (req, res) => {
             orderId: activeOrderId,
         };
 
-        // Fan out to Firebase and trail — fire-and-forget, never block the response
+        // Fan out to Firebase and trail — fire-and-forget, never block the
+        // response. Reaching this line guarantees activeOrderId (if set) is
+        // the canonical id of an order this rider is actually assigned to.
         writeDeliveryLocation(deliveryId, activeOrderId, snapshot).catch(() => {});
         if (activeOrderId) {
             appendTrailPoint(activeOrderId, { lat, lng, t: Date.now() }).catch(() => {});
