@@ -33,6 +33,12 @@ they are evergreen and apply to all future work, not just one migration.
 | --- | --- |
 | `validation-middleware-standard/` | Any new HTTP endpoint or any controller still using inline `validateWithJoi(...)`. Schemas live under `app/validation/`. |
 
+## Realtime & production reliability
+
+| Skill | Use when |
+| --- | --- |
+| `realtime-architecture-audit/` | Auditing sockets, Firebase RTDB, Redis/Bull queues, notifications, delivery tracking, OTP workflows, polling fallbacks, or multi-node scaling. Produces a prioritized findings report with root cause / impact / exact fix / phased plan / refactor guidance and a production-readiness score. |
+
 ## Frontend
 
 | Skill | Use when |
