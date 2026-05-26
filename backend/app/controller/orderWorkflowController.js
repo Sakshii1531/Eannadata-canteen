@@ -64,22 +64,68 @@ export const advanceDeliveryRiderUi = async (req, res) => {
 export const requestDeliveryOtp = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { lat, lng } = req.body || {};
+    const { location, lat: bodyLat, lng: bodyLng } = req.body || {};
+    // Accept both `{ lat, lng }` and the legacy `{ location: { lat, lng } }`
+    // body shape so we don't break the existing slide button payload.
+    const lat =
+      typeof bodyLat === "number"
+        ? bodyLat
+        : typeof location?.lat === "number"
+          ? location.lat
+          : undefined;
+    const lng =
+      typeof bodyLng === "number"
+        ? bodyLng
+        : typeof location?.lng === "number"
+          ? location.lng
+          : undefined;
     const result = await requestHandoffOtpAtomic(req.user.id, orderId, lat, lng);
-    return handleResponse(res, 200, result.message || "OTP sent", result);
+    return handleResponse(
+      res,
+      200,
+      result.message || "OTP generated and sent to customer",
+      result,
+    );
   } catch (e) {
-    return handleResponse(res, e.statusCode || 500, e.message);
+    return handleResponse(res, e.statusCode || 500, e.message, {
+      error: {
+        code: e.code || "OTP_REQUEST_FAILED",
+        message: e.message,
+      },
+    });
   }
 };
 
 export const verifyDeliveryOtp = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { code } = req.body || {};
-    const result = await verifyHandoffOtpAndDeliver(req.user.id, orderId, code);
-    return handleResponse(res, 200, "Order delivered", result);
+    const { code, otp } = req.body || {};
+    // Accept either `{ code }` (workflow convention) or `{ otp }` (legacy
+    // convention) so older clients on the canonical endpoint don't break.
+    const entered = String(code ?? otp ?? "").trim();
+    const result = await verifyHandoffOtpAndDeliver(
+      req.user.id,
+      orderId,
+      entered,
+    );
+    return handleResponse(
+      res,
+      200,
+      result.warning
+        ? "Order delivered successfully (finance pending)"
+        : "Order delivered successfully",
+      result,
+    );
   } catch (e) {
-    return handleResponse(res, e.statusCode || 500, e.message);
+    return handleResponse(res, e.statusCode || 500, e.message, {
+      error: {
+        code: e.code || "VALIDATION_FAILED",
+        message: e.message,
+        ...(typeof e.attemptsRemaining === "number"
+          ? { attemptsRemaining: e.attemptsRemaining }
+          : {}),
+      },
+    });
   }
 };
 

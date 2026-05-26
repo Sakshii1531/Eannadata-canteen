@@ -58,7 +58,7 @@ const DeliverySlideButton = ({
         ? await deliveryApi.requestReturnDropOtp(orderId, {})
         : isReturn
           ? await deliveryApi.requestReturnOtp(orderId, {})
-          : await deliveryApi.generateDeliveryOtp(orderId);
+          : await deliveryApi.requestDeliveryOtp(orderId, {});
 
       // Handle success
       toast.success(response.data?.message || "OTP generated and sent to customer");
@@ -67,9 +67,20 @@ const DeliverySlideButton = ({
         onSuccess(response.data);
       }
     } catch (error) {
-      // Handle different error types
-      const errorMessage = error.response?.data?.error?.message || error.message || "Failed to generate OTP";
-      const errorCode = error.response?.data?.error?.code;
+      // Handle different error types. Same dual-shape access pattern as
+      // OtpInput.jsx — the canonical workflow controller wraps the
+      // structured payload inside `result.error`.
+      const respData = error.response?.data || {};
+      const structured =
+        (respData.result && respData.result.error) ||
+        (typeof respData.error === "object" ? respData.error : null) ||
+        {};
+      const errorMessage =
+        structured.message ||
+        respData.message ||
+        error.message ||
+        "Failed to generate OTP";
+      const errorCode = structured.code;
 
       // Display user-friendly error messages
       if (errorCode === "PROXIMITY_OUT_OF_RANGE") {

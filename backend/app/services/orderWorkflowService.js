@@ -3,6 +3,11 @@ import Order from "../models/order.js";
 import DeliveryAssignment from "../models/deliveryAssignment.js";
 import OrderOtp from "../models/orderOtp.js";
 import Seller from "../models/seller.js";
+import Delivery from "../models/delivery.js";
+import {
+  clearOrderTracking,
+  clearRiderPresence,
+} from "./firebaseService.js";
 import {
   WORKFLOW_STATUS,
   legacyStatusFromWorkflow,
@@ -30,6 +35,7 @@ import {
   emitDeliveryBroadcastForSeller,
   emitReturnBroadcastForCustomer,
   emitToCustomer,
+  emitToOrder,
   retractDeliveryBroadcastForOrder,
 } from "./orderSocketEmitter.js";
 import { distanceMeters } from "../utils/geoUtils.js";
@@ -984,29 +990,118 @@ export async function advanceDeliveryRiderUiAtomic(deliveryId, orderId) {
   return updated;
 }
 
-export async function requestHandoffOtpAtomic(deliveryId, orderId, lat, lng) {
-  if (
-    typeof lat !== "number" ||
-    typeof lng !== "number" ||
-    !Number.isFinite(lat) ||
-    !Number.isFinite(lng)
-  ) {
-    const err = new Error("Valid lat/lng required");
-    err.statusCode = 400;
+/**
+ * Resolve the rider's current location. Mirrors the legacy fallback:
+ *   - if body lat/lng provided and valid → use it,
+ *   - else read Delivery.location (GeoJSON [lng, lat]) and require it to
+ *     be both non-default and refreshed within the last 5 minutes
+ *     (so we never grant proximity bypass via stale cache).
+ * Throws structured statusCode/code errors that the controller surfaces verbatim.
+ */
+async function resolveRiderLocation(deliveryId, bodyLat, bodyLng) {
+  const fromBody =
+    typeof bodyLat === "number" &&
+    typeof bodyLng === "number" &&
+    Number.isFinite(bodyLat) &&
+    Number.isFinite(bodyLng);
+
+  if (fromBody) {
+    if (
+      bodyLat < -90 ||
+      bodyLat > 90 ||
+      bodyLng < -180 ||
+      bodyLng > 180
+    ) {
+      const err = new Error(
+        "Latitude must be between -90 and 90, longitude between -180 and 180",
+      );
+      err.statusCode = 400;
+      err.code = "LOCATION_REQUIRED";
+      throw err;
+    }
+    return { lat: bodyLat, lng: bodyLng };
+  }
+
+  const delivery = await Delivery.findById(deliveryId).select(
+    "location lastLocationAt",
+  );
+  if (!delivery) {
+    const err = new Error("Delivery person not found");
+    err.statusCode = 404;
+    err.code = "DELIVERY_NOT_FOUND";
     throw err;
   }
 
+  const coords = delivery.location?.coordinates;
+  if (!Array.isArray(coords) || coords.length < 2) {
+    const err = new Error(
+      "Your location is not available. Please ensure location tracking is enabled.",
+    );
+    err.statusCode = 400;
+    err.code = "LOCATION_REQUIRED";
+    throw err;
+  }
+
+  const [lng, lat] = coords;
+  if (Math.abs(lat) < 1e-5 && Math.abs(lng) < 1e-5) {
+    const err = new Error(
+      "Your location is not available. Please ensure location tracking is enabled.",
+    );
+    err.statusCode = 400;
+    err.code = "LOCATION_REQUIRED";
+    throw err;
+  }
+
+  if (!delivery.lastLocationAt) {
+    const err = new Error(
+      "Your location data is not available. Please ensure location tracking is enabled.",
+    );
+    err.statusCode = 400;
+    err.code = "LOCATION_STALE";
+    throw err;
+  }
+
+  const locationAge = Date.now() - delivery.lastLocationAt.getTime();
+  if (locationAge > 5 * 60 * 1000) {
+    const err = new Error(
+      "Your location data is outdated. Please ensure location tracking is enabled and try again.",
+    );
+    err.statusCode = 400;
+    err.code = "LOCATION_STALE";
+    throw err;
+  }
+
+  return { lat, lng };
+}
+
+export async function requestHandoffOtpAtomic(deliveryId, orderId, lat, lng) {
   const order = await Order.findOne({
     orderId,
     deliveryBoy: deliveryId,
-    workflowVersion: { $gte: 2 },
   });
 
-  if (!order || order.workflowStatus !== WORKFLOW_STATUS.OUT_FOR_DELIVERY) {
-    const err = new Error("Order not ready for OTP");
-    err.statusCode = 409;
+  if (!order) {
+    const err = new Error("Order not found or not assigned to you");
+    err.statusCode = 404;
+    err.code = "UNAUTHORIZED_DELIVERY";
     throw err;
   }
+
+  // Accept either v2 workflow state OUT_FOR_DELIVERY *or* legacy v1
+  // status "out_for_delivery" — the legacy controller didn't gate on
+  // state at all, so this is the strictest backward-compatible guard.
+  const isV2Out = order.workflowStatus === WORKFLOW_STATUS.OUT_FOR_DELIVERY;
+  const isV1Out =
+    (order.workflowVersion || 1) < 2 &&
+    String(order.status || "").toLowerCase() === "out_for_delivery";
+  if (!isV2Out && !isV1Out) {
+    const err = new Error("Order not ready for OTP");
+    err.statusCode = 409;
+    err.code = "ORDER_NOT_READY";
+    throw err;
+  }
+
+  const rider = await resolveRiderLocation(deliveryId, lat, lng);
 
   const cust = order.address?.location;
   if (
@@ -1017,13 +1112,17 @@ export async function requestHandoffOtpAtomic(deliveryId, orderId, lat, lng) {
   ) {
     const err = new Error("Customer address coordinates missing");
     err.statusCode = 400;
+    err.code = "ORDER_LOCATION_REQUIRED";
     throw err;
   }
 
-  const d = distanceMeters(lat, lng, cust.lat, cust.lng);
+  const d = distanceMeters(rider.lat, rider.lng, cust.lat, cust.lng);
   if (d > OTP_RADIUS_M()) {
-    const err = new Error(`Too far from customer (>${OTP_RADIUS_M()}m)`);
-    err.statusCode = 400;
+    const err = new Error(
+      `Delivery person must be within ${OTP_RADIUS_M()} meters of delivery location. Current distance: ${Math.round(d)}m`,
+    );
+    err.statusCode = 403;
+    err.code = "PROXIMITY_OUT_OF_RANGE";
     throw err;
   }
 
@@ -1036,6 +1135,7 @@ export async function requestHandoffOtpAtomic(deliveryId, orderId, lat, lng) {
       if (n > 3) {
         const err = new Error("OTP request rate limit exceeded");
         err.statusCode = 429;
+        err.code = "OTP_RATE_LIMIT";
         throw err;
       }
     } catch (e) {
@@ -1043,83 +1143,172 @@ export async function requestHandoffOtpAtomic(deliveryId, orderId, lat, lng) {
     }
   }
 
-  const code = String(Math.floor(1000 + Math.random() * 9000));
+  const code = String(Math.floor(1000 + Math.random() * 9000)).padStart(4, "0");
   const codeHash = OrderOtp.hashCode(code);
 
-  await OrderOtp.deleteMany({
-    orderId,
-    consumedAt: null,
-  });
+  // Mark previous OTPs as consumed (legacy parity) instead of deleting,
+  // so attempt history remains queryable for forensics.
+  await OrderOtp.updateMany(
+    { orderId, type: "delivery", consumedAt: null },
+    { $set: { consumedAt: new Date() } },
+  );
 
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS());
   await OrderOtp.create({
     orderId,
     orderMongoId: order._id,
+    type: "delivery",
     codeHash,
+    code,
     expiresAt,
+    attempts: 0,
+    maxAttempts: 3,
     lastGeneratedAt: new Date(),
   });
 
-  emitToCustomer(order.customer.toString(), {
-    event: "order:otp",
-    payload: { orderId, code, expiresAt },
-  });
+  const customerId =
+    order.customer && typeof order.customer.toString === "function"
+      ? order.customer.toString()
+      : order.customer;
 
-  // Emitting the specialized event that DeliveryOtpDisplay expects
-  emitToCustomer(order.customer.toString(), {
+  const otpPayload = {
+    orderId,
+    otp: code,
+    code,
+    expiresAt,
+    deliveryPersonNearby: true,
+  };
+
+  emitToCustomer(customerId, { event: "order:otp", payload: otpPayload });
+  emitToCustomer(customerId, {
     event: "delivery:otp:generated",
-    payload: { 
-      orderId, 
-      otp: code, 
-      expiresAt, 
-      deliveryPersonNearby: true 
-    },
+    payload: otpPayload,
+  });
+  // Mirror the legacy fan-out: clients that joined `order:<id>` (the
+  // customer's open OrderDetailPage in particular) also expect to see
+  // these events without subscribing to the personal room.
+  emitToOrder(orderId, { event: "order:otp", payload: otpPayload });
+  emitToOrder(orderId, {
+    event: "delivery:otp:generated",
+    payload: otpPayload,
   });
   emitOrderStatusUpdate(orderId, { otpSent: true }, order.customer);
 
-  return { expiresAt, message: "OTP sent to customer" };
+  return { expiresAt, attemptsRemaining: 3, message: "OTP sent to customer" };
+}
+
+/**
+ * Map a delivery-OTP storage code into an HTTP status. Mirrors the
+ * historical mapping the legacy controller exposed to clients.
+ */
+function statusCodeForOtpError(errorCode) {
+  switch (errorCode) {
+    case "OTP_INVALID_FORMAT":
+    case "INVALID_FORMAT":
+      return 400;
+    case "OTP_EXPIRED":
+      return 401;
+    case "OTP_MISMATCH":
+      return 403;
+    case "OTP_NOT_FOUND":
+      return 404;
+    case "OTP_CONSUMED":
+      return 409;
+    case "MAX_ATTEMPTS_EXCEEDED":
+      return 423;
+    default:
+      return 500;
+  }
 }
 
 export async function verifyHandoffOtpAndDeliver(deliveryId, orderId, code) {
+  // Validate format up-front so the controller surfaces OTP_INVALID_FORMAT
+  // exactly like the legacy endpoint did (frontend switches on this code).
+  if (!code || typeof code !== "string") {
+    const err = new Error("OTP is required");
+    err.statusCode = 400;
+    err.code = "OTP_INVALID_FORMAT";
+    throw err;
+  }
+  if (!/^\d{4}$/.test(code)) {
+    const err = new Error("OTP must be exactly 4 digits");
+    err.statusCode = 400;
+    err.code = "OTP_INVALID_FORMAT";
+    throw err;
+  }
+
   orderId = await requireCanonicalOrderId(orderId);
   const order = await Order.findOne({
     orderId,
     deliveryBoy: deliveryId,
-    workflowVersion: { $gte: 2 },
-  });
+  }).populate("customer", "name phone");
 
-  if (!order || order.workflowStatus !== WORKFLOW_STATUS.OUT_FOR_DELIVERY) {
+  if (!order) {
+    const err = new Error("Order not found or not assigned to you");
+    err.statusCode = 404;
+    err.code = "UNAUTHORIZED_DELIVERY";
+    throw err;
+  }
+
+  const isV2Out = order.workflowStatus === WORKFLOW_STATUS.OUT_FOR_DELIVERY;
+  const isV1Out =
+    (order.workflowVersion || 1) < 2 &&
+    String(order.status || "").toLowerCase() === "out_for_delivery";
+  if (!isV2Out && !isV1Out) {
     const err = new Error("Invalid state for delivery completion");
     err.statusCode = 409;
+    err.code = "ORDER_NOT_READY";
     throw err;
   }
 
-  const otp = await OrderOtp.findOne({
-    orderId,
-    consumedAt: null,
-  }).sort({ createdAt: -1 });
+  // Load the most recent OTP record; do NOT filter on consumedAt so we
+  // can return actionable OTP_CONSUMED instead of a generic OTP_NOT_FOUND.
+  const otp = await OrderOtp.findOne({ orderId, type: "delivery" }).sort({
+    lastGeneratedAt: -1,
+    createdAt: -1,
+  });
 
   if (!otp) {
-    const err = new Error("No active OTP");
-    err.statusCode = 400;
+    const err = new Error("No OTP has been generated for this order yet");
+    err.statusCode = statusCodeForOtpError("OTP_NOT_FOUND");
+    err.code = "OTP_NOT_FOUND";
     throw err;
   }
-  if (otp.expiresAt < new Date()) {
-    const err = new Error("OTP expired");
-    err.statusCode = 400;
+
+  if (otp.consumedAt) {
+    const err = new Error("OTP has already been used. Please generate a new OTP.");
+    err.statusCode = statusCodeForOtpError("OTP_CONSUMED");
+    err.code = "OTP_CONSUMED";
+    err.attemptsRemaining = 0;
     throw err;
   }
+
   if (otp.attempts >= otp.maxAttempts) {
-    const err = new Error("Too many OTP attempts");
-    err.statusCode = 429;
+    const err = new Error(
+      "Maximum validation attempts exceeded. Supervisor intervention required.",
+    );
+    err.statusCode = statusCodeForOtpError("MAX_ATTEMPTS_EXCEEDED");
+    err.code = "MAX_ATTEMPTS_EXCEEDED";
+    err.attemptsRemaining = 0;
+    throw err;
+  }
+
+  if (otp.expiresAt && otp.expiresAt < new Date()) {
+    const err = new Error("OTP has expired. Please generate a new OTP.");
+    err.statusCode = statusCodeForOtpError("OTP_EXPIRED");
+    err.code = "OTP_EXPIRED";
+    err.attemptsRemaining = otp.maxAttempts - otp.attempts;
     throw err;
   }
 
   const match = OrderOtp.hashCode(String(code)) === otp.codeHash;
   if (!match) {
-    await OrderOtp.updateOne({ _id: otp._id }, { $inc: { attempts: 1 } });
-    const err = new Error("Invalid OTP");
-    err.statusCode = 400;
+    otp.attempts += 1;
+    await otp.save();
+    const err = new Error("Invalid OTP. Please try again.");
+    err.statusCode = statusCodeForOtpError("OTP_MISMATCH");
+    err.code = "OTP_MISMATCH";
+    err.attemptsRemaining = otp.maxAttempts - otp.attempts;
     throw err;
   }
 
@@ -1129,43 +1318,124 @@ export async function verifyHandoffOtpAndDeliver(deliveryId, orderId, code) {
   );
 
   const now = new Date();
-  const updated = await Order.findOneAndUpdate(
-    {
+
+  // Capture the rider's last-known coords so the OTP-validation event
+  // carries the same audit trail the legacy controller persisted.
+  let validationLocation = null;
+  try {
+    const delivery = await Delivery.findById(deliveryId).select("location");
+    const coords = delivery?.location?.coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+      validationLocation = { lng: coords[0], lat: coords[1] };
+    }
+  } catch (e) {
+    logger.warn("verifyHandoffOtpAndDeliver: rider location read failed", {
+      scope: "verifyHandoffOtpAndDeliver",
       orderId,
-      workflowStatus: WORKFLOW_STATUS.OUT_FOR_DELIVERY,
-      deliveryBoy: deliveryId,
-    },
-    {
-      $set: {
-        workflowStatus: WORKFLOW_STATUS.DELIVERED,
-        status: "delivered",
-        deliveredAt: now,
-      },
-    },
+      error: e.message,
+    });
+  }
+
+  // For v2 orders we move the workflow state; for legacy v1 we just
+  // flip the legacy `status`. The atomic guard prevents double-delivery
+  // by including the expected pre-state in the filter.
+  const updateFilter = isV2Out
+    ? {
+        orderId,
+        workflowStatus: WORKFLOW_STATUS.OUT_FOR_DELIVERY,
+        deliveryBoy: deliveryId,
+      }
+    : {
+        orderId,
+        status: "out_for_delivery",
+        deliveryBoy: deliveryId,
+      };
+
+  const updateSet = {
+    status: "delivered",
+    deliveredAt: now,
+    otpValidatedAt: now,
+  };
+  if (isV2Out) {
+    updateSet.workflowStatus = WORKFLOW_STATUS.DELIVERED;
+  }
+  if (validationLocation) {
+    updateSet.otpValidationLocation = validationLocation;
+  }
+
+  const updated = await Order.findOneAndUpdate(
+    updateFilter,
+    { $set: updateSet },
     { new: true },
   );
 
   if (!updated) {
     const err = new Error("Could not finalize delivery");
     err.statusCode = 409;
+    err.code = "ORDER_NOT_READY";
     throw err;
   }
 
-  // BUGFIX: Verify customer field is preserved after update
   if (!updated.customer) {
     logger.error("Customer field lost during delivery completion", {
       scope: "ORDER_BUG",
       orderId,
       _id: updated._id,
     });
-    const err = new Error("Order data integrity error: customer reference lost during update");
+    const err = new Error(
+      "Order data integrity error: customer reference lost during update",
+    );
     err.statusCode = 500;
+    err.code = "ORDER_DATA_CORRUPT";
     throw err;
   }
 
-  await applyDeliveredSettlement(updated, orderId);
+  let settlementWarning = null;
+  try {
+    await applyDeliveredSettlement(updated, orderId);
+  } catch (settlementError) {
+    // Order is already marked delivered. Surface a warning instead of
+    // failing the OTP call — finance can reconcile out-of-band.
+    logger.error("Settlement failed after delivery", {
+      scope: "verifyHandoffOtpAndDeliver",
+      orderId,
+      error: settlementError.message,
+    });
+    settlementWarning = {
+      code: "FINANCE_SETTLEMENT_FAILED",
+      message: settlementError.message,
+    };
+  }
 
-  emitOrderStatusUpdate(orderId, { workflowStatus: WORKFLOW_STATUS.DELIVERED }, updated.customer);
+  // Realtime tracking nodes for this order are no longer interesting —
+  // drop them so the customer's live-map and the fleet view stop
+  // showing this rider as "live on order".
+  clearOrderTracking(orderId).catch(() => {});
+  clearRiderPresence(deliveryId).catch(() => {});
+
+  emitOrderStatusUpdate(
+    orderId,
+    { workflowStatus: WORKFLOW_STATUS.DELIVERED },
+    updated.customer,
+  );
+
+  // Frontend-compat: customers + observers listen for "delivery:otp:validated"
+  // to flip their UI to "Delivered". Emit to both the customer room and the
+  // order room so any open client picks it up.
+  const validatedPayload = {
+    orderId,
+    status: "delivered",
+    deliveredAt: now.toISOString(),
+  };
+  emitToCustomer(updated.customer?._id || updated.customer, {
+    event: "delivery:otp:validated",
+    payload: validatedPayload,
+  });
+  emitToOrder(orderId, {
+    event: "delivery:otp:validated",
+    payload: validatedPayload,
+  });
+
   emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_DELIVERED, {
     orderId: updated.orderId,
     customerId: updated.customer,
@@ -1173,5 +1443,11 @@ export async function verifyHandoffOtpAndDeliver(deliveryId, orderId, code) {
     deliveryId: updated.deliveryBoy,
     sellerId: updated.seller,
   });
-  return updated;
+
+  return {
+    order: updated,
+    orderId: updated.orderId,
+    deliveredAt: now.toISOString(),
+    warning: settlementWarning,
+  };
 }

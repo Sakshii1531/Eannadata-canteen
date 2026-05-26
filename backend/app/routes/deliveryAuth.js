@@ -14,8 +14,6 @@ import {
   getMyDeliveryOrders,
   requestWithdrawal,
   updateDeliveryLocation,
-  generateDeliveryOtp,
-  validateDeliveryOtp,
 } from "../controller/deliveryController.js";
 import { getRiderWalletSummaryController } from "../controller/adminFinanceController.js";
 
@@ -50,20 +48,13 @@ router.get(
 router.post("/request-withdrawal", verifyToken, requestWithdrawal);
 router.post("/location", verifyToken, updateDeliveryLocation);
 
-// OTP generation for delivery completion
-router.post(
-  "/orders/:orderId/generate-otp",
-  verifyToken,
-  allowRoles("delivery", "admin"),
-  generateDeliveryOtp
-);
-
-// OTP validation for delivery completion
-router.post(
-  "/orders/:orderId/validate-otp",
-  verifyToken,
-  allowRoles("delivery", "admin"),
-  validateDeliveryOtp
-);
+// NOTE: Delivery-completion OTP generation/validation lives on the
+// canonical workflow routes:
+//   POST /orders/workflow/:orderId/otp/request
+//   POST /orders/workflow/:orderId/otp/verify
+// The previous /delivery/orders/:orderId/(generate|validate)-otp
+// endpoints were removed once the workflow state machine became the
+// single source of truth (see backend/app/services/orderWorkflowService.js
+// requestHandoffOtpAtomic / verifyHandoffOtpAndDeliver).
 
 export default router;

@@ -80,6 +80,17 @@ export function emitToDelivery(deliveryId, { event, payload }) {
 }
 
 /**
+ * Emit a custom event to everyone who has joined the order room
+ * (via `join_order`). Used for events that aren't pure workflow
+ * status updates — e.g. `delivery:otp:validated`, `delivery:otp:generated`.
+ */
+export function emitToOrder(orderId, { event, payload }) {
+  const s = getIo();
+  if (!s || !orderId || !event) return;
+  s.to(`order:${orderId}`).emit(event, payload);
+}
+
+/**
  * Notify only delivery partners whose live location is within the seller's
  * service radius (see Delivery model location + Seller.serviceRadius).
  */

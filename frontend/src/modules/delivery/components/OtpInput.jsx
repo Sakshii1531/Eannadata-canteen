@@ -113,7 +113,7 @@ const OtpInput = ({ orderId, isReturn = false, isReturnDrop = false, onSuccess, 
     try {
       const response = isReturn
         ? await deliveryApi.requestReturnOtp(orderId, {})
-        : await deliveryApi.generateDeliveryOtp(orderId);
+        : await deliveryApi.requestDeliveryOtp(orderId, {});
       toast.success(response.data?.message || "OTP generated and sent to customer");
       setError(null);
       setLastErrorCode(null);
@@ -154,7 +154,7 @@ const OtpInput = ({ orderId, isReturn = false, isReturnDrop = false, onSuccess, 
         ? await deliveryApi.verifyReturnDropOtp(orderId, { code: otpString })
         : isReturn
           ? await deliveryApi.verifyReturnOtp(orderId, { otp: otpString })
-          : await deliveryApi.validateDeliveryOtp(orderId, { otp: otpString });
+          : await deliveryApi.verifyDeliveryOtp(orderId, { code: otpString });
 
       // Success
       toast.success(
@@ -170,11 +170,22 @@ const OtpInput = ({ orderId, isReturn = false, isReturnDrop = false, onSuccess, 
         onSuccess(response.data);
       }
     } catch (err) {
-      // Handle validation errors
-      const errorData = err.response?.data?.error;
-      const errorCode = errorData?.code;
-      const errorMessage = errorData?.message || "Failed to validate OTP";
-      const remainingAttempts = errorData?.attemptsRemaining;
+      // Handle validation errors. The canonical workflow endpoint puts
+      // the structured payload under `result.error` (because handleResponse
+      // wraps data inside `result`), but historically clients also read
+      // `data.error` directly. Read both for forward-compat.
+      const respData = err.response?.data || {};
+      const errorData =
+        (respData.result && respData.result.error) ||
+        (typeof respData.error === "object" ? respData.error : null) ||
+        {};
+      const errorCode = errorData.code;
+      const errorMessage =
+        errorData.message ||
+        respData.message ||
+        err.message ||
+        "Failed to validate OTP";
+      const remainingAttempts = errorData.attemptsRemaining;
 
       setLastErrorCode(errorCode || null);
 
