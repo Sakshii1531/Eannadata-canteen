@@ -27,13 +27,15 @@ const JOB_ENABLED = (() => {
  *
  * Per-order tracking is cleared synchronously by the lifecycle hooks
  * (delivery OTP, order cancellation, return completion). This job is the
- * safety net for rider-presence nodes (`/fleet/active/*`,
- * `/deliveries/*/current`) when a rider's client never gets a chance to
- * call `clearRiderPresence` — force-quit, network drop, killed PWA, etc.
+ * safety net for rider-presence nodes under /fleet/active/{deliveryId}
+ * and /deliveries/{orderId}/current when a rider's client never gets a chance to
+ * call clearRiderPresence due to force-quit, network drop, killed PWA, etc.
  *
- * Bounded by `FIREBASE_RIDER_PRESENCE_TTL_MS` (default 30 min) which also
- * matches the rider heartbeat cadence in `DeliveryLayout`.
+ * Bounded by FIREBASE_RIDER_PRESENCE_TTL_MS (default 30 min), which also
+ * matches the rider heartbeat cadence in DeliveryLayout.
  */
+
+ 
 const sweepFirebaseTracking = async () => {
   if (!JOB_ENABLED) return;
 
