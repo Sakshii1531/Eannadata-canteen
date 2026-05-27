@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import axiosInstance from '@core/api/axios';
+import { getJSON, setJSON, STORAGE_KEYS } from '@core/utils/storage';
 
-const FAQ_CACHE_KEY = 'customer_faqs_cache_v1';
+const FAQ_CACHE_KEY = STORAGE_KEYS.FAQ_CACHE;
 const FAQ_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const SupportPage = () => {
@@ -29,18 +30,10 @@ const SupportPage = () => {
 
     useEffect(() => {
         const fetchFaqs = async () => {
-            try {
-                const cached = sessionStorage.getItem(FAQ_CACHE_KEY);
-                if (cached) {
-                    const parsed = JSON.parse(cached);
-                    const isFresh = parsed?.ts && Date.now() - parsed.ts < FAQ_CACHE_TTL_MS;
-                    if (isFresh && Array.isArray(parsed?.items)) {
-                        setFaqs(parsed.items);
-                        return;
-                    }
-                }
-            } catch {
-                // Ignore malformed cache and fall through to API.
+            const cached = getJSON(FAQ_CACHE_KEY, null, { storage: 'session' });
+            if (cached && Array.isArray(cached.items)) {
+                setFaqs(cached.items);
+                return;
             }
 
             try {
@@ -50,9 +43,10 @@ const SupportPage = () => {
                 const data = response.data?.result ?? response.data;
                 const list = Array.isArray(data?.items) ? data.items : Array.isArray(data?.results) ? data.results : [];
                 setFaqs(list);
-                sessionStorage.setItem(
+                setJSON(
                     FAQ_CACHE_KEY,
-                    JSON.stringify({ ts: Date.now(), items: list })
+                    { items: list },
+                    { storage: 'session', ttlMs: FAQ_CACHE_TTL_MS },
                 );
             } catch (error) {
                 console.error('Error fetching FAQs:', error);

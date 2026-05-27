@@ -1,4 +1,6 @@
-const STORAGE_KEY = "qc_geocode_cache_v1";
+import { getJSON, setJSON, STORAGE_KEYS } from "./storage";
+
+const STORAGE_KEY = STORAGE_KEYS.GEOCODE_CACHE;
 const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30d
 const MAX_ENTRIES = 200;
 
@@ -10,18 +12,8 @@ function normalizeKey(input) {
     .slice(0, 200);
 }
 
-function safeParse(json) {
-  try {
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
-
 function loadStore() {
-  if (typeof window === "undefined") return { v: 1, items: {} };
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  const parsed = raw ? safeParse(raw) : null;
+  const parsed = getJSON(STORAGE_KEY, null);
   if (!parsed || typeof parsed !== "object" || !parsed.items) {
     return { v: 1, items: {} };
   }
@@ -29,12 +21,7 @@ function loadStore() {
 }
 
 function saveStore(store) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-  } catch {
-    // ignore
-  }
+  setJSON(STORAGE_KEY, store);
 }
 
 function prune(store) {
@@ -74,4 +61,3 @@ export function setCachedGeocode(key, value, ttlMs = DEFAULT_TTL_MS) {
   };
   saveStore(store);
 }
-

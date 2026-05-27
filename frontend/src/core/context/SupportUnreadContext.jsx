@@ -1,17 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@core/context/AuthContext";
 import { onTicketMessage } from "@core/services/orderSocket";
+import { getJSON, setJSON, remove as removeStorage } from "@core/utils/storage";
 
 const SupportUnreadContext = createContext(undefined);
-
-function safeParseJson(value, fallback) {
-  try {
-    if (!value) return fallback;
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
 
 function sumCounts(map) {
   if (!map || typeof map !== "object") return 0;
@@ -37,10 +29,9 @@ export const SupportUnreadProvider = ({ children }) => {
   }, [role, userId]);
 
   const [unreadByTicket, setUnreadByTicket] = useState(() => {
-    if (typeof window === "undefined") return {};
-    const raw = storageKey ? window.localStorage.getItem(storageKey) : null;
-    const parsed = safeParseJson(raw, {});
-    return parsed && typeof parsed === "object" ? parsed : {};
+    if (!storageKey) return {};
+    const parsed = getJSON(storageKey, {});
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   });
 
   const activeTicketIdRef = useRef("");
@@ -73,16 +64,21 @@ export const SupportUnreadProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     if (!storageKey) return;
-    window.localStorage.setItem(storageKey, JSON.stringify(unreadByTicket || {}));
+    const payload = unreadByTicket || {};
+    if (Object.keys(payload).length === 0) {
+      // Don't leave an empty `{}` entry lingering — it clutters storage and
+      // makes per-account cleanup harder to reason about.
+      removeStorage(storageKey);
+      return;
+    }
+    setJSON(storageKey, payload);
   }, [storageKey, unreadByTicket]);
 
   useEffect(() => {
     if (!storageKey) return;
-    const raw = typeof window !== "undefined" ? window.localStorage.getItem(storageKey) : null;
-    const parsed = safeParseJson(raw, {});
-    setUnreadByTicket(parsed && typeof parsed === "object" ? parsed : {});
+    const parsed = getJSON(storageKey, {});
+    setUnreadByTicket(parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 

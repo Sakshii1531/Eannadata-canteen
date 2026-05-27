@@ -18,6 +18,8 @@ import {
   getOrderSocket,
   onDeliveryBroadcastWithdrawn,
 } from "@/core/services/orderSocket";
+import { createSocketTokenReader } from "@core/utils/authStorage";
+import { STORAGE_KEYS } from "@core/utils/storage";
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -43,7 +45,7 @@ const Notifications = () => {
   }, []);
 
   useEffect(() => {
-    const getToken = () => localStorage.getItem("auth_delivery");
+    const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
     getOrderSocket(getToken);
     return onDeliveryBroadcastWithdrawn(getToken, (payload) => {
       const orderId = payload?.orderId;

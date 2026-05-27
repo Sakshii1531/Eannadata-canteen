@@ -1,10 +1,12 @@
 import { isTokenExpired } from "./token";
+import { rawGet, rawRemove } from "./storage";
 
 function extractTokenCandidate(rawValue) {
   if (rawValue == null) return null;
 
   const trimmed = String(rawValue).trim();
   if (!trimmed) return null;
+  if (trimmed === "undefined" || trimmed === "null") return null;
 
   if (/^bearer\s+/i.test(trimmed)) {
     return trimmed.replace(/^bearer\s+/i, "").trim();
@@ -41,10 +43,10 @@ export function normalizeStoredToken(rawValue) {
 }
 
 export function getStoredAuthToken(storageKey, { allowExpired = false } = {}) {
-  const normalized = normalizeStoredToken(localStorage.getItem(storageKey));
+  const normalized = normalizeStoredToken(rawGet(storageKey));
   if (!normalized) return null;
   if (!allowExpired && isTokenExpired(normalized)) {
-    localStorage.removeItem(storageKey);
+    rawRemove(storageKey);
     return null;
   }
   return normalized;
@@ -52,4 +54,18 @@ export function getStoredAuthToken(storageKey, { allowExpired = false } = {}) {
 
 export function hasValidStoredAuthToken(storageKey) {
   return Boolean(getStoredAuthToken(storageKey));
+}
+
+/**
+ * Factory for socket `getToken` callbacks. Centralizes the duplicated inline
+ * implementations previously found in OrderDetailPage / DeliveryOtpDisplay /
+ * CheckoutPage / DeliveryLayout / Notifications / Returns. Tokens are read
+ * fresh on every invocation so socket re-auth after a token refresh works.
+ *
+ * `allowExpired` defaults to true because socket subscriptions need to deliver
+ * the existing token even if it's seconds past `exp` — the backend will close
+ * the connection itself if the token is truly invalid.
+ */
+export function createSocketTokenReader(storageKey, { allowExpired = true } = {}) {
+  return () => getStoredAuthToken(storageKey, { allowExpired });
 }

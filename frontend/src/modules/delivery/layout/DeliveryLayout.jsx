@@ -17,7 +17,11 @@ import {
   markIncomingOrderHandled,
 } from "../utils/deliveryHandledOrders";
 import { saveDeliveryPartnerLocation } from "../utils/deliveryLastLocation";
+import { createSocketTokenReader } from "@core/utils/authStorage";
+import { STORAGE_KEYS } from "@core/utils/storage";
 import orderAlertSound from "@/assets/sounds/order_alert.mp3";
+
+const getDeliveryToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
 
 /** Match server `deliverySearchExpiresAt` — progress bar + countdown stay aligned when modal opens late. */
 function secondsLeftUntilDeliveryExpiry(expiresAt) {
@@ -509,7 +513,7 @@ const DeliveryLayout = () => {
 
   useEffect(() => {
     if (!user?.isOnline) return undefined;
-    const getToken = () => localStorage.getItem("auth_delivery");
+    const getToken = getDeliveryToken;
     getOrderSocket(getToken);
     return onDeliveryBroadcast(getToken, (payload) => {
       if (activeOrderRef.current || suppressIncomingModal) return;
@@ -533,7 +537,7 @@ const DeliveryLayout = () => {
 
   useEffect(() => {
     if (!user?.isOnline) return undefined;
-    const getToken = () => localStorage.getItem("auth_delivery");
+    const getToken = getDeliveryToken;
     return onDeliveryBroadcastWithdrawn(getToken, (payload) => {
       const orderId = payload?.orderId;
       if (!orderId) return;

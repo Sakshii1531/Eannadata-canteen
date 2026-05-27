@@ -3,6 +3,14 @@ import { useNavigate } from "react-router-dom";
 import ProductCard from "../shared/ProductCard";
 import { cn } from "@/lib/utils";
 import ExperienceBannerCarousel from "./ExperienceBannerCarousel";
+import { setJSON, STORAGE_KEYS } from "@core/utils/storage";
+
+const rememberExperienceReturn = (headerId, sectionId) =>
+  setJSON(
+    STORAGE_KEYS.EXPERIENCE_RETURN,
+    { headerId: headerId || null, sectionId: sectionId || null },
+    { storage: "session" },
+  );
 
 const LAZY_CHUNK_SIZE = 20;
 const LAZY_ROOT_MARGIN = "260px 0px";
@@ -118,13 +126,7 @@ const SectionRenderer = ({ sections = [], productsById = {}, categoriesById = {}
                       className="group flex flex-col items-center gap-1.5 focus:outline-none"
                       onClick={() => {
                         // Remember the header & section so back navigation can restore context
-                        window.sessionStorage.setItem(
-                          "experienceReturn",
-                          JSON.stringify({
-                            headerId: section.headerId || null,
-                            sectionId: section._id,
-                          })
-                        );
+                        rememberExperienceReturn(section.headerId, section._id);
                         navigate(`/category/${cat._id}`);
                       }}
                     >
@@ -192,13 +194,7 @@ const SectionRenderer = ({ sections = [], productsById = {}, categoriesById = {}
                       key={cat._id}
                       className="group flex flex-col items-center gap-1.5 focus:outline-none"
                       onClick={() => {
-                        window.sessionStorage.setItem(
-                          "experienceReturn",
-                          JSON.stringify({
-                            headerId: section.headerId || null,
-                            sectionId: section._id,
-                          })
-                        );
+                        rememberExperienceReturn(section.headerId, section._id);
                         const parentId =
                           cat.parentId?._id ||
                           cat.parentId ||

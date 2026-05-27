@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils';
 import SellerOrdersContext from '@/modules/seller/context/SellerOrdersContext';
 import SellerEarningsContext, { defaultEarnings } from '@/modules/seller/context/SellerEarningsContext';
 import { getOrderSocket, onSellerOrderNew, onReturnDropOtp } from '@/core/services/orderSocket';
+import { createSocketTokenReader } from '@core/utils/authStorage';
+import { STORAGE_KEYS } from '@core/utils/storage';
 import orderAlertSound from '@/assets/sounds/order_alert.mp3';
 
 const POLL_INTERVAL_MS = 15000;
@@ -249,7 +251,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
 
     useEffect(() => {
         if (role !== 'seller') return undefined;
-        const getToken = () => localStorage.getItem('auth_seller');
+        const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_SELLER);
         getOrderSocket(getToken);
         const unsubscribeSellerNew = onSellerOrderNew(getToken, () => {
             if (fetchOrdersRef.current) fetchOrdersRef.current();

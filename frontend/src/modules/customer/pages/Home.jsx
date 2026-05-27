@@ -29,6 +29,7 @@ import { useLocation } from "../context/LocationContext";
 import { useSettings } from "@core/context/SettingsContext";
 import Lottie from "lottie-react";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { getJSON, remove as removeStorage, STORAGE_KEYS } from "@core/utils/storage";
 
 import {
   MARQUEE_MESSAGES,
@@ -230,15 +231,10 @@ const Home = () => {
     setOfferSections(data.offerSections || []);
     if (data.heroConfig) setHeroConfig(data.heroConfig);
     setActiveCategory((prev) => {
-      const stored = window.sessionStorage.getItem("experienceReturn");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed?.headerId) {
-            const match = (data.formattedHeaders || []).find((h) => h._id === parsed.headerId);
-            if (match) return match;
-          }
-        } catch (e) {}
+      const parsed = getJSON(STORAGE_KEYS.EXPERIENCE_RETURN, null, { storage: "session" });
+      if (parsed?.headerId) {
+        const match = (data.formattedHeaders || []).find((h) => h._id === parsed.headerId);
+        if (match) return match;
       }
       if (!prev || prev._id === "all") return data.activeCategory || data.categories?.[0] || ALL_CATEGORY;
       return (data.categories || []).find((cat) => cat._id === prev._id) || data.activeCategory || prev;
@@ -400,7 +396,7 @@ const Home = () => {
     if (!pendingReturn?.sectionId) return;
     const allSections = headerSections.length ? headerSections : experienceSections;
     if (!allSections.length) return;
-    if (allSections.some((s) => s._id === pendingReturn.sectionId)) { const el = document.getElementById(`section-${pendingReturn.sectionId}`); if (el) { el.scrollIntoView({ behavior: "instant", block: "start" }); window.sessionStorage.removeItem("experienceReturn"); setPendingReturn(null); } }
+    if (allSections.some((s) => s._id === pendingReturn.sectionId)) { const el = document.getElementById(`section-${pendingReturn.sectionId}`); if (el) { el.scrollIntoView({ behavior: "instant", block: "start" }); removeStorage(STORAGE_KEYS.EXPERIENCE_RETURN, { storage: "session" }); setPendingReturn(null); } }
   }, [headerSections, experienceSections, pendingReturn]);
 
   const renderFloatingElements = (type, isVisible = true) => {

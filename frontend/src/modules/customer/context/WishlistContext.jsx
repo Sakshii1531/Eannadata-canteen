@@ -1,22 +1,24 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { customerApi } from "../services/customerApi";
 import { useAuth } from "../../../core/context/AuthContext";
+import { getJSON, setJSON, remove as removeStorage, STORAGE_KEYS } from "@core/utils/storage";
 
 const WishlistContext = createContext();
+
+const loadGuestWishlist = () => {
+  const parsed = getJSON(STORAGE_KEYS.WISHLIST, []);
+  if (!Array.isArray(parsed)) {
+    removeStorage(STORAGE_KEYS.WISHLIST);
+    return [];
+  }
+  return parsed;
+};
 
 export const useWishlist = () => useContext(WishlistContext);
 
 export const WishlistProvider = ({ children }) => {
   const { isAuthenticated } = useAuth();
-  const [wishlist, setWishlist] = useState(() => {
-    try {
-      const savedWishlist = localStorage.getItem("wishlist");
-      return savedWishlist ? JSON.parse(savedWishlist) : [];
-    } catch (error) {
-      console.error("Failed to load wishlist from localStorage", error);
-      return [];
-    }
-  });
+  const [wishlist, setWishlist] = useState(() => loadGuestWishlist());
 
   const [loading, setLoading] = useState(false);
   const [isFullDataFetched, setIsFullDataFetched] = useState(false);
@@ -72,23 +74,21 @@ export const WishlistProvider = ({ children }) => {
 
   useEffect(() => {
     if (isAuthenticated) {
+      // Drop the guest blob — backend is now the source of truth and we
+      // don't want stale state to resurface on logout for another user on
+      // the same browser.
+      removeStorage(STORAGE_KEYS.WISHLIST);
       fetchWishlistIds();
     } else {
-      // Clear state or load from local storage
-      try {
-        const savedWishlist = localStorage.getItem("wishlist");
-        setWishlist(savedWishlist ? JSON.parse(savedWishlist) : []);
-        setIsFullDataFetched(true); // Local storage always has full data
-      } catch (error) {
-        setWishlist([]);
-      }
+      setWishlist(loadGuestWishlist());
+      setIsFullDataFetched(true); // Local storage always has full data
     }
   }, [isAuthenticated]);
 
   // Save local wishlist to localStorage (fallback/guest mode)
   useEffect(() => {
     if (!isAuthenticated) {
-      localStorage.setItem("wishlist", JSON.stringify(wishlist));
+      setJSON(STORAGE_KEYS.WISHLIST, wishlist);
     }
   }, [wishlist, isAuthenticated]);
 

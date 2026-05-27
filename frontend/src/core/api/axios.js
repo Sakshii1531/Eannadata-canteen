@@ -2,14 +2,20 @@ import axios from 'axios';
 import { resolveApiBaseUrl } from './resolveApiBaseUrl';
 import { getStoredAuthToken } from '@core/utils/authStorage';
 import { getActiveRole, ROLES } from '@core/auth/activeRoleStore';
+import { rawGet, STORAGE_KEYS } from '@core/utils/storage';
 
-const ROLE_STORAGE_KEYS = ['auth_seller', 'auth_admin', 'auth_delivery', 'auth_customer'];
+const ROLE_STORAGE_KEYS = [
+    STORAGE_KEYS.AUTH_SELLER,
+    STORAGE_KEYS.AUTH_ADMIN,
+    STORAGE_KEYS.AUTH_DELIVERY,
+    STORAGE_KEYS.AUTH_CUSTOMER,
+];
 
 const ROLE_TO_STORAGE_KEY = {
-    [ROLES.SELLER]: 'auth_seller',
-    [ROLES.ADMIN]: 'auth_admin',
-    [ROLES.DELIVERY]: 'auth_delivery',
-    [ROLES.CUSTOMER]: 'auth_customer',
+    [ROLES.SELLER]: STORAGE_KEYS.AUTH_SELLER,
+    [ROLES.ADMIN]: STORAGE_KEYS.AUTH_ADMIN,
+    [ROLES.DELIVERY]: STORAGE_KEYS.AUTH_DELIVERY,
+    [ROLES.CUSTOMER]: STORAGE_KEYS.AUTH_CUSTOMER,
 };
 
 // URL-prefix → storage-key map used as a *fallback* for the few call sites
@@ -17,9 +23,9 @@ const ROLE_TO_STORAGE_KEY = {
 // itself encodes the intended role. The primary source is the activeRoleStore.
 function tokenForRequestUrl(url) {
     if (!url) return null;
-    if (url.startsWith('/seller')) return getStoredAuthToken('auth_seller');
-    if (url.startsWith('/admin')) return getStoredAuthToken('auth_admin');
-    if (url.startsWith('/delivery')) return getStoredAuthToken('auth_delivery');
+    if (url.startsWith('/seller')) return getStoredAuthToken(STORAGE_KEYS.AUTH_SELLER);
+    if (url.startsWith('/admin')) return getStoredAuthToken(STORAGE_KEYS.AUTH_ADMIN);
+    if (url.startsWith('/delivery')) return getStoredAuthToken(STORAGE_KEYS.AUTH_DELIVERY);
     if (
         url.startsWith('/customer') ||
         url.startsWith('/cart') ||
@@ -28,7 +34,7 @@ function tokenForRequestUrl(url) {
         url.startsWith('/products') ||
         url.startsWith('/payments')
     ) {
-        return getStoredAuthToken('auth_customer');
+        return getStoredAuthToken(STORAGE_KEYS.AUTH_CUSTOMER);
     }
     return null;
 }
@@ -69,12 +75,12 @@ axiosInstance.interceptors.request.use(
             activeRole !== ROLES.SELLER &&
             activeRole !== ROLES.DELIVERY
         ) {
-            token = getStoredAuthToken('auth_customer');
+            token = getStoredAuthToken(STORAGE_KEYS.AUTH_CUSTOMER);
         }
 
         // Fallback 3: legacy shared 'token' key.
         if (!token) {
-            token = getStoredAuthToken('token');
+            token = getStoredAuthToken(STORAGE_KEYS.AUTH_LEGACY);
         }
 
         if (token) {
@@ -94,7 +100,7 @@ axiosInstance.interceptors.response.use(
         const originalRequest = error.config;
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
-            const hasStoredRoleToken = ROLE_STORAGE_KEYS.some((key) => localStorage.getItem(key));
+            const hasStoredRoleToken = ROLE_STORAGE_KEYS.some((key) => Boolean(rawGet(key)));
             if (hasStoredRoleToken) {
                 console.warn(
                     '[axios] Received 401 response. Preserving stored auth tokens; session data is only cleared by explicit logout.',

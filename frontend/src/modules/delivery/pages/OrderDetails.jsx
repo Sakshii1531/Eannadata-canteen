@@ -28,6 +28,8 @@ import {
   getCachedDeliveryPartnerLocation,
   getCurrentPositionWithCache,
 } from "../utils/deliveryLastLocation";
+import { createSocketTokenReader } from "@core/utils/authStorage";
+import { STORAGE_KEYS } from "@core/utils/storage";
 import {
   getOrderSocket,
   joinOrderRoom,
@@ -205,7 +207,7 @@ const OrderDetails = () => {
   // Listen for order:status:update — immediately hide map when delivered
   useEffect(() => {
     if (!orderId) return undefined;
-    const getToken = () => localStorage.getItem("auth_delivery");
+    const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_DELIVERY);
     getOrderSocket(getToken);
     joinOrderRoom(orderId, getToken);
 

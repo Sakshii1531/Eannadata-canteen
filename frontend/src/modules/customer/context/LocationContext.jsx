@@ -8,11 +8,14 @@ import React, {
 } from "react";
 import { customerApi } from "../services/customerApi";
 import { hasValidStoredAuthToken } from "@core/utils/authStorage";
+import { getJSON, setJSON, STORAGE_KEYS } from "@core/utils/storage";
 
 const LocationContext = createContext(undefined);
-// v2 key to force one-time refresh from Google Maps for users
-// who previously only had the default/static location cached.
-const STORAGE_KEY = "location_v2";
+const STORAGE_KEY = STORAGE_KEYS.LOCATION;
+// 30 days — refresh the cached coordinates if a user comes back to a stale tab
+// after roughly a month so we don't keep serving locations from a previous
+// address indefinitely.
+const LOCATION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const LocationProvider = ({ children }) => {
   // Default location (used until we can resolve a better one)
@@ -49,22 +52,18 @@ export const LocationProvider = ({ children }) => {
       );
     }
 
-    if (persist && typeof window !== "undefined") {
-      try {
-        const payload = {
-          address: newLoc.name,
-          city: newLoc.city,
-          state: newLoc.state,
-          pincode: newLoc.pincode,
-          latitude: newLoc.latitude,
-          longitude: newLoc.longitude,
-          // Internal app properties
-          time: newLoc.time,
-        };
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      } catch {
-        // ignore storage errors
-      }
+    if (persist) {
+      const payload = {
+        address: newLoc.name,
+        city: newLoc.city,
+        state: newLoc.state,
+        pincode: newLoc.pincode,
+        latitude: newLoc.latitude,
+        longitude: newLoc.longitude,
+        // Internal app properties
+        time: newLoc.time,
+      };
+      setJSON(STORAGE_KEY, payload, { ttlMs: LOCATION_TTL_MS });
     }
   };
 
@@ -292,36 +291,28 @@ export const LocationProvider = ({ children }) => {
   // On mount: only restore from cache. Do NOT auto-fetch – browsers block the
   // location prompt unless it's triggered by a user gesture (e.g. tap).
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const addressName = parsed.address || parsed.name;
-        if (parsed && addressName) {
-          updateLocation(
-            {
-              name: addressName,
-              time: parsed.time || "12-15 mins",
-              city: parsed.city,
-              state: parsed.state,
-              pincode: parsed.pincode,
-              latitude: parsed.latitude,
-              longitude: parsed.longitude,
-            },
-            { persist: false, updateSavedHome: false },
-          );
-        }
-      } else {
-        // If no location is stored, persist the default one immediately
-        updateLocation(currentLocation, {
-          persist: true,
-          updateSavedHome: false,
-        });
-      }
-    } catch {
-      // ignore parse errors
+    const parsed = getJSON(STORAGE_KEY, null);
+    const addressName = parsed?.address || parsed?.name;
+    if (parsed && addressName) {
+      updateLocation(
+        {
+          name: addressName,
+          time: parsed.time || "12-15 mins",
+          city: parsed.city,
+          state: parsed.state,
+          pincode: parsed.pincode,
+          latitude: parsed.latitude,
+          longitude: parsed.longitude,
+        },
+        { persist: false, updateSavedHome: false },
+      );
+    } else {
+      // If no location is stored (or TTL expired), persist the default
+      // immediately so subsequent reads have something to anchor on.
+      updateLocation(currentLocation, {
+        persist: true,
+        updateSavedHome: false,
+      });
     }
     // Live fetch happens only when user taps location pill or "Use current location"
     // eslint-disable-next-line react-hooks/exhaustive-deps

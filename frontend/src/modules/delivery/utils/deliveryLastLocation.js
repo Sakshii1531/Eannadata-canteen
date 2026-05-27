@@ -3,7 +3,9 @@
  * getCurrentPosition fails (permission denied, timeout, GPS off).
  */
 
-const STORAGE_KEY = "delivery_partner_last_location";
+import { getJSON, setJSON, STORAGE_KEYS } from "@core/utils/storage";
+
+const STORAGE_KEY = STORAGE_KEYS.DELIVERY_LAST_LOCATION;
 
 /** Default: accept cached coords up to this age for API calls (geofencing may reject very stale). */
 const DEFAULT_MAX_CACHE_AGE_MS = 20 * 60 * 1000; // 20 minutes
@@ -17,14 +19,7 @@ export function saveDeliveryPartnerLocation(lat, lng) {
   ) {
     return;
   }
-  try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ lat, lng, savedAt: Date.now() }),
-    );
-  } catch {
-    /* quota / private mode */
-  }
+  setJSON(STORAGE_KEY, { lat, lng, savedAt: Date.now() });
 }
 
 /**
@@ -34,24 +29,19 @@ export function saveDeliveryPartnerLocation(lat, lng) {
 export function getCachedDeliveryPartnerLocation(
   maxAgeMs = DEFAULT_MAX_CACHE_AGE_MS,
 ) {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const o = JSON.parse(raw);
-    if (
-      typeof o.lat !== "number" ||
-      typeof o.lng !== "number" ||
-      !Number.isFinite(o.lat) ||
-      !Number.isFinite(o.lng)
-    ) {
-      return null;
-    }
-    const savedAt = typeof o.savedAt === "number" ? o.savedAt : 0;
-    if (maxAgeMs > 0 && Date.now() - savedAt > maxAgeMs) return null;
-    return { lat: o.lat, lng: o.lng, savedAt };
-  } catch {
+  const o = getJSON(STORAGE_KEY, null);
+  if (
+    !o ||
+    typeof o.lat !== "number" ||
+    typeof o.lng !== "number" ||
+    !Number.isFinite(o.lat) ||
+    !Number.isFinite(o.lng)
+  ) {
     return null;
   }
+  const savedAt = typeof o.savedAt === "number" ? o.savedAt : 0;
+  if (maxAgeMs > 0 && Date.now() - savedAt > maxAgeMs) return null;
+  return { lat: o.lat, lng: o.lng, savedAt };
 }
 
 /**

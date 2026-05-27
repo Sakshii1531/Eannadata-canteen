@@ -39,6 +39,8 @@ import { useToast } from "@shared/components/ui/Toast";
 import { useSettings } from "@core/context/SettingsContext";
 import SlideToPay from "../components/shared/SlideToPay";
 import { getCachedGeocode, setCachedGeocode } from "@/core/utils/geocodeCache";
+import { getJSON, setJSON, STORAGE_KEYS } from "@core/utils/storage";
+import { createSocketTokenReader } from "@core/utils/authStorage";
 import {
   getOrderSocket,
   joinOrderRoom,
@@ -218,7 +220,7 @@ const CheckoutPage = () => {
     ? selectedCoupon.discountAmount || selectedCoupon.discount || 0
     : 0;
 
-  const RECIPIENT_STORAGE_KEY = "appzeto_checkout_recipient_v1";
+  const RECIPIENT_STORAGE_KEY = STORAGE_KEYS.RECIPIENT_ADDRESS;
 
   // Derived display values for primary delivery card
   const displayName = savedRecipient?.name || currentAddress.name;
@@ -289,16 +291,7 @@ const CheckoutPage = () => {
     }
     setSavedRecipient(recipientData);
     setShowRecipientForm(false);
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(
-          RECIPIENT_STORAGE_KEY,
-          JSON.stringify(recipientData),
-        );
-      }
-    } catch {
-      // ignore storage errors
-    }
+    setJSON(RECIPIENT_STORAGE_KEY, recipientData);
     showToast("Recipient details saved!", "success");
   };
 
@@ -628,19 +621,10 @@ const CheckoutPage = () => {
 
   // Load recipient from localStorage + fetch coupons on mount
   useEffect(() => {
-    try {
-      if (typeof window !== "undefined") {
-        const raw = window.localStorage.getItem(RECIPIENT_STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && parsed.completeAddress && parsed.name && parsed.phone) {
-            setRecipientData(parsed);
-            setSavedRecipient(parsed);
-          }
-        }
-      }
-    } catch {
-      // ignore parse errors
+    const parsed = getJSON(RECIPIENT_STORAGE_KEY, null);
+    if (parsed && parsed.completeAddress && parsed.name && parsed.phone) {
+      setRecipientData(parsed);
+      setSavedRecipient(parsed);
     }
 
     const fetchCoupons = async () => {
@@ -836,7 +820,7 @@ const CheckoutPage = () => {
   useEffect(() => {
     if (!orderId || !showSuccess) return undefined;
 
-    const getToken = () => localStorage.getItem("auth_customer");
+    const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_CUSTOMER);
     getOrderSocket(getToken);
     joinOrderRoom(orderId, getToken);
 

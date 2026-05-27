@@ -45,6 +45,8 @@ import {
   onReturnDropOtp,
 } from "@/core/services/orderSocket";
 import { getLegacyStatusFromOrder } from "@/shared/utils/orderStatus";
+import { createSocketTokenReader } from "@core/utils/authStorage";
+import { STORAGE_KEYS } from "@core/utils/storage";
 
 const coordsToLatLng = (coords) => {
   if (!Array.isArray(coords) || coords.length < 2) return null;
@@ -245,20 +247,7 @@ const OrderDetailPage = () => {
 
   useEffect(() => {
     if (!orderId) return undefined;
-    const getToken = () => {
-      const raw = localStorage.getItem("auth_customer");
-      if (!raw) return null;
-      const trimmed = String(raw).trim();
-      if (!trimmed) return null;
-      if (trimmed.startsWith("{")) {
-        try {
-          return JSON.parse(trimmed)?.token || null;
-        } catch {
-          return trimmed;
-        }
-      }
-      return trimmed;
-    };
+    const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_CUSTOMER);
     getOrderSocket(getToken);
     joinOrderRoom(orderId, getToken);
 
@@ -333,20 +322,7 @@ const OrderDetailPage = () => {
 
   useEffect(() => {
     if (!orderId) return undefined;
-    const getToken = () => {
-      const raw = localStorage.getItem("auth_customer");
-      if (!raw) return null;
-      const trimmed = String(raw).trim();
-      if (!trimmed) return null;
-      if (trimmed.startsWith("{")) {
-        try {
-          return JSON.parse(trimmed)?.token || null;
-        } catch {
-          return trimmed;
-        }
-      }
-      return trimmed;
-    };
+    const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_CUSTOMER);
 
     const nextExtraRoom = extraRoomId;
 

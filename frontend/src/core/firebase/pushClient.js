@@ -2,39 +2,38 @@ import { isSupported, getMessaging, getToken, onMessage } from "firebase/messagi
 import { getFirebaseApp } from "./client";
 import axiosInstance from "@core/api/axios";
 import AppZetoBridge from "../../lib/appZetoBridge";
+import { rawGet, rawSet, rawRemove, KEY_PREFIXES } from "@core/utils/storage";
 
 let foregroundListenerStarted = false;
 let foregroundUnsubscribe = null;
-const REGISTERED_KEY_PREFIX = "push:registered:";
-const TOKEN_KEY_PREFIX = "push:fcm-token:";
 const GESTURE_EVENTS = ["pointerdown", "touchstart", "click", "keydown"];
 const gestureHandlers = new Map();
 
 function registeredKey(role = "customer") {
-  return `${REGISTERED_KEY_PREFIX}${String(role || "customer").toLowerCase()}`;
+  return `${KEY_PREFIXES.PUSH_REGISTERED}${String(role || "customer").toLowerCase()}`;
 }
 
 function tokenKey(role = "customer") {
-  return `${TOKEN_KEY_PREFIX}${String(role || "customer").toLowerCase()}`;
+  return `${KEY_PREFIXES.PUSH_FCM_TOKEN}${String(role || "customer").toLowerCase()}`;
 }
 
 export function hasRegisteredFcmToken(role = "customer") {
-  return sessionStorage.getItem(registeredKey(role)) === "1";
+  return rawGet(registeredKey(role), { storage: "session" }) === "1";
 }
 
 export function getStoredFcmToken(role = "customer") {
-  return localStorage.getItem(tokenKey(role)) || "";
+  return rawGet(tokenKey(role)) || "";
 }
 
 export function clearStoredFcmToken(role = "customer") {
-  localStorage.removeItem(tokenKey(role));
-  sessionStorage.removeItem(registeredKey(role));
+  rawRemove(tokenKey(role));
+  rawRemove(registeredKey(role), { storage: "session" });
 }
 
 function persistStoredFcmToken(role = "customer", token = "") {
   if (!token) return;
-  localStorage.setItem(tokenKey(role), token);
-  sessionStorage.setItem(registeredKey(role), "1");
+  rawSet(tokenKey(role), token);
+  rawSet(registeredKey(role), "1", { storage: "session" });
 }
 
 export function describePushSupport() {

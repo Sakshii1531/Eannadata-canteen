@@ -17,6 +17,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Loader2, X } from "lucide-react";
 import { onReturnDropOtp } from "@core/services/orderSocket";
+import { createSocketTokenReader } from "@core/utils/authStorage";
+import { STORAGE_KEYS } from "@core/utils/storage";
 
 const Returns = () => {
     const { showToast } = useToast();
@@ -114,7 +116,7 @@ const Returns = () => {
         fetchReturns();
 
         // Listen for return drop OTPs (when rider arrives at seller)
-        const getToken = () => localStorage.getItem("auth_seller");
+        const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_SELLER);
         const unsubscribe = onReturnDropOtp(getToken, (payload) => {
             const { orderId, otp, expiresAt } = payload;
             setActiveOtps(prev => ({

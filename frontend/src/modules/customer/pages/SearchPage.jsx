@@ -8,6 +8,7 @@ import { useProductDetail } from '../context/ProductDetailContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { cn } from '@/lib/utils';
 import { useLocation as useAppLocation } from '../context/LocationContext';
+import { getJSON, setJSON, STORAGE_KEYS } from '@core/utils/storage';
 import Lottie from 'lottie-react';
 
 const SearchPage = () => {
@@ -31,8 +32,8 @@ const SearchPage = () => {
 
     // Manage Recent Searches with LocalStorage
     const [pastSearches, setPastSearches] = useState(() => {
-        const saved = localStorage.getItem('appzeto_recent_searches');
-        return saved ? JSON.parse(saved) : [];
+        const saved = getJSON(STORAGE_KEYS.RECENT_SEARCHES, []);
+        return Array.isArray(saved) ? saved.filter((s) => typeof s === 'string') : [];
     });
 
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -159,7 +160,7 @@ const SearchPage = () => {
         if (!term.trim()) return;
         const updated = [term, ...pastSearches.filter(s => s !== term)].slice(0, 10);
         setPastSearches(updated);
-        localStorage.setItem('appzeto_recent_searches', JSON.stringify(updated));
+        setJSON(STORAGE_KEYS.RECENT_SEARCHES, updated);
     };
 
     // Remove specific search term
@@ -167,7 +168,7 @@ const SearchPage = () => {
         e.stopPropagation();
         const updated = pastSearches.filter(s => s !== term);
         setPastSearches(updated);
-        localStorage.setItem('appzeto_recent_searches', JSON.stringify(updated));
+        setJSON(STORAGE_KEYS.RECENT_SEARCHES, updated);
     };
 
     // Trigger save on Enter or clicking a result

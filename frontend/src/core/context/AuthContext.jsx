@@ -6,17 +6,24 @@ import {
     getActiveRole,
     subscribeActiveRole,
 } from '@core/auth/activeRoleStore';
+import {
+    rawGet,
+    rawSet,
+    rawRemove,
+    clearOnLogout,
+    STORAGE_KEYS,
+} from '@core/utils/storage';
 
 const AuthContext = createContext(undefined);
 
 const ROLE_STORAGE_KEYS = {
-    customer: 'auth_customer',
-    seller: 'auth_seller',
-    admin: 'auth_admin',
-    delivery: 'auth_delivery'
+    customer: STORAGE_KEYS.AUTH_CUSTOMER,
+    seller: STORAGE_KEYS.AUTH_SELLER,
+    admin: STORAGE_KEYS.AUTH_ADMIN,
+    delivery: STORAGE_KEYS.AUTH_DELIVERY,
 };
 
-const LEGACY_TOKEN_KEY = 'token';
+const LEGACY_TOKEN_KEY = STORAGE_KEYS.AUTH_LEGACY;
 
 export const AuthProvider = ({ children }) => {
     const getSafeToken = (key) => getStoredAuthToken(ROLE_STORAGE_KEYS[key]);
@@ -145,8 +152,15 @@ export const AuthProvider = ({ children }) => {
         const storageKey = ROLE_STORAGE_KEYS[role];
 
         if (storageKey && userData.token) {
-            // Save ONLY the token string as requested by the user
-            localStorage.setItem(storageKey, userData.token);
+            // Persist only the raw JWT string; everything else lives in memory
+            // until the next profile fetch.
+            rawSet(storageKey, userData.token);
+
+            // Guard against state leaking from a previous account on the same
+            // browser (e.g. abandoned guest cart, leftover recent searches).
+            // Backend cart will replace it as soon as fetchCart resolves.
+            rawRemove(STORAGE_KEYS.CART);
+            rawRemove(STORAGE_KEYS.WISHLIST);
 
             setAuthData(prev => ({ ...prev, [role]: userData.token }));
             setUser(userData); // Set full data initially
@@ -157,6 +171,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = async () => {
         const storageKey = ROLE_STORAGE_KEYS[currentRole];
+        const previousUserId = user?._id || user?.id || '';
 
         try {
             const { removeStoredFcmToken } = await import('@core/firebase/pushClient');
@@ -166,16 +181,21 @@ export const AuthProvider = ({ children }) => {
         }
 
         if (storageKey) {
-            localStorage.removeItem(storageKey);
+            rawRemove(storageKey);
         }
 
         // Remove the legacy shared token only when it belongs to the current role session.
-        if (token && localStorage.getItem(LEGACY_TOKEN_KEY) === token) {
-            localStorage.removeItem(LEGACY_TOKEN_KEY);
+        if (token && rawGet(LEGACY_TOKEN_KEY) === token) {
+            rawRemove(LEGACY_TOKEN_KEY);
         }
 
-        sessionStorage.removeItem(`push:registered:${currentRole}`);
-        localStorage.removeItem(`push:fcm-token:${currentRole}`);
+        // Centralized sensitive-data cleanup: push tokens, recipient PII,
+        // recent searches, support-unread counts, guest cart/wishlist and (for
+        // delivery role) the rider's last-known GPS.
+        clearOnLogout({
+            role: currentRole,
+            userId: previousUserId,
+        });
 
         setAuthData((prev) => ({
             ...prev,

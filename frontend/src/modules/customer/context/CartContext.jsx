@@ -1,22 +1,24 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
 import { customerApi } from "../services/customerApi";
 import { useAuth } from "../../../core/context/AuthContext";
+import { getJSON, setJSON, remove as removeStorage, STORAGE_KEYS } from "@core/utils/storage";
 
 const CartContext = createContext();
+
+const loadGuestCart = () => {
+  const parsed = getJSON(STORAGE_KEYS.CART, []);
+  if (!Array.isArray(parsed)) {
+    removeStorage(STORAGE_KEYS.CART);
+    return [];
+  }
+  return parsed;
+};
 
 export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
   const { isAuthenticated } = useAuth();
-  const [cart, setCart] = useState(() => {
-    try {
-      const savedCart = localStorage.getItem("cart");
-      return savedCart ? JSON.parse(savedCart) : [];
-    } catch (error) {
-      console.error("Failed to load cart from localStorage", error);
-      return [];
-    }
-  });
+  const [cart, setCart] = useState(() => loadGuestCart());
 
   const [loading, setLoading] = useState(false);
   const pendingRequestsRef = React.useRef(0);
@@ -89,15 +91,15 @@ export const CartProvider = ({ children }) => {
   // Fetch cart from backend on mount or authentication change
   useEffect(() => {
     if (isAuthenticated) {
+      // Cancel any pending guest-mode write that could otherwise overwrite
+      // the authenticated state with stale guest data after login.
+      clearTimeout(lsDebounceRef.current);
+      // The legacy guest cart is no longer authoritative for this user; drop
+      // it so a future logout doesn't resurface another account's items.
+      removeStorage(STORAGE_KEYS.CART);
       fetchCart();
     } else {
-      // Clear cart state and load from local storage for guests
-      try {
-        const savedCart = localStorage.getItem("cart");
-        setCart(savedCart ? JSON.parse(savedCart) : []);
-      } catch (error) {
-        setCart([]);
-      }
+      setCart(loadGuestCart());
     }
   }, [isAuthenticated]);
 
@@ -107,14 +109,14 @@ export const CartProvider = ({ children }) => {
 
     clearTimeout(lsDebounceRef.current);
     lsDebounceRef.current = setTimeout(() => {
-      localStorage.setItem("cart", JSON.stringify(cart));
+      setJSON(STORAGE_KEYS.CART, cart);
     }, 300);
 
     return () => {
       if (isAuthenticated) return;
       // Flush on unmount — no data loss
       clearTimeout(lsDebounceRef.current);
-      localStorage.setItem("cart", JSON.stringify(cart));
+      setJSON(STORAGE_KEYS.CART, cart);
     };
   }, [cart, isAuthenticated]);
 
