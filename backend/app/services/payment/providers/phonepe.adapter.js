@@ -121,8 +121,32 @@ export class PhonePeAdapter extends PaymentProviderPort {
       err.statusCode = 400;
       throw err;
     }
+    // Audit Phase 2 (H-4): the previous fallback `crypto.randomUUID()` defeated
+    // the `PaymentWebhookEvent.eventId` unique-index deduplication whenever
+    // PhonePe omitted `transactionId` (true for some early CREATED/PENDING
+    // callbacks). Each redelivery produced a fresh UUID and the same logical
+    // event was processed twice.
+    //
+    // Fix: when `transactionId` is absent, derive a stable hash from the
+    // identity tuple `(merchantOrderId, state, payload)`. Identical
+    // redeliveries collapse onto the same eventId and short-circuit at the
+    // unique-index check (code 11000 → `duplicate: true`).
+    //
+    // Backward compatibility: the primary `payload.transactionId` branch is
+    // unchanged, so every existing happy-path webhook (which carries a
+    // transactionId) produces the exact same eventId as before. Only the
+    // pathological no-transactionId branch is hardened.
+    const stableEventId =
+      payload.transactionId ||
+      crypto
+        .createHash("sha256")
+        .update(
+          `${payload.merchantOrderId || ""}|${payload.state || ""}|${JSON.stringify(payload)}`,
+        )
+        .digest("hex");
+
     return {
-      eventId: payload.transactionId || crypto.randomUUID(),
+      eventId: stableEventId,
       merchantOrderId: payload.merchantOrderId,
       state: payload.state,
       transactionId: payload.transactionId,
