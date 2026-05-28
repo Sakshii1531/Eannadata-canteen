@@ -269,6 +269,18 @@ const orderSchema = new mongoose.Schema(
       // actually take effect; no code change is needed elsewhere.
       sellerPayoutHeld: { type: Boolean, default: false },
       returnPickupCommissionPaid: { type: Boolean, default: false },
+      // Audit Phase 3 (C-3): set by `reverseOrderFinanceOnCancellation`
+      // inside the same transaction that issues the wallet refund and the
+      // gateway debit. Acts as the idempotency guard so that every v2
+      // cancellation entry point (sellerRejectAtomic, seller/delivery
+      // timeout jobs, customerCancelV2, orderAutoCancelJob) can call the
+      // reversal through `compensateOrderCancellation` without risk of
+      // double-refunding when retries fire. Pre-existing cancelled orders
+      // default to `false`; their reversal has never run and they will
+      // refund on the next call. If that is undesired for a historical
+      // dataset, gate the v2 call with `paymentBreakdown.grandTotal != null`
+      // (already enforced) and an operational backfill.
+      cancellationReversalApplied: { type: Boolean, default: false },
     },
     status: {
       type: String,

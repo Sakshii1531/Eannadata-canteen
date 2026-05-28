@@ -760,6 +760,18 @@ export async function reverseOrderFinanceOnCancellation(
     session.startTransaction();
     const order = await findOrderForUpdate(orderOrId, session);
 
+    // Audit Phase 3 (C-3): idempotency guard. Without this, a retried
+    // cancellation (e.g. a stalled job that fires twice, or the v1 caller
+    // racing with a queue worker) would re-debit the ADMIN wallet for the
+    // gateway refund and re-credit the customer wallet — overpaying the
+    // customer and depleting the admin float. The flag is set further
+    // down in the same transaction so a crash before commit safely leaves
+    // it false and a future retry can complete the work.
+    if (order.financeFlags?.cancellationReversalApplied) {
+      await session.commitTransaction();
+      return order;
+    }
+
     if (order.paymentMode === "ONLINE" && order.financeFlags?.onlinePaymentCaptured) {
       const refundAmount = roundCurrency(order.paymentBreakdown?.grandTotal || 0);
       if (refundAmount > 0) {
@@ -826,6 +838,16 @@ export async function reverseOrderFinanceOnCancellation(
       overall: ORDER_SETTLEMENT_STATUS.CANCELLED,
       sellerPayout: "NOT_APPLICABLE",
       riderPayout: "NOT_APPLICABLE",
+    };
+
+    // Audit Phase 3 (C-3): mark the reversal as applied INSIDE the same
+    // transaction that issued the wallet refund / gateway debit / audit
+    // log. The flag is committed atomically with the side-effects so the
+    // idempotency guard at the top of this function is correct under
+    // crash-and-retry.
+    order.financeFlags = {
+      ...(order.financeFlags || {}),
+      cancellationReversalApplied: true,
     };
 
     await createFinanceAuditLog(
