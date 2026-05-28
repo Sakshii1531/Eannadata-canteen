@@ -4,12 +4,14 @@ import { distanceMeters } from "../utils/geoUtils.js";
 import {
   HANDLING_FEE_STRATEGY,
   isWalletRedemptionReducesPayableEnabled,
+  isServerSideCouponEngineEnabled,
 } from "../constants/finance.js";
 import {
   calculateHandlingFee,
   generateOrderPaymentBreakdown,
   hydrateOrderItems,
 } from "./finance/pricingService.js";
+import { computeOrderDiscount } from "./finance/couponService.js";
 
 function normalizeLocation(location = null) {
   const lat = Number(location?.lat);
@@ -266,6 +268,47 @@ function applyGlobalHandlingFeeToSellerBreakdowns(
   }
 }
 
+// Audit Phase 5 (H-6): when the server-side coupon engine returns
+// `freeDelivery: true`, zero out the customer-facing delivery fee on
+// every seller breakdown. The rider keeps their full payout (the
+// platform absorbs the campaign cost), so we only adjust
+// `deliveryFeeCharged`, `grossTotal`, `grandTotal`, `payableAmount`,
+// and `platformLogisticsMargin`. Runs AFTER handling-fee allocation
+// (so `grossTotal` exists) and BEFORE tip/wallet allocation (so they
+// allocate against the post-rebate grandTotal).
+function applyFreeDeliveryToSellerBreakdowns(sellerBreakdownEntries = []) {
+  for (const entry of sellerBreakdownEntries) {
+    const breakdown = entry?.breakdown;
+    if (!breakdown) continue;
+    const oldDeliveryFee = round2(Number(breakdown.deliveryFeeCharged || 0));
+    if (oldDeliveryFee <= 0) {
+      breakdown.snapshots = breakdown.snapshots && typeof breakdown.snapshots === "object"
+        ? breakdown.snapshots
+        : {};
+      breakdown.snapshots.freeDeliveryRebate = 0;
+      continue;
+    }
+    breakdown.deliveryFeeCharged = 0;
+    breakdown.grossTotal = round2(Number(breakdown.grossTotal || 0) - oldDeliveryFee);
+    breakdown.grandTotal = round2(Number(breakdown.grandTotal || 0) - oldDeliveryFee);
+    breakdown.payableAmount = breakdown.grandTotal;
+    const handlingFeeCharged = Number(breakdown.handlingFeeCharged || 0);
+    const riderPayoutTotal = Number(breakdown.riderPayoutTotal || 0);
+    const adminProductCommissionTotal = Number(breakdown.adminProductCommissionTotal || 0);
+    // Platform now collects only the handling fee against the rider
+    // payout — typically a loss, which is the campaign cost we want to
+    // attribute to the free-delivery coupon for finance reconciliation.
+    breakdown.platformLogisticsMargin = round2(handlingFeeCharged - riderPayoutTotal);
+    breakdown.platformTotalEarning = round2(
+      adminProductCommissionTotal + breakdown.platformLogisticsMargin,
+    );
+    breakdown.snapshots = breakdown.snapshots && typeof breakdown.snapshots === "object"
+      ? breakdown.snapshots
+      : {};
+    breakdown.snapshots.freeDeliveryRebate = oldDeliveryFee;
+  }
+}
+
 // Audit Phase 4 (C-1): allocate the checkout-group-level walletAmount
 // across sellers proportionately by their post-tip grandTotal, then
 // subtract it from each seller's grandTotal. Runs AFTER tip allocation
@@ -327,6 +370,17 @@ export async function buildCheckoutPricingSnapshot({
   // preview path (which doesn't know walletAmount yet) and existing
   // callers are unaffected.
   walletAmount = 0,
+  // Audit Phase 5 (C-2, H-6, H-7): when `SERVER_SIDE_COUPON_ENGINE` is
+  // on and a coupon code/id is provided here, the discount is recomputed
+  // server-side from the hydrated cart (the `discountTotal` argument is
+  // IGNORED to prevent client tampering). `freeDelivery` coupons zero
+  // out each seller's `deliveryFeeCharged`. The `couponSnapshot`
+  // produced by `computeOrderDiscount` is returned alongside the
+  // aggregate breakdown so the placement service can persist it on
+  // every Order document for audit and per-user usage counting.
+  couponCode = null,
+  couponId = null,
+  customerId = null,
   session = null,
 }) {
   const hydratedItems = await hydrateOrderItems(orderItems, {
@@ -337,6 +391,32 @@ export async function buildCheckoutPricingSnapshot({
     const err = new Error("Cannot checkout with empty cart");
     err.statusCode = 400;
     throw err;
+  }
+
+  // Audit Phase 5 (C-2): when the flag is ON, route discount through
+  // the centralized engine. The client-supplied `discountTotal` is
+  // discarded in favour of the server-computed amount so customers
+  // cannot self-credit themselves a discount by editing the payload.
+  // When the flag is OFF, the legacy client-trust path is preserved
+  // bit-for-bit so rollback is an env flip.
+  let effectiveDiscount = round2(discountTotal);
+  let resolvedCouponSnapshot = null;
+  let resolvedCoupon = null;
+  let applyFreeDelivery = false;
+  if (isServerSideCouponEngineEnabled() && (couponCode || couponId)) {
+    const couponResult = await computeOrderDiscount({
+      couponCode,
+      couponId,
+      customerId,
+      hydratedItems,
+      session,
+    });
+    if (couponResult) {
+      effectiveDiscount = round2(couponResult.discountAmount);
+      resolvedCouponSnapshot = couponResult.couponSnapshot;
+      resolvedCoupon = couponResult.coupon;
+      applyFreeDelivery = !!couponResult.freeDelivery;
+    }
   }
 
   const itemsBySeller = groupHydratedItemsBySeller(hydratedItems);
@@ -364,7 +444,7 @@ export async function buildCheckoutPricingSnapshot({
     });
     // Distribute discount proportionally by seller subtotal
     const sellerRatio = totalSubtotal > 0 ? (sellerSubtotals.get(sellerId) || 0) / totalSubtotal : 1 / sellerIds.length;
-    const sellerDiscount = round2(discountTotal * sellerRatio);
+    const sellerDiscount = round2(effectiveDiscount * sellerRatio);
     // Per-seller wallet allocation is applied LAST (after tip) by
     // `applyWalletAllocationToSellerBreakdowns` so it can clamp against
     // the post-tip grandTotal — matching the customer-facing clamp on the
@@ -388,6 +468,13 @@ export async function buildCheckoutPricingSnapshot({
   }
 
   applyGlobalHandlingFeeToSellerBreakdowns(sellerBreakdownEntries, globalHandling);
+  // Audit Phase 5 (H-6): free-delivery rebate must run AFTER handling
+  // (so `grossTotal` is final on the delivery axis) and BEFORE tip /
+  // wallet allocation (so they clamp against the post-rebate grandTotal,
+  // matching the frontend math).
+  if (applyFreeDelivery) {
+    applyFreeDeliveryToSellerBreakdowns(sellerBreakdownEntries);
+  }
   allocateCheckoutTipToSellerBreakdowns(sellerBreakdownEntries, tipAmount);
   // Audit Phase 4 (C-1): subtract wallet redemption from each seller's
   // grandTotal proportionate to their share. No-op when the flag is off.
@@ -415,6 +502,13 @@ export async function buildCheckoutPricingSnapshot({
     aggregateBreakdown,
     sellerCount: sellerBreakdownEntries.length,
     itemCount: hydratedItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+    // Audit Phase 5 (C-2 + H-6): `null` when the flag is off OR no
+    // coupon was supplied. When present, callers persist this on every
+    // Order document so per-user usage counts and audits replay
+    // deterministically against the rule that was in effect.
+    couponSnapshot: resolvedCouponSnapshot,
+    coupon: resolvedCoupon,
+    freeDeliveryApplied: applyFreeDelivery,
   };
 }
 

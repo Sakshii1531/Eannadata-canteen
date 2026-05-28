@@ -42,6 +42,13 @@ export const checkoutPreviewSchema = Joi.object({
   paymentMode: Joi.string().valid("ONLINE", "COD").default("COD"),
   timeSlot: Joi.string().allow("", null),
   couponId: Joi.string().allow("", null).optional(),
+  // Audit Phase 5 (C-2 + H-7): accept the coupon CODE as an alternative
+  // to couponId so the server can re-validate the coupon end-to-end
+  // even when the frontend doesn't yet know the ObjectId (e.g. the
+  // user typed a code instead of selecting from a list). The pricing
+  // snapshot ignores client-supplied `discountTotal` when either
+  // identifier is provided and SERVER_SIDE_COUPON_ENGINE is on.
+  couponCode: Joi.string().trim().allow("", null).optional(),
 });
 
 export const createFinanceOrderSchema = checkoutPreviewSchema.keys({

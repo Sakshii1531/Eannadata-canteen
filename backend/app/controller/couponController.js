@@ -1,7 +1,11 @@
 import Coupon from "../models/coupon.js";
 import handleResponse from "../utils/helper.js";
 import Order from "../models/order.js";
+import Cart from "../models/cart.js";
 import { buildSearchRegex } from "../utils/regex.js";
+import { isServerSideCouponEngineEnabled } from "../constants/finance.js";
+import { computeOrderDiscount } from "../services/finance/couponService.js";
+import { hydrateOrderItems } from "../services/finance/pricingService.js";
 
 export const listCoupons = async (req, res) => {
     try {
@@ -82,6 +86,67 @@ export const validateCoupon = async (req, res) => {
 
         if (!code) {
             return handleResponse(res, 400, "Coupon code is required");
+        }
+
+        // Audit Phase 5 (C-2 + C-4 + H-2 + H-7): when the
+        // SERVER_SIDE_COUPON_ENGINE flag is on, route through the
+        // centralized engine so this endpoint and place-order use the
+        // SAME validation, the SAME per-user counts (from Order.coupon),
+        // and the SAME discount math (roundCurrency, not Math.round).
+        //
+        // Cart hydration priority:
+        //   1. Server-side `Cart` collection for the customer (most
+        //      trusted). Picked when `customerId` is supplied AND a
+        //      cart exists.
+        //   2. Client-supplied `items` array, hydrated through
+        //      `hydrateOrderItems` (server prices replace client
+        //      prices) — fallback for legacy flows that don't sync
+        //      the cart server-side first.
+        // When the flag is OFF the legacy code path below runs
+        // unchanged, preserving every existing client integration.
+        if (isServerSideCouponEngineEnabled()) {
+            const effectiveCustomerId = customerId || req.user?.id || null;
+            let hydratedItems = [];
+
+            if (effectiveCustomerId) {
+                const serverCart = await Cart.findOne({ customerId: effectiveCustomerId }).lean();
+                if (serverCart && Array.isArray(serverCart.items) && serverCart.items.length > 0) {
+                    const cartItemsForHydration = serverCart.items.map((item) => ({
+                        product: item.productId,
+                        variantSku: String(item.variantSku || "").trim(),
+                        quantity: item.quantity,
+                    }));
+                    hydratedItems = await hydrateOrderItems(cartItemsForHydration, {
+                        enforceServerPricing: true,
+                    });
+                }
+            }
+
+            if (hydratedItems.length === 0 && Array.isArray(items) && items.length > 0) {
+                hydratedItems = await hydrateOrderItems(items, {
+                    enforceServerPricing: true,
+                });
+            }
+
+            if (hydratedItems.length === 0) {
+                return handleResponse(res, 400, "Cannot apply a coupon to an empty cart");
+            }
+
+            const result = await computeOrderDiscount({
+                couponCode: code,
+                customerId: effectiveCustomerId,
+                hydratedItems,
+            });
+            if (!result) {
+                return handleResponse(res, 400, "Invalid coupon code");
+            }
+            return handleResponse(res, 200, "Coupon applied", {
+                couponId: result.coupon._id,
+                code: result.coupon.code,
+                discountAmount: result.discountAmount,
+                freeDelivery: result.freeDelivery,
+                couponSnapshot: result.couponSnapshot,
+            });
         }
 
         const now = new Date();
@@ -207,7 +272,13 @@ export const validateCoupon = async (req, res) => {
             freeDelivery,
         });
     } catch (error) {
-        return handleResponse(res, 500, error.message);
+        // Audit Phase 5: honor `error.statusCode` so the centralized
+        // engine's 400/404 errors (e.g. "Coupon not active",
+        // "Minimum order value should be ₹500") surface as the
+        // intended HTTP status. Legacy throws without a `statusCode`
+        // continue to return 500 — preserving existing semantics for
+        // unexpected DB/system failures.
+        return handleResponse(res, error.statusCode || 500, error.message);
     }
 };
 

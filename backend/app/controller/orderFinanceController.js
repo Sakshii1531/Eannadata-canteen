@@ -31,6 +31,15 @@ export const previewCheckoutFinance = async (req, res) => {
       // aggregate breakdown exposes a `payableAmount` (post-wallet) the
       // frontend can render directly. No-op when client sends 0 or omits.
       walletAmount: payload.walletAmount || 0,
+      // Audit Phase 5 (C-2 + H-6): forward couponCode/couponId so the
+      // preview returns the server-validated discount (and `freeDelivery`
+      // rebate) without trusting any client-supplied `discountTotal`.
+      // The `customerId` is read from auth so per-user limits are
+      // enforced consistently between preview and place-order — and
+      // the preview can refuse a coupon the user has already exhausted.
+      couponCode: payload.couponCode || null,
+      couponId: payload.couponId || null,
+      customerId: req.user?.id || null,
     });
 
     const sellerBreakdowns = pricingSnapshot.sellerBreakdownEntries.map((entry) => ({
@@ -52,6 +61,12 @@ export const previewCheckoutFinance = async (req, res) => {
       sellerCount: pricingSnapshot.sellerCount,
       itemCount: pricingSnapshot.itemCount,
       sellerBreakdowns,
+      // Audit Phase 5: expose the resolved coupon snapshot so the
+      // frontend can render "Coupon CODE applied — ₹X off" without
+      // running its own math. `null` when no coupon was supplied or
+      // SERVER_SIDE_COUPON_ENGINE is off.
+      couponSnapshot: pricingSnapshot.couponSnapshot || null,
+      freeDeliveryApplied: !!pricingSnapshot.freeDeliveryApplied,
       ...(distanceDebug ? { distanceDebug } : {}),
     });
   } catch (error) {
@@ -75,6 +90,14 @@ export const createOrderWithFinancialSnapshot = async (req, res) => {
       tipAmount: validated.tipAmount || 0,
       walletAmount: validated.walletAmount || 0,
       couponId: validated.couponId || null,
+      // Audit Phase 5 (C-2 + H-7): forward couponCode so the placement
+      // service can re-validate end-to-end. We deliberately DO NOT
+      // forward `discountTotal`, `taxTotal`, or `pricing` from the
+      // client — the controller has stripped those since Phase 4 to
+      // prevent client-pricing tampering, and the new server-side
+      // coupon engine fills the discount in via `couponCode`/`couponId`
+      // instead.
+      couponCode: validated.couponCode || null,
     };
     const idempotencyKey = String(req.headers["idempotency-key"] || "").trim() || null;
 

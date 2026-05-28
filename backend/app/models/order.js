@@ -282,6 +282,43 @@ const orderSchema = new mongoose.Schema(
       // (already enforced) and an operational backfill.
       cancellationReversalApplied: { type: Boolean, default: false },
     },
+    // Audit Phase 5 (C-2 + C-4 + H-2 + H-6 + H-7): canonical coupon
+    // reference + frozen rule snapshot persisted at place-order so the
+    // discount decision can be audited and per-user usage counts can be
+    // computed from real data. Both fields are additive and default to
+    // null — historical orders are unaffected. Populated only when the
+    // `SERVER_SIDE_COUPON_ENGINE` feature flag is on; legacy/off-flag
+    // orders keep these fields empty.
+    coupon: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+      default: null,
+      index: true,
+    },
+    couponSnapshot: {
+      couponId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Coupon",
+        default: null,
+      },
+      code: { type: String, default: null },
+      title: { type: String, default: null },
+      discountType: { type: String, default: null },
+      discountValue: { type: Number, default: 0 },
+      maxDiscount: { type: Number, default: null },
+      couponType: { type: String, default: null },
+      minOrderValue: { type: Number, default: 0 },
+      minItems: { type: Number, default: 0 },
+      perUserLimit: { type: Number, default: null },
+      usageLimit: { type: Number, default: null },
+      validFrom: { type: Date, default: null },
+      validTill: { type: Date, default: null },
+      // Resolved at apply time so the snapshot is a self-contained record.
+      cartSubtotalAtApply: { type: Number, default: 0 },
+      discountAmountApplied: { type: Number, default: 0 },
+      freeDeliveryApplied: { type: Boolean, default: false },
+      appliedAt: { type: Date, default: null },
+    },
     status: {
       type: String,
       enum: [

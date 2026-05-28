@@ -11,7 +11,9 @@ import {
   ORDER_PAYMENT_STATUS,
   OWNER_TYPE,
   isWalletRedemptionReducesPayableEnabled,
+  isServerSideCouponEngineEnabled,
 } from "../constants/finance.js";
+import { incrementCouponUsage } from "./finance/couponService.js";
 import { freezeFinancialSnapshot } from "./finance/orderFinanceService.js";
 import {
   creditWallet,
@@ -397,12 +399,22 @@ export async function placeOrderAtomic({
     // snapshot ignores it (`grandTotal` stays at the pre-wallet value)
     // and the legacy direct-debit path below preserves bit-for-bit
     // current behaviour.
+    //
+    // Audit Phase 5 (C-2 + H-6 + H-7): when SERVER_SIDE_COUPON_ENGINE is
+    // on, pass couponCode/couponId/customerId so the snapshot ignores
+    // the client-supplied `discountTotal` and recomputes the discount
+    // from the server-hydrated cart, applying free-delivery rebates
+    // server-side. When the flag is off, only `discountTotal` flows
+    // through — preserving legacy bit-for-bit behaviour.
     const pricingSnapshot = await buildCheckoutPricingSnapshot({
       orderItems: orderItemsInput,
       address: normalizedAddress,
       tipAmount,
       discountTotal: Math.max(0, Number(normalizedPayload.discountTotal || 0)),
       walletAmount,
+      couponCode: normalizedPayload.couponCode || null,
+      couponId: normalizedPayload.couponId || null,
+      customerId,
       session,
     });
 
@@ -470,6 +482,16 @@ export async function placeOrderAtomic({
         ? breakdownWalletAmount
         : (orderGrandTotal / groupGrandTotal) * walletAmount;
 
+      // Audit Phase 5 (C-2 + C-4): persist the canonical coupon ref +
+      // frozen rule snapshot on every order in the checkout. Per-user
+      // usage counts in `couponService.computeOrderDiscount` use
+      // `Order.coupon` to count real usages instead of the legacy
+      // hard-coded zero. Only populated when SERVER_SIDE_COUPON_ENGINE
+      // is on AND a coupon was validated — otherwise both fields stay
+      // null so historical/off-flag orders are unaffected.
+      const persistedCouponId = pricingSnapshot.couponSnapshot?.couponId || null;
+      const persistedCouponSnapshot = pricingSnapshot.couponSnapshot || undefined;
+
       const order = new Order({
         orderId,
         customer: customerId,
@@ -491,6 +513,8 @@ export async function placeOrderAtomic({
           total: entry.breakdown.grandTotal,
           walletAmount: proportionateWallet,
         },
+        coupon: persistedCouponId,
+        ...(persistedCouponSnapshot ? { couponSnapshot: persistedCouponSnapshot } : {}),
         status: "pending",
         orderStatus: "pending",
         timeSlot: normalizedPayload.timeSlot || "now",
@@ -615,6 +639,28 @@ export async function placeOrderAtomic({
       cartDocument,
     });
 
+    // Audit Phase 5 (M-3): atomic, usage-limit-aware coupon increment
+    // INSIDE the transaction. When SERVER_SIDE_COUPON_ENGINE is on, the
+    // server is the authority on whether a coupon applies (we already
+    // re-validated it inside `buildCheckoutPricingSnapshot`), so the
+    // increment is now part of the same atomic write set as the order
+    // documents. The increment is conditional — if `usageLimit` is set
+    // and already reached, the document is left untouched. The order
+    // proceeds regardless (legacy semantics) so a race-condition winner
+    // doesn't lock out the loser at checkout; accounting is honest at
+    // the coupon level. When the flag is OFF, this block is a no-op
+    // and the legacy post-commit fire-and-forget block (below) runs
+    // instead.
+    if (
+      isServerSideCouponEngineEnabled() &&
+      pricingSnapshot.couponSnapshot?.couponId
+    ) {
+      await incrementCouponUsage({
+        couponId: pricingSnapshot.couponSnapshot.couponId,
+        session,
+      });
+    }
+
     await session.commitTransaction();
 
     // Phase 2 P2-7: atomic, usage-limit-aware coupon increment.
@@ -627,8 +673,15 @@ export async function placeOrderAtomic({
     // be exceeded, the document is left untouched. The order itself was
     // already placed (the check at validation time is best-effort), but
     // accounting now stays honest.
+    //
+    // Audit Phase 5 (M-3): when SERVER_SIDE_COUPON_ENGINE is on, the
+    // increment is already performed transactionally above so this
+    // post-commit fire-and-forget path becomes a no-op. When the flag
+    // is OFF (legacy behaviour), we keep the post-commit increment so
+    // the wire-level semantics of the legacy code path are preserved
+    // bit-for-bit.
     const couponId = normalizedPayload.couponId;
-    if (couponId) {
+    if (couponId && !isServerSideCouponEngineEnabled()) {
       Coupon.updateOne(
         { _id: couponId },
         [

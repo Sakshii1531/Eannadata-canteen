@@ -155,6 +155,23 @@ export function isWalletRedemptionReducesPayableEnabled() {
   return String(process.env.WALLET_REDEMPTION_REDUCES_PAYABLE || "").toLowerCase() === "true";
 }
 
+// Audit Phase 5 (C-2 + C-4 + H-2 + H-6 + H-7): when this flag is on, the
+// checkout pricing pipeline IGNORES any client-supplied `discountTotal`
+// and instead routes coupon discount and free-delivery decisions through
+// `services/finance/couponService.computeOrderDiscount` using the
+// server-hydrated cart items. The order document also persists
+// `coupon` (ObjectId ref) and `couponSnapshot` (frozen rule + applied
+// amount) so per-user usage counts can be enforced from real data
+// instead of the hard-coded `userUsageCount = 0` in couponController.
+//
+// When the flag is OFF, the legacy buggy behaviour (client trust on
+// `discountTotal`, hard-coded user usage count, free-delivery silently
+// ignored at place-order) is preserved bit-for-bit so rollback is an
+// env flip. Default is OFF for production safety.
+export function isServerSideCouponEngineEnabled() {
+  return String(process.env.SERVER_SIDE_COUPON_ENGINE || "").toLowerCase() === "true";
+}
+
 export const ALL_PAYMENT_MODES = Object.values(PAYMENT_MODE);
 export const ALL_ORDER_PAYMENT_STATUSES = Object.values(ORDER_PAYMENT_STATUS);
 export const ALL_ORDER_SETTLEMENT_STATUSES = Object.values(ORDER_SETTLEMENT_STATUS);
