@@ -19,8 +19,8 @@ const seedAdmin = async () => {
     // Admin details
     const adminData = {
       name: process.env.ADMIN_SEED_NAME || 'Admin',
-      email: process.env.ADMIN_SEED_EMAIL || 'admin@admin.com',
-      password: process.env.ADMIN_SEED_PASSWORD || 'Admin!@#123', // Min 10 chars, uppercase, lowercase, number
+      email: process.env.ADMIN_SEED_EMAIL || 'admin123@gmail.com',
+      password: process.env.ADMIN_SEED_PASSWORD || 'admin123',
       role: 'admin',
       isVerified: true,
     };

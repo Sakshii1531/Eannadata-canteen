@@ -475,4 +475,6 @@ async function main() {
 }
 
 // Start the application
+// Trigger nodemon reload
 main();
+
