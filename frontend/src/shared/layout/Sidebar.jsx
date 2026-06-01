@@ -220,14 +220,14 @@ const SidebarItem = ({
 
 const SidebarContent = ({ items, title, onClose, openMenu, handleToggle, hoveredIdx, setHoveredIdx }) => {
   const { settings } = useSettings();
-  const appName = settings?.appName || 'App';
+  const appName = settings?.appName || 'Eannadata canteen ';
 
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex-shrink-0 flex h-16 items-center justify-between px-5 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent z-10">
         <div className="flex items-center space-x-2.5">
           {settings?.logoUrl ? (
-            <div className="h-9 w-9 rounded-xl overflow-hidden shadow-sm ring-1 ring-white/10 group-hover:scale-110 transition-all duration-500 ease-out">
+            <div className="h-12 w-12 rounded-xl overflow-hidden shadow-sm ring-1 ring-white/10 group-hover:scale-110 transition-all duration-500 ease-out">
               <img src={settings.logoUrl} alt={appName} className="h-full w-full object-contain" />
             </div>
           ) : (
@@ -286,7 +286,7 @@ const SidebarContent = ({ items, title, onClose, openMenu, handleToggle, hovered
           <div className="flex items-center space-x-2.5">
             <div className="relative group">
               {settings?.logoUrl ? (
-                <div className="h-8 w-8 rounded-lg overflow-hidden border border-white/10 shadow-lg group-hover:scale-110 transition-all duration-500">
+                <div className="h-12 w-12 rounded-lg overflow-hidden border border-white/10 shadow-lg group-hover:scale-110 transition-all duration-500">
                   <img src={settings.logoUrl} alt={appName} className="h-full w-full object-contain" />
                 </div>
               ) : (

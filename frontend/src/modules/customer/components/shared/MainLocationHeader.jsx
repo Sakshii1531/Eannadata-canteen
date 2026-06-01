@@ -163,7 +163,7 @@ const MainLocationHeader = ({
     useLocation();
   const { isOpen: isProductDetailOpen } = useProductDetail();
   const { settings } = useSettings();
-  const appName = settings?.appName || "App";
+  const appName = settings?.appName || "Eannadata canteen ";
   const logoUrl = settings?.logoUrl || LogoImage;
   const navigate = useNavigate();
 
@@ -356,7 +356,7 @@ const MainLocationHeader = ({
                     src={logoUrl}
                     alt={`${appName} Logo`}
                     loading="lazy"
-                    className="h-10 w-auto object-contain"
+                    className="h-16 w-auto object-contain"
                   />
                 </div>
               </div>

@@ -73,7 +73,7 @@ const CustomerAuth = () => {
     const [carouselIndex, setCarouselIndex] = useState(0);
     const { login } = useAuth();
     const { settings } = useSettings();
-    const appName = settings?.appName || 'App';
+    const appName = settings?.appName || 'Eannadata canteen ';
     const logoUrl = settings?.logoUrl || '';
     const navigate = useNavigate();
 

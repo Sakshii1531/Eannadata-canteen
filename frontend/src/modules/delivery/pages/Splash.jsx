@@ -6,7 +6,7 @@ import { useSettings } from "@core/context/SettingsContext";
 const Splash = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const appName = settings?.appName || "App";
+  const appName = settings?.appName || "Eannadata canteen ";
 
   useEffect(() => {
     const timer = setTimeout(() => {

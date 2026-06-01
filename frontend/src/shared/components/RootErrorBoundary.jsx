@@ -7,7 +7,7 @@ const RootErrorBoundary = () => {
     const error = useRouteError();
     const navigate = useNavigate();
     const { settings } = useSettings();
-    const appName = settings?.appName || 'App';
+    const appName = settings?.appName || 'Eannadata canteen ';
     console.error('Route Error:', error);
 
     let errorMessage = "An unexpected error occurred.";

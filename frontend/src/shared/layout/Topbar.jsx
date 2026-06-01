@@ -24,7 +24,7 @@ const Topbar = ({ onMenuClick }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const appName = settings?.appName || 'App';
+    const appName = settings?.appName || 'Eannadata canteen ';
     const logoUrl = settings?.logoUrl || '';
 
     const [searchQuery, setSearchQuery] = React.useState('');
@@ -177,7 +177,7 @@ const Topbar = ({ onMenuClick }) => {
                 {/* Mobile Logo */}
                 <div className="flex items-center space-x-2 mr-4 md:hidden">
                     {logoUrl ? (
-                        <div className="h-8 w-8 rounded-lg overflow-hidden shadow-md shadow-primary/10 border border-gray-100">
+                        <div className="h-12 w-12 rounded-lg overflow-hidden shadow-md shadow-primary/10 border border-gray-100">
                             <img src={logoUrl} alt={appName} className="h-full w-full object-contain" />
                         </div>
                     ) : (

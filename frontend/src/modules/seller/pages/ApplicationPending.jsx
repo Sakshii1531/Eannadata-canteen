@@ -10,7 +10,7 @@ const ApplicationPending = () => {
   const { isAuthenticated, role, user, isLoading } = useAuth();
   const { settings } = useSettings();
 
-  const appName = settings?.appName || "App";
+  const appName = settings?.appName || "Eannadata canteen ";
   const logoUrl = settings?.logoUrl || "";
 
   const applicationStatus =
@@ -49,9 +49,9 @@ const ApplicationPending = () => {
           <div className="mb-8 flex items-center justify-between gap-4">
             <div className="inline-flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2">
               {logoUrl ? (
-                <img src={logoUrl} alt={`${appName} logo`} className="h-8 w-8 object-contain" />
+                <img src={logoUrl} alt={`${appName} logo`} className="h-12 w-12 object-contain" />
               ) : (
-                <Store className="h-5 w-5 text-white/80" />
+                <Store className="h-8 w-8 text-white/80" />
               )}
               <span className="text-sm font-bold text-white/90">{appName} Seller</span>
             </div>

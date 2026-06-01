@@ -25,7 +25,7 @@ const AdminAuth = () => {
     const { login } = useAuth();
     const { settings } = useSettings();
     const navigate = useNavigate();
-    const appName = settings?.appName || 'App';
+    const appName = settings?.appName || 'Eannadata canteen ';
     const logoUrl = settings?.logoUrl || '';
 
     const [formData, setFormData] = useState({

@@ -21,7 +21,7 @@ const ProfilePage = () => {
     const navigate = useNavigate();
     const { user, role, logout } = useAuth();
     const { settings } = useSettings();
-    const appName = settings?.appName || 'App';
+    const appName = settings?.appName || 'Eannadata canteen ';
     const [isTestingPush, setIsTestingPush] = React.useState(false);
 
     const formatIndiaPhone = (value) => {

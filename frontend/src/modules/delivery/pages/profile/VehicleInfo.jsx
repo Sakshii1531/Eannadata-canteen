@@ -10,7 +10,7 @@ const VehicleInfo = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { settings } = useSettings();
-  const appName = settings?.appName || "App";
+  const appName = settings?.appName || "Eannadata canteen ";
 
   const vehicleDetails = {
     type: user?.vehicleType || "Not Specified",

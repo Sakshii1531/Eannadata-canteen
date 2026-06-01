@@ -10,7 +10,7 @@ import { useSettings } from "@core/context/SettingsContext";
 const SafetyPrivacy = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const appName = settings?.appName || "App";
+  const appName = settings?.appName || "Eannadata canteen ";
 
   const [contacts, setContacts] = useState([
     { id: 1, name: "Anita Kumar (Wife)", phone: "+91 98765 12345" },

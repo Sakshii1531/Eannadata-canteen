@@ -183,6 +183,10 @@ export const updateSettings = async (req, res) => {
       }
     }
 
+    if (typeof payload.supportEmail === "string") {
+      payload.supportEmail = payload.supportEmail.replace(/\s+/g, "");
+    }
+
     const { error, value } = updateSettingsSchema.validate(payload, {
       stripUnknown: true,
     });

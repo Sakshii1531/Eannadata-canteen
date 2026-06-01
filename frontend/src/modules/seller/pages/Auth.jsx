@@ -56,7 +56,7 @@ const Auth = () => {
   const { login } = useAuth();
   const { settings } = useSettings();
   const navigate = useNavigate();
-  const appName = settings?.appName || "App";
+  const appName = settings?.appName || "Eannadata canteen ";
   const logoUrl = settings?.logoUrl || "";
   const [verifications, setVerifications] = useState({
     email: createInitialVerificationState(),
@@ -480,15 +480,15 @@ const Auth = () => {
           onWheelCapture={handlePanelWheel}
           style={{ WebkitOverflowScrolling: "touch" }}>
           <div className="hidden md:flex absolute top-8 right-8 z-20">
-            <div className="w-20 h-20 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden">
+            <div className="w-24 h-24 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden">
               {logoUrl ? (
                 <img
                   src={logoUrl}
                   alt={`${appName} logo`}
-                  className="w-14 h-14 object-contain"
+                  className="w-18 h-18 object-contain"
                 />
               ) : (
-                <Store size={30} className="text-slate-700" />
+                <Store size={36} className="text-slate-700" />
               )}
             </div>
           </div>
