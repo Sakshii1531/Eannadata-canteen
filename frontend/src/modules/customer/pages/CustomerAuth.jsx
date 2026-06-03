@@ -16,7 +16,10 @@ import {
     ShoppingBasket,
     Heart,
     Star,
-    ChevronLeft
+    ChevronLeft,
+    Wheat,
+    Sprout,
+    Milk
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
@@ -24,44 +27,44 @@ import BgImage from '@/assets/image.png';
 
 const CATEGORIES = [
     {
-        title: "Grocery",
-        icon: <ShoppingBasket size={28} />,
-        color: "#ecfeff",
-        ring: "var(--primary)",
-        text: "var(--brand-500)",
-        theme: "var(--primary)",
-        shadow: "rgba(97, 218, 251, 0.3)",
-        img: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=600"
+        title: "Farm Grains",
+        icon: <Wheat size={28} />,
+        color: "#fdf8e2",
+        ring: "#eab308",
+        text: "#854d0e",
+        theme: "#eab308",
+        shadow: "rgba(234, 179, 8, 0.3)",
+        img: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&q=80&w=600"
     },
     {
-        title: "Store",
-        icon: <Smartphone size={28} />,
-        color: "#f0f9ff",
-        ring: "var(--brand-400)",
-        text: "#0369a1",
-        theme: "var(--brand-500)",
-        shadow: "rgba(14, 165, 233, 0.3)",
-        img: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&q=80&w=600"
+        title: "Organic Veggies",
+        icon: <Sprout size={28} />,
+        color: "#f0fdf4",
+        ring: "#22c55e",
+        text: "#166534",
+        theme: "#22c55e",
+        shadow: "rgba(34, 197, 150, 0.3)",
+        img: "https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?auto=format&fit=crop&q=80&w=600"
     },
     {
-        title: "Food",
-        icon: <Utensils size={28} />,
-        color: "#f0fdfa",
-        ring: "#22d3ee",
-        text: "#0e7490",
-        theme: "var(--brand-500)",
-        shadow: "rgba(14, 165, 233, 0.3)",
-        img: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80&w=600"
-    },
-    {
-        title: "Health",
-        icon: <ShieldCheck size={28} />,
+        title: "Pure Dairy",
+        icon: <Milk size={28} />,
         color: "#eff6ff",
-        ring: "#60a5fa",
-        text: "#1d4ed8",
+        ring: "#3b82f6",
+        text: "#1e3a8a",
         theme: "#3b82f6",
         shadow: "rgba(59, 130, 246, 0.3)",
-        img: "https://images.unsplash.com/photo-1512678080530-7760d81faba6?q=80&w=1200&auto=format&fit=crop"
+        img: "https://images.unsplash.com/photo-1528498033373-3c6c08e93d79?auto=format&fit=crop&q=80&w=600"
+    },
+    {
+        title: "Canteen Meals",
+        icon: <Utensils size={28} />,
+        color: "#fff7ed",
+        ring: "#ea580c",
+        text: "#9a3412",
+        theme: "#ea580c",
+        shadow: "rgba(234, 88, 12, 0.3)",
+        img: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80&w=600"
     },
 ];
 
@@ -299,24 +302,6 @@ const CustomerAuth = () => {
                                     exit={{ opacity: 0, x: -20 }}
                                     className="space-y-5"
                                 >
-                                    {/* App Style Tab Switcher */}
-                                    <div className="flex bg-gray-50 rounded-2xl p-1.5 border border-gray-100">
-                                        <button
-                                            onClick={() => setIsLogin(true)}
-                                            className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${isLogin ? 'bg-white shadow-sm' : 'text-gray-400'}`}
-                                            style={{ color: isLogin ? activeCategory.theme : undefined }}
-                                        >
-                                            Login
-                                        </button>
-                                        <button
-                                            onClick={() => setIsLogin(false)}
-                                            className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${!isLogin ? 'bg-white shadow-sm' : 'text-gray-400'}`}
-                                            style={{ color: !isLogin ? activeCategory.theme : undefined }}
-                                        >
-                                            Sign Up
-                                        </button>
-                                    </div>
-
                                     <div className="space-y-2 text-center">
                                         <h3 className="text-xl font-black text-gray-900 tracking-tight">
                                             {isLogin ? 'Welcome Back!' : 'Create Account'}
