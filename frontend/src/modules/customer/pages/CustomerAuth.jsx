@@ -111,16 +111,13 @@ const CustomerAuth = () => {
         }
         setIsLoading(true);
         try {
-            if (isLogin) {
-                await customerApi.sendLoginOtp({ phone: formData.phone });
-            } else {
-                await customerApi.sendSignupOtp({ name: formData.name, phone: formData.phone });
-            }
+            await customerApi.sendLoginOtp({ phone: formData.phone });
             setShowOtp(true);
             setTimer(30);
             toast.success('OTP sent!');
         } catch (error) {
-            toast.error('Failed to send OTP');
+            const apiMessage = error?.response?.data?.message;
+            toast.error(apiMessage || 'Failed to send OTP');
         } finally {
             setIsLoading(false);
         }
@@ -304,10 +301,12 @@ const CustomerAuth = () => {
                                 >
                                     <div className="space-y-2 text-center">
                                         <h3 className="text-xl font-black text-gray-900 tracking-tight">
-                                            {isLogin ? 'Welcome Back!' : 'Create Account'}
+                                            Welcome to Canteen
                                         </h3>
-                                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none">
-                                            OTP will be sent for verification
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-relaxed">
+                                            Enter your registered phone number.
+                                            <br/>
+                                            Login OTP will be sent.
                                         </p>
                                     </div>
 

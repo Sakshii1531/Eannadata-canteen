@@ -109,41 +109,26 @@ export async function issueCustomerOtp({
   }
 
   let customer = await Customer.findOne({ phone }).select(
-    "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry",
+    "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry status isActive",
   );
 
-  if (flow === "login" && (!customer || !customer.isVerified)) {
-    if (useRealSMS()) {
-      otpAuditLog("customer_otp_login_generic_response", {
-        phone: maskPhone(phone),
-        ipAddress,
-        accountExists: !!customer,
-      });
-      return { sent: true, phone };
-    }
-
-    // In mock/dev mode, allow login OTP issuance so local testing works end-to-end.
+  if (flow === "login") {
     if (!customer) {
-      customer = await Customer.create({
-        name: name || "Customer",
-        phone,
-        isVerified: false,
-      });
-      customer = await Customer.findById(customer._id).select(
-        "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry",
-      );
+      const err = new Error("User account not found. Please contact administration.");
+      err.statusCode = 404;
+      throw err;
+    }
+    if (customer.status === "inactive" || customer.isActive === false) {
+      const err = new Error("Account is deactivated. Login is blocked.");
+      err.statusCode = 403;
+      throw err;
     }
   }
 
   if (!customer) {
-    customer = await Customer.create({
-      name: name || "Customer",
-      phone,
-      isVerified: false,
-    });
-    customer = await Customer.findById(customer._id).select(
-      "+otpHash +otpExpiresAt +otpFailedAttempts +otpLockedUntil +otpLastSentAt +otpSessionVersion +otp +otpExpiry",
-    );
+    const err = new Error("Registration is disabled. Please contact administration.");
+    err.statusCode = 403;
+    throw err;
   }
 
   if (customer.otpLockedUntil && customer.otpLockedUntil > now) {

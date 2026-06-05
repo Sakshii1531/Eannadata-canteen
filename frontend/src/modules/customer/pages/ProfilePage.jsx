@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
-    LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell
+    LogOut, ShieldCheck, Heart, HelpCircle, Info, ChevronLeft, Bell,
+    Lock, Calendar, CheckCircle, Smartphone
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -22,7 +23,11 @@ const ProfilePage = () => {
     const { user, role, logout } = useAuth();
     const { settings } = useSettings();
     const appName = settings?.appName || 'Eannadata canteen ';
-    const [isTestingPush, setIsTestingPush] = React.useState(false);
+    const [isTestingPush, setIsTestingPush] = useState(false);
+
+    // Profile State
+    const [profile, setProfile] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     const formatIndiaPhone = (value) => {
         const raw = String(value || '').trim();
@@ -97,6 +102,28 @@ const ProfilePage = () => {
         }
     };
 
+    // Fetch dynamic profile on mount
+    useEffect(() => {
+        const fetchProfileData = async () => {
+            try {
+                setLoading(true);
+                const res = await customerApi.getProfile();
+                if (res.data?.success) {
+                    setProfile(res.data.result);
+                }
+            } catch (err) {
+                console.error("Error fetching profile details:", err);
+                toast.error("Failed to sync profile data.");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProfileData();
+    }, []);
+
+    // Combine user details
+    const activeUser = profile || user;
+
     return (
         <div className="min-h-screen bg-slate-50 pb-24 md:pb-8 font-sans">
             <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-sm px-4 pt-4 pb-3 border-b border-slate-200/60 mb-4 flex items-center gap-2">
@@ -121,26 +148,73 @@ const ProfilePage = () => {
             </div>
 
             <div className="max-w-2xl mx-auto px-4 pt-1 relative z-20 space-y-4">
-
-                {/* User Identity Card */}
+                {/* User Identity Card (Read Only) */}
                 <div className="bg-white rounded-xl p-4 border border-slate-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="h-14 w-14 rounded-xl bg-slate-100 flex items-center justify-center p-1 border border-slate-200">
-                            <div className="h-full w-full rounded-lg bg-white flex items-center justify-center overflow-hidden">
-                                <User size={28} className="text-slate-700" />
-                            </div>
+                            <img
+                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activeUser?.["Farmer Name"] || activeUser?.name || 'Customer'}&backgroundColor=f1f5f9`}
+                                alt=""
+                                className="h-full w-full rounded-lg object-cover"
+                            />
                         </div>
                         <div>
-                            <h2 className="text-base leading-tight font-semibold text-slate-900">{user?.name || 'Customer'}</h2>
+                            <h2 className="text-base leading-tight font-semibold text-slate-900">
+                                {activeUser?.["Farmer Name"] || activeUser?.name || 'Customer'}
+                            </h2>
                             <p className="text-slate-500 text-xs font-medium flex items-center gap-1 mt-0.5">
-                                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] uppercase">India</span> +91 {formatIndiaPhone(user?.phone)}
+                                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] uppercase">India</span> +91 {formatIndiaPhone(activeUser?.["Mobile No"] || activeUser?.phone)}
                             </p>
                         </div>
                     </div>
-                    <Link to="/profile/edit" className="p-2.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
-                        <Edit2 size={16} />
-                    </Link>
+                    <div className="flex flex-col items-end gap-1">
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-brand-600 bg-brand-50 px-2 py-1 rounded-full uppercase">
+                            <CheckCircle size={10} /> Verified
+                        </span>
+                    </div>
                 </div>
+
+                {/* Eannadata Card & Address Details (Read Only) */}
+                {(activeUser?.["eAnnadata Card Number"] || activeUser?.eannadata_card_number) && (
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200/60 flex items-center justify-between">
+                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Eannadata Card Details</p>
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                                <Lock size={10} /> Admin Managed
+                            </span>
+                        </div>
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-4 text-xs leading-relaxed text-slate-600">
+                            <div className="border-b border-slate-50 pb-2">
+                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Card Number</span>
+                                <span className="font-bold text-brand-600 text-sm">{activeUser["eAnnadata Card Number"] || activeUser.eannadata_card_number}</span>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Farmer Name</span>
+                                <span className="font-bold text-slate-800">{activeUser["Farmer Name"] || activeUser.name}</span>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2 md:col-span-2">
+                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Father/Mother/Husband</span>
+                                <span className="font-semibold text-slate-800">{activeUser["Father/Mother/Husband"] || 'N/A'}</span>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Date of Birth</span>
+                                <span className="font-semibold text-slate-800">
+                                    {activeUser["Date Of Birth"] ? new Date(activeUser["Date Of Birth"]).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A'}
+                                </span>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Gender</span>
+                                <span className="font-semibold text-slate-800">{activeUser.gender || 'N/A'}</span>
+                            </div>
+                            <div className="pb-1 col-span-1 md:col-span-2">
+                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Registered Address</span>
+                                <span className="font-semibold text-slate-800">
+                                    {activeUser["Village Name"] ? `${activeUser["Village Name"]}, Block: ${activeUser["Block Name"]}, District: ${activeUser["District Name"]}, ${activeUser["State Name"]} - ${activeUser["Pin Code"]}` : 'N/A'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Menu Sections */}
                 <div className="space-y-4">
@@ -236,7 +310,6 @@ const ProfilePage = () => {
                 <div className="text-center pb-8">
                     <p className="text-[10px] text-slate-400 font-medium">Version 2.4.0 - {appName}</p>
                 </div>
-
             </div>
         </div>
     );
@@ -267,5 +340,3 @@ const MenuItem = ({ icon: Icon, label, sub, path, color = '#334155', bg = 'rgba(
 );
 
 export default ProfilePage;
-
-

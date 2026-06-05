@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema(
             trim: true,
         },
 
+        "Farmer Name": {
+            type: String,
+            trim: true,
+        },
+
         email: {
             type: String,
             lowercase: true,
@@ -42,6 +47,76 @@ const userSchema = new mongoose.Schema(
             required: true,
             unique: true,
             trim: true,
+        },
+
+        "Mobile No": {
+            type: String,
+            unique: true,
+            sparse: true,
+            trim: true,
+        },
+
+        "eAnnadata Card Number": {
+            type: String,
+            unique: true,
+            sparse: true,
+            trim: true,
+        },
+
+        "Father/Mother/Husband": {
+            type: String,
+            trim: true,
+        },
+
+        "Date Of Birth": {
+            type: Date,
+        },
+
+        gender: {
+            type: String,
+            enum: ["Male", "Female", "Other"],
+            default: "Other",
+        },
+
+        "Pin Code": {
+            type: String,
+            trim: true,
+        },
+
+        "State Name": {
+            type: String,
+            trim: true,
+        },
+
+        "District Name": {
+            type: String,
+            trim: true,
+        },
+
+        "Block Name": {
+            type: String,
+            trim: true,
+        },
+
+        "Village Name": {
+            type: String,
+            trim: true,
+        },
+
+        "Registration Date": {
+            type: Date,
+            default: Date.now,
+        },
+
+        status: {
+            type: String,
+            enum: ["active", "inactive"],
+            default: "active",
+        },
+
+        created_by: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Admin",
         },
 
         password: {
@@ -135,8 +210,17 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ role: 1, isActive: 1 });
 
 userSchema.pre("validate", function(next) {
-    if (this.phone) {
+    if (this["Mobile No"]) {
+        this["Mobile No"] = normalizePhoneNumber(this["Mobile No"]);
+        this.phone = this["Mobile No"];
+    } else if (this.phone) {
         this.phone = normalizePhoneNumber(this.phone);
+        this["Mobile No"] = this.phone;
+    }
+    if (this["Farmer Name"]) {
+        this.name = this["Farmer Name"];
+    } else if (this.name) {
+        this["Farmer Name"] = this.name;
     }
     next();
 });

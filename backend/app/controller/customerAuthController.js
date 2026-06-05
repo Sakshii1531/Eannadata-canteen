@@ -25,20 +25,7 @@ const generateToken = (customer) =>
    SIGNUP – Send OTP
 ================================ */
 export const signupCustomer = async (req, res) => {
-    try {
-        const payload = validateSchema(sendSignupOtpSchema, req.body || {});
-
-        await issueCustomerOtp({
-            name: payload.name,
-            rawPhone: payload.phone,
-            flow: "signup",
-            ipAddress: req.ip,
-        });
-
-        return handleResponse(res, 200, "If the number is eligible, OTP has been sent");
-    } catch (error) {
-        return handleResponse(res, error.statusCode || 500, error.message);
-    }
+    return handleResponse(res, 403, "Public registration is disabled. Please contact admin.");
 };
 
 /* ===============================

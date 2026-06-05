@@ -16,12 +16,23 @@ export async function getUsersData({ page, limit, skip }) {
     {
       $project: {
         id: { $toString: "$_id" },
-        name: { $ifNull: ["$name", "Unnamed Customer"] },
+        name: { $ifNull: ["$Farmer Name", "$name", "Unnamed Customer"] },
+        "Farmer Name": 1,
+        "Mobile No": 1,
+        "eAnnadata Card Number": 1,
+        "Father/Mother/Husband": 1,
+        "Date Of Birth": 1,
+        "Pin Code": 1,
+        "State Name": 1,
+        "District Name": 1,
+        "Block Name": 1,
+        "Village Name": 1,
+        "Registration Date": 1,
         email: 1,
         phone: 1,
         joinedDate: "$createdAt",
         status: {
-          $cond: [{ $eq: ["$isActive", false] }, "inactive", "active"],
+          $ifNull: ["$status", { $cond: [{ $eq: ["$isActive", false] }, "inactive", "active"] }],
         },
         totalOrders: { $size: "$userOrders" },
         totalSpent: { $sum: "$userOrders.pricing.total" },
@@ -29,7 +40,7 @@ export async function getUsersData({ page, limit, skip }) {
         avatar: {
           $concat: [
             "https://api.dicebear.com/7.x/avataaars/svg?seed=",
-            { $ifNull: ["$name", "Customer"] },
+            { $ifNull: ["$Farmer Name", "$name", "Customer"] },
           ],
         },
       },
@@ -78,12 +89,25 @@ export async function getUserByIdData(id) {
     {
       $project: {
         id: { $toString: "$_id" },
-        name: { $ifNull: ["$name", "Unnamed Customer"] },
+        name: { $ifNull: ["$Farmer Name", "$name", "Unnamed Customer"] },
+        "Farmer Name": 1,
+        "Mobile No": 1,
+        "eAnnadata Card Number": 1,
+        "Father/Mother/Husband": 1,
+        "Date Of Birth": 1,
+        "Pin Code": 1,
+        "State Name": 1,
+        "District Name": 1,
+        "Block Name": 1,
+        "Village Name": 1,
+        "Registration Date": 1,
+        gender: 1,
         email: 1,
         phone: 1,
+        created_by: 1,
         joinedDate: "$createdAt",
         status: {
-          $cond: [{ $eq: ["$isActive", false] }, "inactive", "active"],
+          $ifNull: ["$status", { $cond: [{ $eq: ["$isActive", false] }, "inactive", "active"] }],
         },
         totalOrders: { $size: "$userOrders" },
         totalSpent: { $sum: "$userOrders.pricing.total" },
@@ -91,7 +115,7 @@ export async function getUserByIdData(id) {
         avatar: {
           $concat: [
             "https://api.dicebear.com/7.x/avataaars/svg?seed=",
-            { $ifNull: ["$name", "Customer"] },
+            { $ifNull: ["$Farmer Name", "$name", "Customer"] },
           ],
         },
         addresses: { $ifNull: ["$addresses", []] },

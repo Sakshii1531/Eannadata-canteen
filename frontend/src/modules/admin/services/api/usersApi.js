@@ -10,6 +10,12 @@ export const adminUsersApi = {
 
     getUsers: (params) => axiosInstance.get('/admin/users', { params }),
     getUserById: (id) => axiosInstance.get(`/admin/users/${id}`),
+    createUser: (data) => axiosInstance.post('/admin/users', data),
+    updateUser: (id, data) => axiosInstance.put(`/admin/users/${id}`, data),
+    updateUserStatus: (id, status) => axiosInstance.patch(`/admin/users/${id}/status`, { status }),
+    bulkUploadUsers: (formData) => axiosInstance.post('/admin/users/bulk-upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }),
 
     getSellers: (params) => axiosInstance.get('/admin/sellers', { params }),
     getActiveSellers: (params) =>

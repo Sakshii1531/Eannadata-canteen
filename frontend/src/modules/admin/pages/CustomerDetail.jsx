@@ -26,7 +26,8 @@ import {
     Bell,
     Package,
     IndianRupee,
-    CheckCircle2
+    CheckCircle2,
+    Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Modal from '@shared/components/ui/Modal';
@@ -53,46 +54,79 @@ const CustomerDetail = () => {
     const [loading, setLoading] = useState(true);
     const [orders, setOrders] = useState([]);
 
-    const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' });
+    const [editForm, setEditForm] = useState({
+        "Farmer Name": '',
+        "Mobile No": '',
+        email: '',
+        "eAnnadata Card Number": '',
+        "Father/Mother/Husband": '',
+        "Date Of Birth": '',
+        gender: 'Male',
+        "Pin Code": '',
+        "State Name": '',
+        "District Name": '',
+        "Block Name": '',
+        "Village Name": ''
+    });
 
-    useEffect(() => {
-        const fetchCustomerDetails = async () => {
-            try {
-                setLoading(true);
-                const { data } = await adminApi.getUserById(id);
-                if (data.success) {
-                    const customerData = data.result;
-                    setCustomer(customerData);
-                    setOrders(customerData.recentOrders || []);
-                    setEditForm({
-                        name: customerData.name,
-                        email: customerData.email,
-                        phone: customerData.phone
-                    });
-                }
-            } catch (error) {
-                console.error("Error fetching customer details:", error);
-                showToast("Failed to load customer profile", "error");
-            } finally {
-                setLoading(false);
+    const fetchCustomerDetails = async () => {
+        try {
+            setLoading(true);
+            const { data } = await adminApi.getUserById(id);
+            if (data.success) {
+                const customerData = data.result;
+                setCustomer(customerData);
+                setOrders(customerData.recentOrders || []);
+                setEditForm({
+                    "Farmer Name": customerData["Farmer Name"] || customerData.name || '',
+                    "Mobile No": customerData["Mobile No"] || customerData.phone || '',
+                    email: customerData.email || '',
+                    "eAnnadata Card Number": customerData["eAnnadata Card Number"] || '',
+                    "Father/Mother/Husband": customerData["Father/Mother/Husband"] || '',
+                    "Date Of Birth": customerData["Date Of Birth"] ? customerData["Date Of Birth"].split('T')[0] : '',
+                    gender: customerData.gender || 'Male',
+                    "Pin Code": customerData["Pin Code"] || '',
+                    "State Name": customerData["State Name"] || '',
+                    "District Name": customerData["District Name"] || '',
+                    "Block Name": customerData["Block Name"] || '',
+                    "Village Name": customerData["Village Name"] || ''
+                });
             }
-        };
-        if (id) fetchCustomerDetails();
-    }, [id]);
-
-    const handleRefresh = () => {
-        setIsRefreshing(true);
-        setTimeout(() => {
-            setIsRefreshing(false);
-            showToast('Customer data synchronized with main server', 'success');
-        }, 1000);
+        } catch (error) {
+            console.error("Error fetching customer details:", error);
+            showToast("Failed to load customer profile", "error");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleUpdateProfile = (e) => {
+    useEffect(() => {
+        if (id) fetchCustomerDetails();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id]);
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await fetchCustomerDetails();
+        setIsRefreshing(false);
+        showToast('Customer data synchronized with main database', 'success');
+    };
+
+    const handleUpdateProfile = async (e) => {
         e.preventDefault();
-        setCustomer({ ...editForm });
-        setIsEditModalOpen(false);
-        showToast('Profile updated successfully', 'success');
+        try {
+            const { data } = await adminApi.updateUser(id, editForm);
+            if (data.success) {
+                showToast('Profile updated successfully', 'success');
+                setIsEditModalOpen(false);
+                fetchCustomerDetails();
+            } else {
+                showToast(data.message || 'Failed to update profile', 'error');
+            }
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            showToast(error.response?.data?.message || 'Error occurred during profile update', 'error');
+        }
     };
 
     const handleSendNotif = () => {
@@ -102,11 +136,21 @@ const CustomerDetail = () => {
         showToast('Notification sent to user', 'success');
     };
 
-    const handleRestrictAccount = () => {
-        const newStatus = customer.status === 'active' ? 'restricted' : 'active';
-        setCustomer({ ...customer, status: newStatus });
-        setIsRestrictModalOpen(false);
-        showToast(`Account successfully ${newStatus === 'restricted' ? 'restricted' : 'activated'}`, newStatus === 'restricted' ? 'warning' : 'success');
+    const handleRestrictAccount = async () => {
+        const newStatus = customer.status === 'active' ? 'inactive' : 'active';
+        try {
+            const { data } = await adminApi.updateUserStatus(id, newStatus);
+            if (data.success) {
+                showToast(`Account successfully ${newStatus === 'active' ? 'activated' : 'deactivated'}`, newStatus === 'inactive' ? 'warning' : 'success');
+                setIsRestrictModalOpen(false);
+                fetchCustomerDetails();
+            } else {
+                showToast(data.message || 'Failed to update status', 'error');
+            }
+        } catch (error) {
+            console.error("Error updating status:", error);
+            showToast(error.response?.data?.message || 'Error updating status', 'error');
+        }
     };
 
     const handleSaveNotes = () => {
@@ -116,7 +160,6 @@ const CustomerDetail = () => {
     const handleExportCSV = () => {
         showToast('Archive export initiated. CSV will be ready shortly.', 'info');
     };
-
 
     const safeOrders = useMemo(
         () => (Array.isArray(orders) ? orders : []),
@@ -176,10 +219,7 @@ const CustomerDetail = () => {
                         REFRESH
                     </button>
                     <button
-                        onClick={() => {
-                            setEditForm({ ...customer });
-                            setIsEditModalOpen(true);
-                        }}
+                        onClick={() => setIsEditModalOpen(true)}
                         className="flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95 shadow-slate-200"
                     >
                         <Edit3 className="h-4 w-4" />
@@ -190,13 +230,13 @@ const CustomerDetail = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Main Profile Info */}
-                <Card className="lg:col-span-2 bg-white rounded-xl p-4 border-none shadow-xl ring-1 ring-slate-100 overflow-hidden relative">
-                    <div className="flex flex-col md:flex-row items-center md:items-start gap-4 relative z-10">
+                <Card className="lg:col-span-2 bg-white rounded-xl p-6 border-none shadow-xl ring-1 ring-slate-100 overflow-hidden relative">
+                    <div className="flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10">
                         <div className="relative shrink-0">
                             <img
-                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=BaseUser&backgroundColor=f1f5f9`}
+                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${customer["Farmer Name"] || customer.name || 'Customer'}&backgroundColor=f1f5f9`}
                                 alt=""
-                                className="h-32 w-32 rounded-xl ring-4 ring-slate-50 shadow-lg bg-slate-100"
+                                className="h-32 w-32 rounded-xl ring-4 ring-slate-50 shadow-lg bg-slate-100 object-cover"
                             />
                             <div className={cn(
                                 "absolute -bottom-1 -right-1 h-5 w-5 rounded-full ring-4 ring-white shadow-sm",
@@ -205,9 +245,9 @@ const CustomerDetail = () => {
                         </div>
                         <div className="flex-1 text-center md:text-left space-y-6">
                             <div>
-                                <h3 className="text-3xl font-black text-slate-900">{customer.name}</h3>
+                                <h3 className="text-3xl font-black text-slate-900">{customer["Farmer Name"] || customer.name}</h3>
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                                    Customer since {new Date(customer.joinedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    Customer since {customer.joinedDate ? new Date(customer.joinedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                                 </p>
                             </div>
 
@@ -239,13 +279,13 @@ const CustomerDetail = () => {
 
                 {/* Quick Stats */}
                 <div className="space-y-4">
-                    <Card className="p-6 !bg-black  text-primary-foreground rounded-xl border-none shadow-lg shadow-brand-200 relative overflow-hidden group">
+                    <Card className="p-6 !bg-black text-primary-foreground rounded-xl border-none shadow-lg shadow-brand-200 relative overflow-hidden group">
                         <div className="relative z-10">
                             <p className="text-[10px] font-black opacity-90 uppercase tracking-widest mb-1">Lifetime Value</p>
                             <h4 className="text-3xl font-black text-white">₹{(customer.totalSpent || 0).toLocaleString()}</h4>
                             <div className="mt-4 flex items-center gap-2">
                                 <div className="p-1 px-2 rounded-full bg-white/25 text-white text-[10px] font-black uppercase tracking-tighter">
-                                    {customer.totalOrders} Orders
+                                    {customer.totalOrders || 0} Orders
                                 </div>
                                 <TrendingUp className="h-4 w-4 text-white/90" />
                             </div>
@@ -270,15 +310,62 @@ const CustomerDetail = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Delivery & Order History */}
-                <div className="lg:col-span-2 space-y-8">
-                    {/* Delivery addresses */}
-                    <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+                {/* Detailed Profile Info Fields */}
+                <div className="lg:col-span-2 space-y-4">
+                    <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-6">
+                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
+                            <User className="h-4 w-4 text-brand-500" />
+                            Eannadata Identity & Family details
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6 text-sm">
+                            <div className="border-b border-slate-50 pb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Farmer Name</p>
+                                <p className="font-bold text-slate-800 mt-0.5">{customer["Farmer Name"] || customer.name || 'N/A'}</p>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">eAnnadata Card Number</p>
+                                <p className="font-bold text-brand-600 mt-0.5">{customer["eAnnadata Card Number"] || 'N/A'}</p>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2 md:col-span-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Father/Mother/Husband</p>
+                                <p className="font-bold text-slate-800 mt-0.5">{customer["Father/Mother/Husband"] || 'N/A'}</p>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date of Birth</p>
+                                <p className="font-bold text-slate-800 mt-0.5">
+                                    {customer["Date Of Birth"] ? new Date(customer["Date Of Birth"]).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A'}
+                                </p>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gender</p>
+                                <p className="font-bold text-slate-800 mt-0.5">{customer.gender || 'N/A'}</p>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2 col-span-1 md:col-span-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Permanent Address</p>
+                                <p className="font-bold text-slate-800 mt-0.5">
+                                    {customer["Village Name"] ? `${customer["Village Name"]}, Block: ${customer["Block Name"]}, District: ${customer["District Name"]}, ${customer["State Name"]} - ${customer["Pin Code"]}` : 'N/A'}
+                                </p>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registration Date</p>
+                                <p className="font-bold text-slate-800 mt-0.5">
+                                    {customer["Registration Date"] ? new Date(customer["Registration Date"]).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : (customer.joinedDate ? new Date(customer.joinedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A')}
+                                </p>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created By Admin ID</p>
+                                <p className="font-bold text-slate-500 mt-0.5 truncate">{customer.created_by || 'System Bootstrap / Signup'}</p>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* Saved Addresses (User Added) */}
+                    <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-6">
+                        <div className="flex items-center justify-between mb-6">
                             <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
                                 <MapIcon className="h-4 w-4 text-brand-500" />
-                                Saved Addresses
+                                Saved Shipping Addresses
                             </h4>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -290,7 +377,7 @@ const CustomerDetail = () => {
                                     const isDefault = addr.isDefault ?? (idx === 0);
                                     return (
                                         <div key={addr._id || addr.id || idx} className={cn(
-                                            "p-5 rounded-2xl ring-1 transition-all",
+                                            "p-4 rounded-xl ring-1 transition-all",
                                             isDefault ? "bg-slate-50 ring-slate-200 shadow-sm" : "bg-white ring-slate-100 hover:ring-brand-100"
                                         )}>
                                             <div className="flex items-center justify-between mb-2">
@@ -306,7 +393,7 @@ const CustomerDetail = () => {
                             ) : (
                                 <div className="col-span-2 py-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                                     <MapPin className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No saved addresses</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No saved shipping addresses</p>
                                 </div>
                             )}
                         </div>
@@ -397,7 +484,7 @@ const CustomerDetail = () => {
                     </Card>
                 </div>
 
-                {/* Sidebar Notes */}
+                {/* Sidebar Notes & Controls */}
                 <div className="space-y-6">
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-4">
                         <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
@@ -422,9 +509,9 @@ const CustomerDetail = () => {
                         <div className="space-y-4">
                             <button
                                 onClick={() => setIsNotifModalOpen(true)}
-                                className="w-full py-4 bg-black  hover:bg-brand-500 text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-xl shadow-brand-900/20 flex items-center justify-center gap-2"
+                                className="w-full py-4 bg-black hover:bg-brand-500 text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-xl shadow-brand-900/20 flex items-center justify-center gap-2"
                             >
-                                <MessageSquare className="h-4 w-4" />
+                                <Bell className="h-4 w-4" />
                                 SEND NOTIFICATION
                             </button>
                             <button
@@ -432,42 +519,149 @@ const CustomerDetail = () => {
                                 className="w-full py-4 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-2xl font-black text-[11px] uppercase tracking-widest border border-rose-500/20 transition-all flex items-center justify-center gap-2"
                             >
                                 <Ban className="h-4 w-4" />
-                                {customer.status === 'active' ? 'BLOCK ACCOUNT' : 'UNBLOCK ACCOUNT'}
+                                {customer.status === 'active' ? 'DEACTIVATE ACCOUNT' : 'ACTIVATE ACCOUNT'}
                             </button>
                         </div>
                     </Card>
                 </div>
             </div>
 
-            {/* Modals */}
-            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Profile Details">
-                <form onSubmit={handleUpdateProfile} className="space-y-6">
-                    <div className="space-y-4">
+            {/* EDIT PROFILE DETAILS MODAL */}
+            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Customer Profile details">
+                <form onSubmit={handleUpdateProfile} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Full Name</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Farmer Name</label>
                             <input
+                                required
                                 type="text"
-                                value={editForm.name}
-                                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                value={editForm["Farmer Name"]}
+                                onChange={(e) => setEditForm({ ...editForm, "Farmer Name": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
                             />
                         </div>
+
                         <div>
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Phone Number</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">eAnnadata Card Number</label>
                             <input
+                                required
                                 type="text"
-                                value={editForm.phone}
-                                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                                className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                value={editForm["eAnnadata Card Number"]}
+                                onChange={(e) => setEditForm({ ...editForm, "eAnnadata Card Number": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Mobile No</label>
+                            <input
+                                required
+                                type="tel"
+                                maxLength={10}
+                                value={editForm["Mobile No"]}
+                                onChange={(e) => setEditForm({ ...editForm, "Mobile No": e.target.value.replace(/\D/g, '') })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Father/Mother/Husband</label>
+                            <input
+                                required
+                                type="text"
+                                value={editForm["Father/Mother/Husband"]}
+                                onChange={(e) => setEditForm({ ...editForm, "Father/Mother/Husband": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Date of Birth</label>
+                            <input
+                                required
+                                type="date"
+                                value={editForm["Date Of Birth"]}
+                                onChange={(e) => setEditForm({ ...editForm, "Date Of Birth": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Gender</label>
+                            <select
+                                value={editForm.gender}
+                                onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            >
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Pin Code</label>
+                            <input
+                                required
+                                type="text"
+                                maxLength={6}
+                                value={editForm["Pin Code"]}
+                                onChange={(e) => setEditForm({ ...editForm, "Pin Code": e.target.value.replace(/\D/g, '') })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">State Name</label>
+                            <input
+                                required
+                                type="text"
+                                value={editForm["State Name"]}
+                                onChange={(e) => setEditForm({ ...editForm, "State Name": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">District Name</label>
+                            <input
+                                required
+                                type="text"
+                                value={editForm["District Name"]}
+                                onChange={(e) => setEditForm({ ...editForm, "District Name": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Block Name</label>
+                            <input
+                                required
+                                type="text"
+                                value={editForm["Block Name"]}
+                                onChange={(e) => setEditForm({ ...editForm, "Block Name": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Village Name</label>
+                            <input
+                                required
+                                type="text"
+                                value={editForm["Village Name"]}
+                                onChange={(e) => setEditForm({ ...editForm, "Village Name": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
                             />
                         </div>
                     </div>
-                    <button type="submit" className="w-full py-4 bg-black  hover:bg-brand-500 text-primary-foreground rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-lg active:scale-95">
+                    <button type="submit" className="w-full mt-4 py-3 bg-black hover:bg-brand-600 text-primary-foreground rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95">
                         SAVE CHANGES
                     </button>
                 </form>
             </Modal>
 
+            {/* SEND NOTIFICATION MODAL */}
             <Modal isOpen={isNotifModalOpen} onClose={() => setIsNotifModalOpen(false)} title="Send Notification">
                 <div className="space-y-6">
                     <div className="p-4 bg-brand-50 rounded-2xl flex items-start gap-3">
@@ -495,19 +689,20 @@ const CustomerDetail = () => {
                 </div>
             </Modal>
 
+            {/* CONFIRM STATUS TOGGLE MODAL */}
             <Modal isOpen={isRestrictModalOpen} onClose={() => setIsRestrictModalOpen(false)} title="Confirm Action">
                 <div className="space-y-6">
                     <div className="p-6 bg-rose-50 rounded-xl border border-rose-100 flex flex-col items-center text-center gap-4">
                         <div className="p-3 bg-rose-500 text-white rounded-full">
-                            <Ban className="h-6 w-6" />
+                            {customer.status === 'active' ? <Ban className="h-6 w-6" /> : <Lock className="h-6 w-6" />}
                         </div>
                         <h5 className="text-lg font-black text-slate-900 uppercase tracking-tight">
-                            Confirm Account {customer.status === 'active' ? 'Block' : 'Unblock'}?
+                            Confirm Account {customer.status === 'active' ? 'Deactivation' : 'Activation'}?
                         </h5>
                         <p className="text-sm font-bold text-slate-500 leading-relaxed">
                             {customer.status === 'active'
-                                ? 'This will block the customer from placing orders or logging in.'
-                                : 'This will allow the customer to use all platform features again.'
+                                ? 'This will block the customer from placing orders or logging in to the canteen app.'
+                                : 'This will allow the customer to log in and order from the canteen again.'
                             }
                         </p>
                     </div>

@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import {
     bootstrapAdmin,
     signupAdmin,
@@ -31,6 +32,10 @@ import {
     getCashSettlementHistory,
     getUsers,
     getUserById,
+    createUser,
+    updateUser,
+    updateUserStatus,
+    bulkUploadUsers,
     getSellers,
     getSellerLocations,
     getPlatformSettings,
@@ -54,6 +59,7 @@ import {
 } from "../middleware/securityMiddlewares.js";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 const smallAdminPayload = createContentLengthGuard(
     parseInt(process.env.ADMIN_AUTH_MAX_PAYLOAD_BYTES || "20480", 10),
@@ -146,7 +152,11 @@ router.put(
     updatePlatformSettings
 );
 router.get("/users", verifyToken, allowRoles("admin"), getUsers);
+router.post("/users", verifyToken, allowRoles("admin"), createUser);
 router.get("/users/:id", verifyToken, allowRoles("admin"), getUserById);
+router.put("/users/:id", verifyToken, allowRoles("admin"), updateUser);
+router.patch("/users/:id/status", verifyToken, allowRoles("admin"), updateUserStatus);
+router.post("/users/bulk-upload", verifyToken, allowRoles("admin"), upload.single("file"), bulkUploadUsers);
 router.get("/sellers", verifyToken, allowRoles("admin"), getSellers);
 router.get("/sellers/locations", verifyToken, allowRoles("admin"), getSellerLocations);
 router.get("/sellers/active", verifyToken, allowRoles("admin"), getActiveSellers);

@@ -1,9 +1,30 @@
 import handleResponse from "../../utils/helper.js";
 import getPagination from "../../utils/pagination.js";
+import User from "../../models/customer.js";
 import {
   getUserByIdData,
   getUsersData,
 } from "../../services/admin/userAdminService.js";
+import {
+  createAdminUserSchema,
+  updateAdminUserSchema,
+  validateAdminSchema,
+} from "../../validation/adminUserValidation.js";
+import xlsx from "xlsx";
+import { normalizePhoneNumber } from "../../utils/phone.js";
+
+// Helper to parse dates from spreadsheet cells (Excel serial number or string)
+function parseDateValue(val) {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === "number") {
+    // Excel base date is Dec 30 1899
+    return new Date((val - 25569) * 86400 * 1000);
+  }
+  const parsed = new Date(val);
+  if (!isNaN(parsed.getTime())) return parsed;
+  return null;
+}
 
 export const getUsers = async (req, res) => {
   try {
@@ -34,6 +55,385 @@ export const getUserById = async (req, res) => {
       "Customer details fetched successfully",
       user,
     );
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+/* ===============================
+   MANUAL USER CREATION
+   =============================== */
+export const createUser = async (req, res) => {
+  try {
+    const payload = validateAdminSchema(createAdminUserSchema, req.body || {});
+    const normalizedMobile = normalizePhoneNumber(payload["Mobile No"]);
+
+    // Check duplicates in database
+    const duplicate = await User.findOne({
+      $or: [
+        { phone: normalizedMobile },
+        { "Mobile No": normalizedMobile },
+        { "eAnnadata Card Number": payload["eAnnadata Card Number"] },
+      ],
+    }).lean();
+
+    if (duplicate) {
+      const isCardDuplicate = duplicate["eAnnadata Card Number"] === payload["eAnnadata Card Number"];
+      return handleResponse(
+        res,
+        409,
+        isCardDuplicate
+          ? "eAnnadata Card Number is already registered."
+          : "Mobile No is already registered.",
+      );
+    }
+
+    const newUser = await User.create({
+      name: payload["Farmer Name"],
+      "Farmer Name": payload["Farmer Name"],
+      phone: payload["Mobile No"],
+      "Mobile No": payload["Mobile No"],
+      "eAnnadata Card Number": payload["eAnnadata Card Number"],
+      "Father/Mother/Husband": payload["Father/Mother/Husband"],
+      "Date Of Birth": payload["Date Of Birth"],
+      gender: payload.gender,
+      "Pin Code": payload["Pin Code"],
+      "State Name": payload["State Name"],
+      "District Name": payload["District Name"],
+      "Block Name": payload["Block Name"],
+      "Village Name": payload["Village Name"],
+      "Registration Date": new Date(),
+      status: payload.status || "active",
+      isActive: payload.status !== "inactive",
+      created_by: req.user.id,
+      role: "user",
+      isVerified: true, // Mark verified directly since added by Admin
+    });
+
+    return handleResponse(res, 201, "User created successfully", newUser);
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+/* ===============================
+   MANUAL USER UPDATE
+   =============================== */
+export const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+
+    if (!user) {
+      return handleResponse(res, 404, "User not found");
+    }
+
+    const payload = validateAdminSchema(updateAdminUserSchema, req.body || {});
+
+    // Check duplicates if changing phone or card
+    if (payload["Mobile No"] || payload["eAnnadata Card Number"]) {
+      const query = { _id: { $ne: id } };
+      const orConditions = [];
+      if (payload["Mobile No"]) {
+        const normalizedMobile = normalizePhoneNumber(payload["Mobile No"]);
+        orConditions.push({ phone: normalizedMobile });
+        orConditions.push({ "Mobile No": normalizedMobile });
+      }
+      if (payload["eAnnadata Card Number"]) {
+        orConditions.push({ "eAnnadata Card Number": payload["eAnnadata Card Number"] });
+      }
+      query.$or = orConditions;
+
+      const duplicate = await User.findOne(query).lean();
+      if (duplicate) {
+        const isCardDuplicate = duplicate["eAnnadata Card Number"] === payload["eAnnadata Card Number"];
+        return handleResponse(
+          res,
+          409,
+          isCardDuplicate
+            ? "eAnnadata Card Number is already registered to another user."
+            : "Mobile No is already registered to another user.",
+        );
+      }
+    }
+
+    // Apply updates
+    if (payload["Farmer Name"] !== undefined) {
+      user.name = payload["Farmer Name"];
+      user["Farmer Name"] = payload["Farmer Name"];
+    }
+    if (payload["Mobile No"] !== undefined) {
+      user.phone = payload["Mobile No"];
+      user["Mobile No"] = payload["Mobile No"];
+    }
+    if (payload["eAnnadata Card Number"] !== undefined) user["eAnnadata Card Number"] = payload["eAnnadata Card Number"];
+    if (payload["Father/Mother/Husband"] !== undefined) user["Father/Mother/Husband"] = payload["Father/Mother/Husband"];
+    if (payload["Date Of Birth"] !== undefined) user["Date Of Birth"] = payload["Date Of Birth"];
+    if (payload.gender !== undefined) user.gender = payload.gender;
+    if (payload["Pin Code"] !== undefined) user["Pin Code"] = payload["Pin Code"];
+    if (payload["State Name"] !== undefined) user["State Name"] = payload["State Name"];
+    if (payload["District Name"] !== undefined) user["District Name"] = payload["District Name"];
+    if (payload["Block Name"] !== undefined) user["Block Name"] = payload["Block Name"];
+    if (payload["Village Name"] !== undefined) user["Village Name"] = payload["Village Name"];
+    if (payload.status !== undefined) {
+      user.status = payload.status;
+      user.isActive = payload.status !== "inactive";
+    }
+
+    await user.save();
+
+    return handleResponse(res, 200, "User updated successfully", user);
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+
+/* ===============================
+   UPDATE STATUS (Deactivate/Activate)
+   =============================== */
+export const updateUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!["active", "inactive"].includes(status)) {
+      return handleResponse(res, 400, "Invalid status. Must be active or inactive.");
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return handleResponse(res, 404, "User not found");
+    }
+
+    user.status = status;
+    user.isActive = status === "active";
+    await user.save();
+
+    return handleResponse(
+      res,
+      200,
+      `User successfully ${status === "active" ? "activated" : "deactivated"}`,
+      user,
+    );
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+/* ===============================
+   BULK UPLOAD USERS (CSV/Excel)
+   =============================== */
+export const bulkUploadUsers = async (req, res) => {
+  try {
+    if (!req.file) {
+      return handleResponse(res, 400, "No file uploaded. Please select a CSV or Excel file.");
+    }
+
+    // Parse spreadsheet in memory
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const rawRows = xlsx.utils.sheet_to_json(worksheet, { defval: "" });
+
+    if (!rawRows || rawRows.length === 0) {
+      return handleResponse(res, 400, "The uploaded file is empty.");
+    }
+
+    const successRows = [];
+    const failedRows = [];
+
+    // Keys mapping helper to handle varied spelling/spacing
+    const normalizeHeaders = (row) => {
+      const normalized = {};
+      Object.keys(row).forEach((key) => {
+        const cleanKey = key.trim().toLowerCase().replace(/[\s_'/]/g, "");
+        const value = String(row[key]).trim();
+
+        if (["farmername", "fullname", "name", "customername", "username", "customer", "user", "beneficiaryname", "beneficiary", "cardholder", "cardholdername", "membername", "member", "nameinenglish", "englishname", "canteenuser"].includes(cleanKey)) {
+          normalized["Farmer Name"] = value;
+        } else if (["eannadatacardnumber", "cardnumber", "eannadata_card_number", "cardno", "card", "cardno", "eannadatacard", "ennadatacard", "ennadatacardnumber", "cardid"].includes(cleanKey)) {
+          normalized["eAnnadata Card Number"] = value;
+        } else if (["fathermotherhusband", "fathername", "mothername", "father", "mother", "husband", "fname", "mname"].includes(cleanKey)) {
+          normalized["Father/Mother/Husband"] = value;
+        } else if (["phone", "phonenumber", "phone_number", "mobile", "mobileno", "contact", "contactnumber", "phone_no", "phoneno", "mobilenumber", "tel", "telephone"].includes(cleanKey)) {
+          normalized["Mobile No"] = value;
+        } else if (["dob", "dateofbirth", "birthdate", "birth"].includes(cleanKey)) {
+          normalized["Date Of Birth"] = parseDateValue(row[key]);
+        } else if (["gender", "sex"].includes(cleanKey)) {
+          normalized.gender = value;
+        } else if (["pincode", "pin", "zip", "zipcode"].includes(cleanKey)) {
+          normalized["Pin Code"] = value;
+        } else if (["state", "statename"].includes(cleanKey)) {
+          normalized["State Name"] = value;
+        } else if (["district", "districtname"].includes(cleanKey)) {
+          normalized["District Name"] = value;
+        } else if (cleanKey === "block" || cleanKey === "blockname") {
+          normalized["Block Name"] = value;
+        } else if (cleanKey === "village" || cleanKey === "villagename") {
+          normalized["Village Name"] = value;
+        } else if (cleanKey === "status") {
+          normalized.status = value;
+        }
+      });
+
+      // Backup fallbacks for common columns if header is not exact
+      if (!normalized["Farmer Name"]) {
+        Object.keys(row).forEach((key) => {
+          const cleanKey = key.trim().toLowerCase().replace(/[\s_'/]/g, "");
+          if (cleanKey.includes("name") && String(row[key]).trim()) {
+            normalized["Farmer Name"] = String(row[key]).trim();
+          }
+        });
+      }
+      if (!normalized["Mobile No"]) {
+        Object.keys(row).forEach((key) => {
+          const cleanKey = key.trim().toLowerCase().replace(/[\s_'/]/g, "");
+          if ((cleanKey.includes("phone") || cleanKey.includes("mobile") || cleanKey.includes("contact")) && String(row[key]).trim()) {
+            normalized["Mobile No"] = String(row[key]).trim().replace(/\D/g, '');
+          }
+        });
+      }
+      if (!normalized["eAnnadata Card Number"]) {
+        Object.keys(row).forEach((key) => {
+          const cleanKey = key.trim().toLowerCase().replace(/[\s_'/]/g, "");
+          if ((cleanKey.includes("card") || cleanKey.includes("number") || cleanKey.includes("id")) && cleanKey !== "mobileno" && cleanKey !== "farmername" && String(row[key]).trim()) {
+            normalized["eAnnadata Card Number"] = String(row[key]).trim();
+          }
+        });
+      }
+
+      return normalized;
+    };
+
+    // Tracking for internal file duplicates
+    const fileMobiles = new Set();
+    const fileCards = new Set();
+
+    // STEP 1: Row validation
+    const parsedRows = rawRows.map((row, idx) => {
+      const normalizedRow = normalizeHeaders(row);
+      const rowNum = idx + 2; // spreadsheet 1-indexed, header is row 1
+
+      // Joi validation
+      const { error, value } = createAdminUserSchema.validate(normalizedRow, {
+        abortEarly: false,
+        stripUnknown: true,
+      });
+
+      if (error) {
+        failedRows.push({
+          row: rowNum,
+          name: normalizedRow["Farmer Name"] || "Row " + rowNum,
+          phone: normalizedRow["Mobile No"] || "N/A",
+          reason: error.details.map((item) => item.message).join("; "),
+        });
+        return null;
+      }
+
+      // Check duplicates within the uploaded file
+      if (fileMobiles.has(value["Mobile No"])) {
+        failedRows.push({
+          row: rowNum,
+          name: value["Farmer Name"],
+          phone: value["Mobile No"],
+          reason: "Duplicate Mobile No in upload file.",
+        });
+        return null;
+      }
+      if (fileCards.has(value["eAnnadata Card Number"])) {
+        failedRows.push({
+          row: rowNum,
+          name: value["Farmer Name"],
+          phone: value["Mobile No"],
+          reason: "Duplicate eAnnadata Card Number in upload file.",
+        });
+        return null;
+      }
+
+      fileMobiles.add(value["Mobile No"]);
+      fileCards.add(value["eAnnadata Card Number"]);
+
+      return { ...value, rowNum };
+    }).filter(Boolean);
+
+    // STEP 2: Database duplicate check
+    if (parsedRows.length > 0) {
+      const mobilesToCheck = parsedRows.map((r) => r["Mobile No"]);
+      const normalizedMobiles = mobilesToCheck.map(m => normalizePhoneNumber(m));
+      const cardsToCheck = parsedRows.map((r) => r["eAnnadata Card Number"]);
+
+      const existingUsers = await User.find({
+        $or: [
+          { phone: { $in: normalizedMobiles } },
+          { "Mobile No": { $in: normalizedMobiles } },
+          { "eAnnadata Card Number": { $in: cardsToCheck } },
+        ],
+      }).select({ phone: 1, "Mobile No": 1, "eAnnadata Card Number": 1 }).lean();
+
+      const existingPhones = new Set();
+      const existingCards = new Set();
+
+      existingUsers.forEach((u) => {
+        if (u.phone) existingPhones.add(u.phone);
+        if (u["Mobile No"]) existingPhones.add(u["Mobile No"]);
+        if (u["eAnnadata Card Number"]) existingCards.add(u["eAnnadata Card Number"]);
+      });
+
+      // Filter out DB duplicates
+      const finalRowsToInsert = [];
+      parsedRows.forEach((row) => {
+        const normPhone = normalizePhoneNumber(row["Mobile No"]);
+        const phoneDup = existingPhones.has(normPhone) || existingPhones.has(row["Mobile No"]);
+        const cardDup = existingCards.has(row["eAnnadata Card Number"]);
+
+        if (phoneDup || cardDup) {
+          failedRows.push({
+            row: row.rowNum,
+            name: row["Farmer Name"],
+            phone: row["Mobile No"],
+            reason: phoneDup
+              ? "Mobile No is already registered in database."
+              : "eAnnadata Card Number is already registered in database.",
+          });
+        } else {
+          finalRowsToInsert.push({
+            name: row["Farmer Name"],
+            "Farmer Name": row["Farmer Name"],
+            phone: row["Mobile No"],
+            "Mobile No": row["Mobile No"],
+            "eAnnadata Card Number": row["eAnnadata Card Number"],
+            "Father/Mother/Husband": row["Father/Mother/Husband"],
+            "Date Of Birth": row["Date Of Birth"],
+            gender: row.gender,
+            "Pin Code": row["Pin Code"],
+            "State Name": row["State Name"],
+            "District Name": row["District Name"],
+            "Block Name": row["Block Name"],
+            "Village Name": row["Village Name"],
+            "Registration Date": new Date(), // Set to current upload date
+            status: row.status || "active",
+            isActive: row.status !== "inactive",
+            created_by: req.user.id,
+            role: "user",
+            isVerified: true,
+          });
+        }
+      });
+
+      // STEP 3: Bulk insert to database
+      if (finalRowsToInsert.length > 0) {
+        await User.insertMany(finalRowsToInsert, { ordered: false });
+      }
+    }
+
+    const successCount = rawRows.length - failedRows.length;
+
+    return handleResponse(res, 200, "Bulk upload finished.", {
+      totalRows: rawRows.length,
+      successCount,
+      failureCount: failedRows.length,
+      failedRows,
+    });
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }
