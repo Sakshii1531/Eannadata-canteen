@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { QUICK_CATEGORY_PALETTES } from "../../constants/homeConstants";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
-import QuickCategoriesBg from "@/assets/Catagorysection_bg.png";
 
 const QuickCategorySlider = ({ categories, onCategoryClick }) => {
   const scrollRef = useRef(null);
@@ -20,11 +19,9 @@ const QuickCategorySlider = ({ categories, onCategoryClick }) => {
   return (
     <div className="w-full mb-5 -mt-[24px] md:mt-3 overflow-hidden relative group z-20">
       <div
-        className="relative overflow-hidden bg-white shadow-[0_14px_28px_rgba(15,23,42,0.09)]"
+        className="relative overflow-hidden shadow-[0_14px_28px_rgba(15,23,42,0.09)]"
         style={{
-          backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.65) 100%), url(${QuickCategoriesBg})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
+          backgroundImage: "linear-gradient(135deg, #BBF7D0, var(--primary))",
         }}>
         <div className="absolute inset-0 bg-white/10 pointer-events-none" />
 

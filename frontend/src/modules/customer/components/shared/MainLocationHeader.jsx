@@ -113,7 +113,7 @@ function CategoryNavColumn({
             isActive ? "font-black" : "font-semibold",
           )}
           style={{
-            color: isActive ? iconColor : (headerFontColor || "#111111"),
+            color: iconColor,
             opacity: isActive ? 1 : 0.68,
           }}>
           {cat.name}
