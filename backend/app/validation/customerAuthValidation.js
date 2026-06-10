@@ -5,6 +5,16 @@ export const sendSignupOtpSchema = Joi.object({
   phone: Joi.string().trim().min(7).max(24).required(),
 });
 
+export const signupSchema = Joi.object({
+  firstName: Joi.string().trim().min(1).max(50).required(),
+  lastName: Joi.string().trim().min(1).max(50).required(),
+  phone: Joi.string().trim().pattern(/^\d{10}$/).required().messages({
+    "string.pattern.base": "Phone number must be a valid 10-digit number",
+  }),
+  email: Joi.string().trim().email().lowercase().optional().allow("", null),
+});
+
+
 export const sendLoginOtpSchema = Joi.object({
   phone: Joi.string().trim().min(7).max(24).required(),
 });

@@ -10,9 +10,12 @@ import {
 import {
     sendLoginOtpSchema,
     sendSignupOtpSchema,
+    signupSchema,
     validateSchema,
     verifyOtpSchema,
 } from "../validation/customerAuthValidation.js";
+import { normalizePhoneNumber } from "../utils/phone.js";
+
 
 const generateToken = (customer) =>
     jwt.sign(
@@ -25,8 +28,59 @@ const generateToken = (customer) =>
    SIGNUP – Send OTP
 ================================ */
 export const signupCustomer = async (req, res) => {
-    return handleResponse(res, 403, "Public registration is disabled. Please contact admin.");
+    try {
+        const payload = validateSchema(signupSchema, req.body || {});
+
+        const phone = normalizePhoneNumber(payload.phone);
+        const email = payload.email ? payload.email.trim().toLowerCase() : undefined;
+
+        // Prevent duplicate phone numbers (only if the user is already verified)
+        const existingPhone = await Customer.findOne({ phone });
+        if (existingPhone && existingPhone.isVerified) {
+            return handleResponse(res, 400, "Phone number is already registered");
+        }
+
+        // Prevent duplicate emails (if email was provided and user is already verified)
+        if (email) {
+            const existingEmail = await Customer.findOne({ email });
+            if (existingEmail && existingEmail.isVerified) {
+                return handleResponse(res, 400, "Email is already registered");
+            }
+        }
+
+        // Create or update existing unverified user
+        let customer = existingPhone;
+        const name = `${payload.firstName} ${payload.lastName}`.trim();
+        const customerData = {
+            name,
+            phone,
+            email: email || undefined,
+            isVerified: false,
+            isActive: true,
+            role: "user",
+        };
+
+        if (!customer) {
+            customer = await Customer.create(customerData);
+        } else {
+            Object.assign(customer, customerData);
+            await customer.save();
+        }
+
+        // Issue OTP for verification using the existing service
+        await issueCustomerOtp({
+            name: customer.name,
+            rawPhone: customer.phone,
+            flow: "signup",
+            ipAddress: req.ip,
+        });
+
+        return handleResponse(res, 200, "Registration successful. OTP sent for verification.");
+    } catch (error) {
+        return handleResponse(res, error.statusCode || 500, error.message);
+    }
 };
+
 
 /* ===============================
    LOGIN – Send OTP

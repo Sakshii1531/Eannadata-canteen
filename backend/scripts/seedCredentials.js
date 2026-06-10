@@ -10,12 +10,12 @@ dotenv.config();
 
 const admins = [
     { name: 'Admin', email: 'admin123@gmail.com', password: 'admin123' },
-    { name: 'Ankit Ahirwar', email: 'ankit@appzeto.com', password: 'Admin!@#123' },
+    { name: 'Ankit Ahirwar', email: 'ankit@eannadata.com', password: 'Admin!@#123' },
     { name: 'Harshvardhan Panchal', email: 'harshvardhanpanc145@gmail.com', password: 'Admin!@#123' }
 ];
 
 const sellers = [
-    { name: 'Seller', email: 'seller123@gmail.com', password: 'seller123', shopName: 'Appzeto Store' }
+    { name: 'Seller', email: 'seller123@gmail.com', password: 'seller123', shopName: 'Eannadata Store' }
 ];
 
 const riders = [

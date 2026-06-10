@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
 import {
@@ -19,7 +19,9 @@ import {
     ChevronLeft,
     Wheat,
     Sprout,
-    Milk
+    Milk,
+    Lock,
+    Mail
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
@@ -69,6 +71,8 @@ const CATEGORIES = [
 ];
 
 const CustomerAuth = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
     const [isLogin, setIsLogin] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const [showOtp, setShowOtp] = useState(false);
@@ -78,15 +82,30 @@ const CustomerAuth = () => {
     const { settings } = useSettings();
     const appName = settings?.appName || 'Eannadata canteen ';
     const logoUrl = settings?.logoUrl || '';
-    const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
+        firstName: '',
+        lastName: '',
         phone: '',
-        otp: '',
-        name: ''
+        email: '',
+        otp: ''
     });
 
     const activeCategory = CATEGORIES[carouselIndex];
+
+    useEffect(() => {
+        setIsLogin(location.pathname !== '/signup');
+        // Reset form data and OTP view when switching paths
+        setFormData({
+            firstName: '',
+            lastName: '',
+            phone: '',
+            email: '',
+            otp: ''
+        });
+        setShowOtp(false);
+
+    }, [location.pathname]);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -122,6 +141,43 @@ const CustomerAuth = () => {
             setIsLoading(false);
         }
     };
+
+    const handleSignup = async (e) => {
+        e?.preventDefault();
+        const { firstName, lastName, phone, email } = formData;
+        
+        if (!firstName.trim() || !lastName.trim()) {
+            toast.error('First name and last name are required');
+            return;
+        }
+        if (phone.length !== 10) {
+            toast.error('Enter valid 10-digit phone number');
+            return;
+        }
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            toast.error('Enter valid email address');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            await customerApi.signup({
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+                phone: phone.trim(),
+                email: email.trim() || undefined
+            });
+            setShowOtp(true);
+            setTimer(30);
+            toast.success('Registration successful. OTP sent!');
+        } catch (error) {
+            const apiMessage = error?.response?.data?.message;
+            toast.error(apiMessage || 'Registration failed');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
 
     const handleVerifyOtp = async (e) => {
         e.preventDefault();
@@ -205,6 +261,8 @@ const CustomerAuth = () => {
                         transition={{ duration: 1 }}
                         className="relative h-[35%] w-full overflow-hidden"
                     >
+
+
                         <AnimatePresence mode="wait">
                             <motion.div
                                 key={carouselIndex}
@@ -301,32 +359,67 @@ const CustomerAuth = () => {
                                 >
                                     <div className="space-y-2 text-center">
                                         <h3 className="text-xl font-black text-gray-900 tracking-tight">
-                                            Welcome to Canteen
+                                            {isLogin ? 'Welcome to Canteen' : 'Create Account'}
                                         </h3>
                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-relaxed">
-                                            Enter your registered phone number.
-                                            <br/>
-                                            Login OTP will be sent.
+                                            {isLogin 
+                                                ? 'Enter your registered phone number. Login OTP will be sent.' 
+                                                : 'Fill details to register. Verification OTP will be sent.'}
                                         </p>
                                     </div>
 
-                                    <form onSubmit={handleSendOtp} className="space-y-4">
+                                    <form onSubmit={isLogin ? handleSendOtp : handleSignup} className="space-y-4">
                                         {!isLogin && (
-                                            <div className="relative group">
-                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors" style={{ color: 'inherit' }}>
-                                                    <User size={18} className="group-focus-within:text-[var(--theme-color)]" style={{ color: 'inherit' }} />
+                                            <>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="relative group">
+                                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors">
+                                                            <User size={18} />
+                                                        </div>
+                                                        <input
+                                                            required
+                                                            name="firstName"
+                                                            value={formData.firstName}
+                                                            placeholder="First Name"
+                                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
+                                                            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                                                            onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
+                                                            onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
+                                                        />
+                                                    </div>
+                                                    <div className="relative group">
+                                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors">
+                                                            <User size={18} />
+                                                        </div>
+                                                        <input
+                                                            required
+                                                            name="lastName"
+                                                            value={formData.lastName}
+                                                            placeholder="Last Name"
+                                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
+                                                            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                                                            onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
+                                                            onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <input
-                                                    required
-                                                    name="name"
-                                                    placeholder="Full Name"
-                                                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
-                                                    style={{ '--theme-color': activeCategory.theme }}
-                                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                                    onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
-                                                    onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
-                                                />
-                                            </div>
+
+                                                <div className="relative group">
+                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors">
+                                                        <Mail size={18} />
+                                                    </div>
+                                                    <input
+                                                        type="email"
+                                                        name="email"
+                                                        value={formData.email}
+                                                        placeholder="Email Address (Optional)"
+                                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
+                                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                        onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
+                                                        onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
+                                                    />
+                                                </div>
+                                            </>
                                         )}
                                         <div className="relative group">
                                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors">
@@ -339,6 +432,7 @@ const CustomerAuth = () => {
                                                 required
                                                 name="phone"
                                                 maxLength={10}
+                                                value={formData.phone}
                                                 placeholder="Mobile Number"
                                                 className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-20 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
                                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
@@ -346,6 +440,8 @@ const CustomerAuth = () => {
                                                 onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
                                             />
                                         </div>
+
+
 
                                         <button
                                             type="submit"
@@ -357,6 +453,17 @@ const CustomerAuth = () => {
                                             <ChevronRight size={18} />
                                         </button>
                                     </form>
+
+                                    <div className="text-center pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate(isLogin ? '/signup' : '/login')}
+                                            className="text-xs font-bold uppercase tracking-wider transition-colors hover:opacity-80"
+                                            style={{ color: activeCategory.theme }}
+                                        >
+                                            {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Log In"}
+                                        </button>
+                                    </div>
 
                                     {/* Legal Agreement Footer */}
                                     <div className="pt-2 flex flex-col items-center gap-1">
