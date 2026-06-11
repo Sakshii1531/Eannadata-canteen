@@ -12,6 +12,22 @@ export const signupSchema = Joi.object({
     "string.pattern.base": "Phone number must be a valid 10-digit number",
   }),
   email: Joi.string().trim().email().lowercase().optional().allow("", null),
+  hasEAnnadataCard: Joi.string().valid("yes", "no").optional().default("no"),
+  eAnnadataCardNumber: Joi.string().trim().when("hasEAnnadataCard", {
+    is: "yes",
+    then: Joi.required(),
+    otherwise: Joi.optional().allow("", null),
+  }),
+  eAnnadataCardImage: Joi.string().trim().when("hasEAnnadataCard", {
+    is: "yes",
+    then: Joi.required(),
+    otherwise: Joi.optional().allow("", null),
+  }),
+  eAnnadataCardRegistrationDate: Joi.date().iso().when("hasEAnnadataCard", {
+    is: "yes",
+    then: Joi.required(),
+    otherwise: Joi.optional().allow("", null),
+  }),
 });
 
 

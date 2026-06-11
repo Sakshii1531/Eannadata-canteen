@@ -1,5 +1,6 @@
 import Product from "../../models/product.js";
 import Category from "../../models/category.js";
+import Customer from "../../models/customer.js";
 import {
   PRODUCT_APPROVAL_STATUS,
   resolveProductApprovalStatus,
@@ -25,6 +26,38 @@ function toObjectIdString(value) {
   if (!value) return "";
   if (typeof value === "object" && value._id) return String(value._id);
   return String(value);
+}
+
+/**
+ * Returns the E-Anndata subsidy discount percentage for a given customer.
+ * - 0% if no valid verified card
+ * - eAnnadataDiscount1Year% if card is 1-2 years old
+ * - eAnnadataDiscount2Years% if card is 2+ years old
+ */
+export async function getCustomerSubsidyDiscountPercent(customerId) {
+  if (!customerId) return 0;
+  try {
+    const customer = await Customer.findById(customerId)
+      .select('"eAnnadata Card Status" "eAnnadata Card Registration Date"')
+      .lean();
+    if (!customer) return 0;
+    if (customer["eAnnadata Card Status"] !== "yes") return 0;
+
+    const regDate = customer["eAnnadata Card Registration Date"];
+    if (!regDate) return 0;
+
+    const yearsElapsed = (Date.now() - new Date(regDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+
+    const settings = await getOrCreateFinanceSettings();
+    const discount1y = Number(settings.eAnnadataDiscount1Year ?? 10);
+    const discount2y = Number(settings.eAnnadataDiscount2Years ?? 20);
+
+    if (yearsElapsed >= 2) return discount2y;
+    if (yearsElapsed >= 1) return discount1y;
+    return 0;
+  } catch {
+    return 0;
+  }
 }
 
 function normalizeLineQuantity(quantity) {
@@ -310,7 +343,7 @@ export function calculateRiderPayout(distanceKm, deliverySettings) {
 
 export async function hydrateOrderItems(
   orderItems = [],
-  { session = null, enforceServerPricing = true } = {},
+  { session = null, enforceServerPricing = true, customerId = null } = {},
 ) {
   if (!Array.isArray(orderItems) || orderItems.length === 0) {
     return [];
@@ -327,6 +360,11 @@ export async function hydrateOrderItems(
   const products = await productQuery;
 
   const productMap = new Map(products.map((product) => [String(product._id), product]));
+
+  // Fetch customer subsidy discount once for all items
+  const subsidyDiscountPercent = customerId
+    ? await getCustomerSubsidyDiscountPercent(customerId)
+    : 0;
 
   return orderItems.map((item) => {
     const productId = String(item.product || item.productId || item._id || item.id);
@@ -357,11 +395,15 @@ export async function hydrateOrderItems(
     }
 
     const quantity = normalizeLineQuantity(item.quantity);
-    const serverUnitPrice = normalizeLinePrice(
+    const baseUnitPrice = normalizeLinePrice(
       resolvedVariant
         ? resolvedVariant.salePrice || resolvedVariant.price || product.salePrice || product.price
         : product.salePrice || product.price,
     );
+    // Apply E-Anndata subsidy discount on top of the regular sale price
+    const serverUnitPrice = subsidyDiscountPercent > 0
+      ? roundCurrency(baseUnitPrice * (1 - subsidyDiscountPercent / 100))
+      : baseUnitPrice;
     const inferredUnitPrice = enforceServerPricing
       ? serverUnitPrice
       : normalizeLinePrice(item.price) || serverUnitPrice;
@@ -376,6 +418,7 @@ export async function hydrateOrderItems(
       sellerId: String(product.sellerId),
       variantSku: rawVariantSku || "",
       variantName: resolvedVariant ? String(resolvedVariant?.name || "").trim() : "",
+      subsidyDiscountPercent,
     };
   });
 }

@@ -402,6 +402,7 @@ export const bulkUploadUsers = async (req, res) => {
             phone: row["Mobile No"],
             "Mobile No": row["Mobile No"],
             "eAnnadata Card Number": row["eAnnadata Card Number"],
+            "eAnnadata Card Status": row["eAnnadata Card Number"] ? "yes" : "no",
             "Father/Mother/Husband": row["Father/Mother/Husband"],
             "Date Of Birth": row["Date Of Birth"],
             gender: row.gender,
@@ -438,3 +439,39 @@ export const bulkUploadUsers = async (req, res) => {
     return handleResponse(res, 500, error.message);
   }
 };
+
+/* ===============================
+   VERIFY E-ANNDATA CARD
+   =============================== */
+export const verifyUserCard = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // "approve" | "reject"
+
+    if (!["approve", "reject"].includes(action)) {
+      return handleResponse(res, 400, "Invalid action. Must be 'approve' or 'reject'.");
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return handleResponse(res, 404, "User not found");
+    }
+
+    if (user["eAnnadata Card Status"] !== "pending") {
+      return handleResponse(res, 400, `Card is not in pending state (current: ${user["eAnnadata Card Status"]})`);
+    }
+
+    user["eAnnadata Card Status"] = action === "approve" ? "yes" : "rejected";
+    await user.save();
+
+    return handleResponse(
+      res,
+      200,
+      `Card ${action === "approve" ? "approved" : "rejected"} successfully`,
+      { cardStatus: user["eAnnadata Card Status"] }
+    );
+  } catch (error) {
+    return handleResponse(res, error.statusCode || 500, error.message);
+  }
+};
+

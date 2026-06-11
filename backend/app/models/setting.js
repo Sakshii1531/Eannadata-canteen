@@ -161,6 +161,20 @@ const settingSchema = new mongoose.Schema(
                 default: false,
             },
         },
+
+        // E-Anndata Card Discount Tiers
+        eAnnadataDiscount1Year: {
+            type: Number,
+            default: 10,
+            min: 0,
+            max: 100,
+        },
+        eAnnadataDiscount2Years: {
+            type: Number,
+            default: 20,
+            min: 0,
+            max: 100,
+        },
     },
     {
         timestamps: true,

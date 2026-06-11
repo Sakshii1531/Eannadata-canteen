@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminApi } from '../services/adminApi';
+import { adminUsersApi } from '../services/api/usersApi';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import {
@@ -27,7 +28,11 @@ import {
     Package,
     IndianRupee,
     CheckCircle2,
-    Lock
+    Lock,
+    CreditCard,
+    CheckCircle,
+    XCircle,
+    ExternalLink as ExternalLinkIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Modal from '@shared/components/ui/Modal';
@@ -150,6 +155,23 @@ const CustomerDetail = () => {
         } catch (error) {
             console.error("Error updating status:", error);
             showToast(error.response?.data?.message || 'Error updating status', 'error');
+        }
+    };
+
+    const handleVerifyCard = async (action) => {
+        try {
+            const { data } = await adminUsersApi.verifyUserCard(id, action);
+            if (data.success) {
+                showToast(
+                    action === 'approve' ? 'Card approved! Customer now has E-Anndata benefits.' : 'Card rejected.',
+                    action === 'approve' ? 'success' : 'warning'
+                );
+                fetchCustomerDetails();
+            } else {
+                showToast(data.message || 'Operation failed', 'error');
+            }
+        } catch (error) {
+            showToast(error.response?.data?.message || 'Error processing card verification', 'error');
         }
     };
 
@@ -357,6 +379,103 @@ const CustomerDetail = () => {
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created By Admin ID</p>
                                 <p className="font-bold text-slate-500 mt-0.5 truncate">{customer.created_by || 'System Bootstrap / Signup'}</p>
                             </div>
+                        </div>
+                    </Card>
+
+                    {/* E-Anndata Card Verification */}
+                    <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-6">
+                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
+                            <CreditCard className="h-4 w-4 text-brand-500" />
+                            E-Anndata Card Verification
+                        </h4>
+                        <div className="space-y-4">
+                            {/* Card Status Badge */}
+                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Card Status</p>
+                                    <p className={cn(
+                                        "text-sm font-black mt-1 uppercase tracking-wider",
+                                        customer["eAnnadata Card Status"] === 'yes' && 'text-emerald-600',
+                                        customer["eAnnadata Card Status"] === 'pending' && 'text-amber-600',
+                                        customer["eAnnadata Card Status"] === 'rejected' && 'text-rose-600',
+                                        customer["eAnnadata Card Status"] === 'no' && 'text-slate-400',
+                                        !customer["eAnnadata Card Status"] && 'text-slate-400'
+                                    )}>
+                                        {customer["eAnnadata Card Status"] === 'yes' ? '✅ Verified' :
+                                         customer["eAnnadata Card Status"] === 'pending' ? '⏳ Pending Verification' :
+                                         customer["eAnnadata Card Status"] === 'rejected' ? '❌ Rejected' :
+                                         'No Card'}
+                                    </p>
+                                </div>
+                                {customer["eAnnadata Card Status"] === 'yes' && (
+                                    <div className="p-2 bg-emerald-100 rounded-xl">
+                                        <CheckCircle className="h-5 w-5 text-emerald-600" />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Card Number */}
+                            {customer["eAnnadata Card Number"] && (
+                                <div className="border-b border-slate-50 pb-3">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Card Number</p>
+                                    <p className="font-black text-brand-600 mt-0.5 text-lg tracking-widest">{customer["eAnnadata Card Number"]}</p>
+                                </div>
+                            )}
+
+                            {/* Card Registration Date */}
+                            {customer["eAnnadata Card Registration Date"] && (
+                                <div className="border-b border-slate-50 pb-3">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Card Registration Date</p>
+                                    <p className="font-bold text-slate-700 mt-0.5">
+                                        {new Date(customer["eAnnadata Card Registration Date"]).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Card Image */}
+                            {customer["eAnnadata Card Image"] && (
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Card Image</p>
+                                    <a href={customer["eAnnadata Card Image"]} target="_blank" rel="noopener noreferrer" className="block">
+                                        <div className="relative rounded-xl overflow-hidden ring-1 ring-slate-200 hover:ring-brand-500 transition-all group">
+                                            <img
+                                                src={customer["eAnnadata Card Image"]}
+                                                alt="E-Anndata Card"
+                                                className="w-full h-36 object-cover group-hover:scale-105 transition-transform duration-300"
+                                            />
+                                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <ExternalLink className="h-6 w-6 text-white" />
+                                            </div>
+                                        </div>
+                                        <p className="text-[9px] font-bold text-brand-500 uppercase tracking-widest mt-1 text-center">Click to view full image</p>
+                                    </a>
+                                </div>
+                            )}
+
+                            {/* Approve / Reject Buttons */}
+                            {customer["eAnnadata Card Status"] === 'pending' && (
+                                <div className="grid grid-cols-2 gap-3 pt-2">
+                                    <button
+                                        onClick={() => handleVerifyCard('approve')}
+                                        className="flex items-center justify-center gap-2 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-emerald-200 transition-all active:scale-95"
+                                    >
+                                        <CheckCircle className="h-4 w-4" />
+                                        APPROVE CARD
+                                    </button>
+                                    <button
+                                        onClick={() => handleVerifyCard('reject')}
+                                        className="flex items-center justify-center gap-2 py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-rose-200 transition-all active:scale-95"
+                                    >
+                                        <XCircle className="h-4 w-4" />
+                                        REJECT CARD
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* No Card Info */}
+                            {!customer["eAnnadata Card Status"] || customer["eAnnadata Card Status"] === 'no' ? (
+                                <p className="text-xs font-bold text-slate-400 text-center py-4">This customer does not have an E-Anndata card.</p>
+                            ) : null}
                         </div>
                     </Card>
 

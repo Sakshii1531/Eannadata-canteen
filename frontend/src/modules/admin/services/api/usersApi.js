@@ -13,6 +13,7 @@ export const adminUsersApi = {
     createUser: (data) => axiosInstance.post('/admin/users', data),
     updateUser: (id, data) => axiosInstance.put(`/admin/users/${id}`, data),
     updateUserStatus: (id, status) => axiosInstance.patch(`/admin/users/${id}/status`, { status }),
+    verifyUserCard: (id, action) => axiosInstance.patch(`/admin/users/${id}/verify-card`, { action }),
     bulkUploadUsers: (formData) => axiosInstance.post('/admin/users/bulk-upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     }),

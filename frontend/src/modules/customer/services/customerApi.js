@@ -6,6 +6,13 @@ export const customerApi = {
   sendLoginOtp: (data) => axiosInstance.post("/customer/send-login-otp", data),
   sendSignupOtp: (data) =>
     axiosInstance.post("/customer/send-signup-otp", data),
+  uploadCardImage: (file) => {
+    const formData = new FormData();
+    formData.append("cardImage", file);
+    return axiosInstance.post("/customer/upload-card-image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 
   verifyOtp: (data) => axiosInstance.post("/customer/verify-otp", data),
   getProfile: () => getWithDedupe("/customer/profile", {}, { ttl: 5000 }), // Short cache for profile

@@ -65,6 +65,20 @@ const userSchema = new mongoose.Schema(
             trim: true,
         },
 
+        "eAnnadata Card Status": {
+            type: String,
+            enum: ["no", "pending", "yes", "rejected"],
+            default: "no",
+        },
+
+        "eAnnadata Card Image": {
+            type: String,
+        },
+
+        "eAnnadata Card Registration Date": {
+            type: Date,
+        },
+
         "Father/Mother/Husband": {
             type: String,
             trim: true,

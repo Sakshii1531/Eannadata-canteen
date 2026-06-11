@@ -36,6 +36,7 @@ import {
     updateUser,
     updateUserStatus,
     bulkUploadUsers,
+    verifyUserCard,
     getSellers,
     getSellerLocations,
     getPlatformSettings,
@@ -156,6 +157,7 @@ router.post("/users", verifyToken, allowRoles("admin"), createUser);
 router.get("/users/:id", verifyToken, allowRoles("admin"), getUserById);
 router.put("/users/:id", verifyToken, allowRoles("admin"), updateUser);
 router.patch("/users/:id/status", verifyToken, allowRoles("admin"), updateUserStatus);
+router.patch("/users/:id/verify-card", verifyToken, allowRoles("admin"), verifyUserCard);
 router.post("/users/bulk-upload", verifyToken, allowRoles("admin"), upload.single("file"), bulkUploadUsers);
 router.get("/sellers", verifyToken, allowRoles("admin"), getSellers);
 router.get("/sellers/locations", verifyToken, allowRoles("admin"), getSellerLocations);

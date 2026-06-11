@@ -46,10 +46,10 @@ function isWebLink(value = "") {
 function resolveImageUrl(payload = {}, data = {}) {
   const fromData = String(
     data.imageUrl ||
-      data.image ||
-      payload?.imageUrl ||
-      payload?.image ||
-      "",
+    data.image ||
+    payload?.imageUrl ||
+    payload?.image ||
+    "",
   ).trim();
   return isWebLink(fromData) ? fromData : "";
 }

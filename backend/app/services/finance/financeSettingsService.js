@@ -16,6 +16,8 @@ const DEFAULT_FINANCE_SETTINGS = {
   handlingFeeStrategy: HANDLING_FEE_STRATEGY.HIGHEST_CATEGORY_FEE,
   codEnabled: true,
   onlineEnabled: true,
+  eAnnadataDiscount1Year: 10,
+  eAnnadataDiscount2Years: 20,
 };
 
 export function normalizeFinanceSettings(raw = {}) {
@@ -69,6 +71,8 @@ export function normalizeFinanceSettings(raw = {}) {
     handlingFeeStrategy,
     codEnabled: raw.codEnabled ?? DEFAULT_FINANCE_SETTINGS.codEnabled,
     onlineEnabled: raw.onlineEnabled ?? DEFAULT_FINANCE_SETTINGS.onlineEnabled,
+    eAnnadataDiscount1Year: Number(raw.eAnnadataDiscount1Year ?? DEFAULT_FINANCE_SETTINGS.eAnnadataDiscount1Year),
+    eAnnadataDiscount2Years: Number(raw.eAnnadataDiscount2Years ?? DEFAULT_FINANCE_SETTINGS.eAnnadataDiscount2Years),
   };
 }
 
