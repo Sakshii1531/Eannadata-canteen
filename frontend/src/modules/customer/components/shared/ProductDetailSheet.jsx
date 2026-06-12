@@ -303,6 +303,7 @@ const ProductDetailSheet = () => {
                                 {/* Left: Image Gallery — sticky to window so it doesn't scroll out of view if you want */}
                                 <div
                                     onWheel={(e) => {
+                                        e.stopPropagation();
                                         if (desktopRightScrollRef.current) {
                                             desktopRightScrollRef.current.scrollTop += e.deltaY;
                                         }
@@ -408,7 +409,13 @@ const ProductDetailSheet = () => {
                                 </div>
 
                                 {/* Right: Product Info (scrollable naturally) */}
-                                <div ref={desktopRightScrollRef} className="flex-1 bg-white overflow-y-auto h-full min-h-0">
+                                <div
+                                    ref={desktopRightScrollRef}
+                                    className="flex-1 bg-white overflow-y-auto h-full min-h-0"
+                                    onWheel={(e) => {
+                                        e.stopPropagation();
+                                    }}
+                                >
                                     <div className="px-7 py-6 lg:px-8 lg:py-7 space-y-3">
 
                                         {/* Top badges row */}
