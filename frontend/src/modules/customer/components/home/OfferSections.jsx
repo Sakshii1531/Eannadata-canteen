@@ -116,7 +116,7 @@ const OfferSections = ({ sections, noServiceData }) => {
                     </div>
                   ) : (
                     sectionProducts.map((product) => (
-                      <div key={product.id} className="w-[126px] sm:w-[136px] md:w-[148px] flex-shrink-0 snap-start">
+                      <div key={product.id} className="w-[38vw] sm:w-[30vw] md:w-[180px] flex-shrink-0 snap-start">
                         <ProductCard
                           product={product}
                           className="bg-white border border-slate-100 shadow-[0_10px_24px_rgba(15,23,42,0.08)]"
