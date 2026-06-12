@@ -42,6 +42,7 @@ const ProductDetailSheet = () => {
     };
 
     const scrollRef = useRef(null);
+    const desktopRightScrollRef = useRef(null);
 
     const allImages = useMemo(() => {
         if (!selectedProduct) return [];
@@ -295,12 +296,20 @@ const ProductDetailSheet = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.96, y: 30 }}
                         transition={{ type: 'spring', damping: 28, stiffness: 380 }}
-                        className="hidden md:flex fixed z-[230] top-[72px] bottom-[16px] left-[3%] right-[3%] lg:left-[6%] lg:right-[6%] xl:left-[12%] xl:right-[12%] bg-white rounded-3xl shadow-[0_40px_100px_rgba(0,0,0,0.25)] overflow-hidden"
+                        className="hidden md:block fixed z-[230] top-[72px] bottom-[16px] left-[3%] right-[3%] lg:left-[6%] lg:right-[6%] xl:left-[12%] xl:right-[12%] bg-white rounded-3xl shadow-[0_40px_100px_rgba(0,0,0,0.25)] overflow-hidden"
                     >
                         {/* Parent flex container that holds both sides together so the whole modal scrolls */}
-                        <div className="flex w-full min-h-full">
+                        <div className="flex w-full h-full min-h-0">
                                 {/* Left: Image Gallery — sticky to window so it doesn't scroll out of view if you want */}
-                                <div className="relative w-[42%] lg:w-[44%] flex-shrink-0 flex flex-col min-h-full sticky top-0" style={{ background: 'linear-gradient(145deg, #f9fafb 0%, #f1f8f2 50%, #fafbfc 100%)' }}>
+                                <div
+                                    onWheel={(e) => {
+                                        if (desktopRightScrollRef.current) {
+                                            desktopRightScrollRef.current.scrollTop += e.deltaY;
+                                        }
+                                    }}
+                                    className="relative w-[42%] lg:w-[44%] flex-shrink-0 flex flex-col h-full sticky top-0"
+                                    style={{ background: 'linear-gradient(145deg, #f9fafb 0%, #f1f8f2 50%, #fafbfc 100%)' }}
+                                >
                                     {/* Top bar with back + wishlist */}
                                     <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-5 z-20">
                                         <motion.button
@@ -375,7 +384,7 @@ const ProductDetailSheet = () => {
                                                     transition={{ duration: 0.15 }}
                                                     src={applyCloudinaryTransform(allImages[activeImageIndex], "f_auto,q_auto:best,w_1200,dpr_auto")}
                                                     alt={`${selectedProduct.name} ${activeImageIndex + 1}`}
-                                                    className="w-full h-full object-contain mix-blend-multiply drop-shadow-2xl hover:scale-[1.03] transition-transform duration-500 absolute inset-0 m-auto p-12"
+                                                    className="w-full h-full object-contain mix-blend-multiply drop-shadow-2xl absolute inset-0 m-auto p-12"
                                                 />
                                             </AnimatePresence>
                                         </div>
@@ -399,8 +408,8 @@ const ProductDetailSheet = () => {
                                 </div>
 
                                 {/* Right: Product Info (scrollable naturally) */}
-                                <div className="flex-1 flex flex-col bg-white">
-                                    <div className="flex-1 px-7 py-6 lg:px-8 lg:py-7 space-y-3">
+                                <div ref={desktopRightScrollRef} className="flex-1 bg-white overflow-y-auto h-full min-h-0">
+                                    <div className="px-7 py-6 lg:px-8 lg:py-7 space-y-3">
 
                                         {/* Top badges row */}
                                         <div className="flex items-center gap-2 flex-wrap">

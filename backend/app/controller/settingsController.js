@@ -50,6 +50,14 @@ const ALLOWED_KEYS = [
   "onlineEnabled",
   "lowStockAlertsEnabled",
   "productApproval",
+  "eAnnadataDiscount1Year",
+  "eAnnadataDiscount2Years",
+  "dbtTier1Years",
+  "dbtTier1Months",
+  "dbtTier1Rate",
+  "dbtTier2Years",
+  "dbtTier2Months",
+  "dbtTier2Rate",
 ];
 
 function flattenForMongoSet(prefix, value, target) {
@@ -127,6 +135,14 @@ const updateSettingsSchema = Joi.object({
     sellerCreateRequiresApproval: Joi.boolean(),
     sellerEditRequiresApproval: Joi.boolean(),
   }).unknown(false),
+  eAnnadataDiscount1Year: Joi.number().min(0).max(100),
+  eAnnadataDiscount2Years: Joi.number().min(0).max(100),
+  dbtTier1Years: Joi.number().min(0),
+  dbtTier1Months: Joi.number().min(0).max(11),
+  dbtTier1Rate: Joi.number().min(0).max(100),
+  dbtTier2Years: Joi.number().min(0),
+  dbtTier2Months: Joi.number().min(0).max(11),
+  dbtTier2Rate: Joi.number().min(0).max(100),
 }).unknown(false);
 
 /**
@@ -147,7 +163,7 @@ export const getPublicSettings = async (req, res) => {
       async () => {
         const existing = await Setting.findOne(filter)
           .select(
-            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval createdAt",
+            "appName supportEmail supportPhone currencySymbol currencyCode timezone logoUrl faviconUrl primaryColor secondaryColor returnDeliveryCommission deliveryPricingMode pricingMode customerBaseDeliveryFee riderBasePayout baseDeliveryCharge baseDistanceCapacityKm incrementalKmSurcharge deliveryPartnerRatePerKm fleetCommissionRatePerKm fixedDeliveryFee handlingFeeStrategy codEnabled onlineEnabled lowStockAlertsEnabled productApproval eAnnadataDiscount1Year eAnnadataDiscount2Years dbtTier1Years dbtTier1Months dbtTier1Rate dbtTier2Years dbtTier2Months dbtTier2Rate createdAt",
           )
           .lean();
         return existing || null;

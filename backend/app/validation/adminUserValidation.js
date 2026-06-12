@@ -8,10 +8,15 @@ export const createAdminUserSchema = Joi.object({
   "eAnnadata Card Number": Joi.string().trim().min(3).max(50).required().messages({
     "string.empty": "eAnnadata Card Number is required",
   }),
+  // Registration Date is required for DBT subsidy tier calculation
+  "eAnnadata Card Registration Date": Joi.date().iso().required().messages({
+    "date.base": "Registration Date is required for DBT subsidy calculation",
+    "any.required": "Registration Date is required for DBT subsidy calculation",
+  }),
   "Father/Mother/Husband": Joi.string().trim().allow('').default("N/A"),
-  "Mobile No": Joi.string().trim().pattern(/^\d{10}$/).required().messages({
+  "Mobile No": Joi.string().trim().pattern(/^(\+91|91)?\d{10}$/).required().messages({
     "string.empty": "Mobile No is required",
-    "string.pattern.base": "Mobile No must be exactly 10 digits",
+    "string.pattern.base": "Mobile No must be a valid 10-digit number with optional +91/91 prefix",
   }),
   "Date Of Birth": Joi.date().iso().allow(null, '').default(() => new Date("1970-01-01")),
   gender: Joi.string().valid("Male", "Female", "Other").default("Other"),
@@ -26,8 +31,12 @@ export const createAdminUserSchema = Joi.object({
 export const updateAdminUserSchema = Joi.object({
   "Farmer Name": Joi.string().trim().min(2).max(100).optional(),
   "eAnnadata Card Number": Joi.string().trim().min(3).max(50).optional(),
+  // Registration Date can be corrected via update
+  "eAnnadata Card Registration Date": Joi.date().iso().allow(null, '').optional(),
   "Father/Mother/Husband": Joi.string().trim().allow('').optional(),
-  "Mobile No": Joi.string().trim().pattern(/^\d{10}$/).optional(),
+  "Mobile No": Joi.string().trim().pattern(/^(\+91|91)?\d{10}$/).optional().messages({
+    "string.pattern.base": "Mobile No must be a valid 10-digit number with optional +91/91 prefix",
+  }),
   "Date Of Birth": Joi.date().iso().allow(null, '').optional(),
   gender: Joi.string().valid("Male", "Female", "Other").optional(),
   "Pin Code": Joi.string().trim().allow('').optional(),

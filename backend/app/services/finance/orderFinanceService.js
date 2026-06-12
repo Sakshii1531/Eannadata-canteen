@@ -594,6 +594,20 @@ export async function settleDeliveredOrder(orderOrId, { actorId = null } = {}) {
     await createPendingRiderPayout(order, { session, actorId });
     await creditAdminEarning(order, { session, actorId });
 
+    const dbtSubsidy = roundCurrency(order.paymentBreakdown?.subsidyDiscount || 0);
+    if (dbtSubsidy > 0) {
+      await creditWallet({
+        ownerType: OWNER_TYPE.CUSTOMER,
+        ownerId: order.customer,
+        amount: dbtSubsidy,
+        bucket: "available",
+        ledgerType: LEDGER_TRANSACTION_TYPE.DBT_SUBSIDY_CREDITED,
+        ledgerDescription: `DBT subsidy credited to wallet for order ${order.orderId}`,
+        reference: order.orderId,
+        session,
+      });
+    }
+
     order.financeFlags = {
       ...(order.financeFlags || {}),
       deliveredSettlementApplied: true,

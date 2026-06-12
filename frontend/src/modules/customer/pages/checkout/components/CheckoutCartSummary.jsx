@@ -1,6 +1,7 @@
 import React from "react";
 import { Plus, Minus } from "lucide-react";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { useAuth } from "@core/context/AuthContext";
 
 /**
  * CheckoutCartSummary
@@ -18,7 +19,11 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
   onUpdateQuantity,
   onRemoveFromCart,
   onMoveToWishlist,
+  subsidyDiscountPercent,
 }) {
+  const { user } = useAuth();
+  const isSubsidyUser = user?.isSubsidyEligible === true;
+
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-4">
       {cart.map((item) => (
@@ -80,6 +85,16 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
               const totalMrp = Math.round(mrp * qty);
               return (
                 <div className="text-right leading-tight">
+                  {hasDiscount && (
+                    <span className="inline-block text-[9px] bg-green-50 text-green-700 border border-green-200 px-1 py-0.5 rounded font-black tracking-wider uppercase mb-1">
+                      🌾 Instant Subsidy
+                    </span>
+                  )}
+                  {isSubsidyUser && subsidyDiscountPercent > 0 && (
+                    <span className="inline-block text-[9px] bg-blue-50 text-blue-700 border border-blue-200 px-1 py-0.5 rounded font-black tracking-wider uppercase mb-1 ml-1">
+                      🌾 DBT ({subsidyDiscountPercent}% Wallet Credit)
+                    </span>
+                  )}
                   <p className="text-base font-black text-slate-800">₹{total}</p>
                   {hasDiscount && (
                     <p className="text-[11px] font-bold text-slate-400 line-through">

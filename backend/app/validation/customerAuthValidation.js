@@ -5,6 +5,7 @@ export const sendSignupOtpSchema = Joi.object({
   phone: Joi.string().trim().min(7).max(24).required(),
 });
 
+// Clean signup — no card fields. Subsidy is only for admin-added farmers.
 export const signupSchema = Joi.object({
   firstName: Joi.string().trim().min(1).max(50).required(),
   lastName: Joi.string().trim().min(1).max(50).required(),
@@ -12,22 +13,6 @@ export const signupSchema = Joi.object({
     "string.pattern.base": "Phone number must be a valid 10-digit number",
   }),
   email: Joi.string().trim().email().lowercase().optional().allow("", null),
-  hasEAnnadataCard: Joi.string().valid("yes", "no").optional().default("no"),
-  eAnnadataCardNumber: Joi.string().trim().when("hasEAnnadataCard", {
-    is: "yes",
-    then: Joi.required(),
-    otherwise: Joi.optional().allow("", null),
-  }),
-  eAnnadataCardImage: Joi.string().trim().when("hasEAnnadataCard", {
-    is: "yes",
-    then: Joi.required(),
-    otherwise: Joi.optional().allow("", null),
-  }),
-  eAnnadataCardRegistrationDate: Joi.date().iso().when("hasEAnnadataCard", {
-    is: "yes",
-    then: Joi.required(),
-    otherwise: Joi.optional().allow("", null),
-  }),
 });
 
 

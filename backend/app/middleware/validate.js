@@ -62,8 +62,16 @@ export function validate(schema, source = "body") {
     }
     // Mutating req.query / req.params is supported by Express and matches
     // the pre-existing req.body pattern; downstream handlers see the
-    // sanitized value transparently.
-    req[source] = value;
+    // sanitized value transparently. We mutate instead of reassigning
+    // since query/params/headers are defined as getters.
+    if (source === "body") {
+      req[source] = value;
+    } else {
+      for (const key in req[source]) {
+        delete req[source][key];
+      }
+      Object.assign(req[source], value);
+    }
     return next();
   };
 }

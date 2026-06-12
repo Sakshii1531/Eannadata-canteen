@@ -135,6 +135,12 @@ const userSchema = new mongoose.Schema(
             ref: "Admin",
         },
 
+        // DBT Subsidy — only true for admin-added farmers (never for self-registered customers)
+        isSubsidyEligible: {
+            type: Boolean,
+            default: false,
+        },
+
         password: {
             type: String,
             select: false, // response me password na aaye

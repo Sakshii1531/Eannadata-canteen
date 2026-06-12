@@ -78,6 +78,12 @@ const AdminSettings = () => {
         },
         eAnnadataDiscount1Year: 10,
         eAnnadataDiscount2Years: 20,
+        dbtTier1Years: 1,
+        dbtTier1Months: 0,
+        dbtTier1Rate: 10,
+        dbtTier2Years: 2,
+        dbtTier2Months: 0,
+        dbtTier2Rate: 20,
     });
 
     useEffect(() => {
@@ -203,7 +209,7 @@ const AdminSettings = () => {
         { id: 'legal', label: 'Legal & Contact', icon: Building2 },
         { id: 'social', label: 'Social & Apps', icon: Share2 },
         { id: 'seo', label: 'SEO & Meta', icon: Search },
-        { id: 'eannadata', label: 'E-Anndata Card', icon: CreditCard },
+        { id: 'eannadata', label: 'DBT Subsidy', icon: CreditCard },
     ];
 
     return (
@@ -702,23 +708,47 @@ const AdminSettings = () => {
                             <div className="p-6 border-b border-slate-50 bg-gradient-to-r from-emerald-50 to-teal-50">
                                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
                                     <CreditCard className="h-5 w-5 text-emerald-600" />
-                                    E-Anndata Card Discount Configuration
+                                    DBT Subsidy Configuration
                                 </h3>
                                 <p className="text-xs font-bold text-slate-500 mt-2 leading-relaxed">
-                                    Customers with a verified E-Anndata card receive an automatic subsidy discount on all products.
-                                    The discount tier is based on how long the customer has held the card since their registered card date.
+                                    DBT Subsidy is applied ONLY to farmers added by admin (manually or via bulk CSV/Excel upload).
+                                    Self-registered app customers never receive any DBT subsidy. The discount tier is based on the registered card date.
                                 </p>
                             </div>
                             <div className="p-8 space-y-8">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* Tier 1 Configuration */}
                                     <div className="p-6 bg-amber-50 rounded-2xl ring-1 ring-amber-100 space-y-4">
                                         <div className="flex items-center gap-3">
                                             <div className="p-2 bg-amber-500 rounded-xl text-white">
                                                 <CreditCard className="h-4 w-4" />
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">1-Year Tier</p>
-                                                <p className="text-xs font-bold text-amber-600 mt-0.5">Card held for 1–2 years</p>
+                                                <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">DBT Tier 1</p>
+                                                <p className="text-xs font-bold text-amber-600 mt-0.5">Applied when card age is ≥ Tier 1 and &lt; Tier 2</p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Years</label>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    value={settings.dbtTier1Years ?? 1}
+                                                    onChange={(e) => handleInputChange('dbtTier1Years', Math.max(0, Number(e.target.value)))}
+                                                    className="w-full px-3 py-2 bg-white border-none rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-300/30 transition-all text-center shadow-sm"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Months</label>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    max={11}
+                                                    value={settings.dbtTier1Months ?? 0}
+                                                    onChange={(e) => handleInputChange('dbtTier1Months', Math.min(11, Math.max(0, Number(e.target.value))))}
+                                                    className="w-full px-3 py-2 bg-white border-none rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-300/30 transition-all text-center shadow-sm"
+                                                />
                                             </div>
                                         </div>
                                         <div className="space-y-2">
@@ -730,26 +760,47 @@ const AdminSettings = () => {
                                                     type="number"
                                                     min={0}
                                                     max={100}
-                                                    value={settings.eAnnadataDiscount1Year ?? 10}
-                                                    onChange={(e) => handleInputChange('eAnnadataDiscount1Year', Math.min(100, Math.max(0, Number(e.target.value))))}
+                                                    value={settings.dbtTier1Rate ?? 10}
+                                                    onChange={(e) => handleInputChange('dbtTier1Rate', Math.min(100, Math.max(0, Number(e.target.value))))}
                                                     className="w-full px-5 py-4 bg-white border-none rounded-2xl text-2xl font-black text-amber-600 outline-none focus:ring-2 focus:ring-amber-300/30 transition-all text-center shadow-sm"
                                                 />
                                                 <span className="text-2xl font-black text-amber-500">%</span>
                                             </div>
                                         </div>
-                                        <p className="text-[9px] font-bold text-amber-600/70 uppercase tracking-widest">
-                                            Applied when card age is ≥ 1 year and &lt; 2 years
-                                        </p>
                                     </div>
 
+                                    {/* Tier 2 Configuration */}
                                     <div className="p-6 bg-emerald-50 rounded-2xl ring-1 ring-emerald-100 space-y-4">
                                         <div className="flex items-center gap-3">
                                             <div className="p-2 bg-emerald-500 rounded-xl text-white">
                                                 <CreditCard className="h-4 w-4" />
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">2-Year Tier</p>
-                                                <p className="text-xs font-bold text-emerald-600 mt-0.5">Card held for 2+ years</p>
+                                                <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">DBT Tier 2</p>
+                                                <p className="text-xs font-bold text-emerald-600 mt-0.5">Applied when card age is ≥ Tier 2</p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Years</label>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    value={settings.dbtTier2Years ?? 2}
+                                                    onChange={(e) => handleInputChange('dbtTier2Years', Math.max(0, Number(e.target.value)))}
+                                                    className="w-full px-3 py-2 bg-white border-none rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-300/30 transition-all text-center shadow-sm"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Months</label>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    max={11}
+                                                    value={settings.dbtTier2Months ?? 0}
+                                                    onChange={(e) => handleInputChange('dbtTier2Months', Math.min(11, Math.max(0, Number(e.target.value))))}
+                                                    className="w-full px-3 py-2 bg-white border-none rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-300/30 transition-all text-center shadow-sm"
+                                                />
                                             </div>
                                         </div>
                                         <div className="space-y-2">
@@ -761,25 +812,22 @@ const AdminSettings = () => {
                                                     type="number"
                                                     min={0}
                                                     max={100}
-                                                    value={settings.eAnnadataDiscount2Years ?? 20}
-                                                    onChange={(e) => handleInputChange('eAnnadataDiscount2Years', Math.min(100, Math.max(0, Number(e.target.value))))}
+                                                    value={settings.dbtTier2Rate ?? 20}
+                                                    onChange={(e) => handleInputChange('dbtTier2Rate', Math.min(100, Math.max(0, Number(e.target.value))))}
                                                     className="w-full px-5 py-4 bg-white border-none rounded-2xl text-2xl font-black text-emerald-600 outline-none focus:ring-2 focus:ring-emerald-300/30 transition-all text-center shadow-sm"
                                                 />
                                                 <span className="text-2xl font-black text-emerald-500">%</span>
                                             </div>
                                         </div>
-                                        <p className="text-[9px] font-bold text-emerald-600/70 uppercase tracking-widest">
-                                            Applied when card age is ≥ 2 years
-                                        </p>
                                     </div>
                                 </div>
 
                                 <div className="p-5 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">📋 How Discount Tiers Work</p>
+                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">📋 How DBT Subsidy Tiers Work</p>
                                     <div className="space-y-2 text-xs font-bold text-slate-500">
-                                        <p>• Customers with card age &lt; 1 year → <span className="text-rose-500">No subsidy discount (0%)</span></p>
-                                        <p>• Customers with card age 1–2 years → <span className="text-amber-600">{settings.eAnnadataDiscount1Year ?? 10}% subsidy discount</span></p>
-                                        <p>• Customers with card age 2+ years → <span className="text-emerald-600">{settings.eAnnadataDiscount2Years ?? 20}% subsidy discount</span></p>
+                                        <p>• Farmers with card age &lt; {settings.dbtTier1Years} years {settings.dbtTier1Months} months → <span className="text-rose-500">No subsidy discount (0%)</span></p>
+                                        <p>• Farmers with card age between Tier 1 and Tier 2 → <span className="text-amber-600">{settings.dbtTier1Rate ?? 10}% subsidy discount</span></p>
+                                        <p>• Farmers with card age ≥ {settings.dbtTier2Years} years {settings.dbtTier2Months} months → <span className="text-emerald-600">{settings.dbtTier2Rate ?? 20}% subsidy discount</span></p>
                                     </div>
                                     <p className="text-[10px] font-bold text-slate-400 mt-3 italic">Discount is applied on top of the product's existing sale price at checkout.</p>
                                 </div>

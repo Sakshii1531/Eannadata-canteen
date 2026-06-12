@@ -13,9 +13,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Clock } from "lucide-react";
 
 import { useProductDetail } from "../../context/ProductDetailContext";
+import { useAuth } from "@core/context/AuthContext";
+import { useSettings } from "@core/context/SettingsContext";
 
 const ProductCard = React.memo(
   ({ product, badge, className, compact = false, neutralBg = false }) => {
+    const { user } = useAuth();
+    const { settings } = useSettings();
     const { toggleWishlist: toggleWishlistGlobal, isInWishlist } =
       useWishlist();
     const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
@@ -151,9 +155,13 @@ const ProductCard = React.memo(
         removeFromCart,
         productId,
         updateQuantity,
-        variantKey,
       ],
     );
+
+    const isSubsidyUser = user?.isSubsidyEligible === true;
+    const subsidyRate = Number(settings?.dbtTier1Rate ?? settings?.eAnnadataDiscount1Year ?? 10);
+    const effectivePrice = product.price;
+    const originalBeforeSubsidy = null;
 
     return (
       <div
@@ -170,21 +178,33 @@ const ProductCard = React.memo(
         {/* Top Image Section */}
         <div className="relative">
           {/* Badge (Custom or Discount) */}
-          {(badge ||
-            product.discount ||
-            product.originalPrice > product.price) && (
-              <div
-                className={cn(
-                  "absolute z-10 bg-primary text-primary-foreground font-[900] rounded-md shadow-sm uppercase tracking-wider flex items-center justify-center",
-                  compact
-                    ? "top-2 left-2 px-1.5 py-0.5 text-[7px]"
-                    : "top-2 left-2 px-1 py-0.5 text-[7px] sm:top-3 sm:left-3 sm:px-2 sm:py-1 sm:text-[9px]",
-                )}>
-                {badge ||
-                  product.discount ||
-                  `${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF`}
-              </div>
-            )}
+          {isSubsidyUser && subsidyRate > 0 ? (
+            <div
+              className={cn(
+                "absolute z-10 bg-green-600 text-white font-[900] rounded-md shadow-sm uppercase tracking-wider flex items-center justify-center gap-0.5",
+                compact
+                  ? "top-2 left-2 px-1.5 py-0.5 text-[7px]"
+                  : "top-2 left-2 px-1 py-0.5 text-[7px] sm:top-3 sm:left-3 sm:px-2 sm:py-1 sm:text-[9px]",
+              )}>
+              🌾 DBT {subsidyRate}%
+            </div>
+          ) : (
+            (badge ||
+              product.discount ||
+              product.originalPrice > product.price) && (
+                <div
+                  className={cn(
+                    "absolute z-10 bg-primary text-primary-foreground font-[900] rounded-md shadow-sm uppercase tracking-wider flex items-center justify-center",
+                    compact
+                      ? "top-2 left-2 px-1.5 py-0.5 text-[7px]"
+                      : "top-2 left-2 px-1 py-0.5 text-[7px] sm:top-3 sm:left-3 sm:px-2 sm:py-1 sm:text-[9px]",
+                  )}>
+                  {badge ||
+                    product.discount ||
+                    `${Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF`}
+                </div>
+              )
+          )}
 
           <button
             onClick={toggleWishlist}
@@ -296,15 +316,15 @@ const ProductCard = React.memo(
                   "font-[1000] text-[#1A1A1A]",
                   compact ? "text-[11px]" : "text-[13px] sm:text-sm",
                 )}>
-                ₹{product.price}
+                ₹{effectivePrice}
               </span>
-              {product.originalPrice > product.price && (
+              {(originalBeforeSubsidy || product.originalPrice > product.price) && (
                 <span
                   className={cn(
                     "font-medium text-gray-400 line-through leading-none",
                     compact ? "text-[8px]" : "text-[9px] sm:text-[10px]",
                   )}>
-                  ₹{product.originalPrice}
+                  ₹{originalBeforeSubsidy || product.originalPrice}
                 </span>
               )}
             </div>

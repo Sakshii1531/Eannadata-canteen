@@ -21,12 +21,7 @@ import {
     Sprout,
     Milk,
     Lock,
-    Mail,
-    CreditCard,
-    Upload,
-    Calendar,
-    CheckCircle,
-    XCircle
+    Mail
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
@@ -96,15 +91,6 @@ const CustomerAuth = () => {
         otp: ''
     });
 
-    // E-Anndata card state
-    const [hasCard, setHasCard] = useState(null); // null = not chosen, 'yes', 'no'
-    const [cardNumber, setCardNumber] = useState('');
-    const [cardRegDate, setCardRegDate] = useState('');
-    const [cardImageFile, setCardImageFile] = useState(null);
-    const [cardImagePreview, setCardImagePreview] = useState('');
-    const [isUploadingCard, setIsUploadingCard] = useState(false);
-    const cardFileRef = useRef(null);
-
     const activeCategory = CATEGORIES[carouselIndex];
 
     useEffect(() => {
@@ -118,11 +104,6 @@ const CustomerAuth = () => {
             otp: ''
         });
         setShowOtp(false);
-        setHasCard(null);
-        setCardNumber('');
-        setCardRegDate('');
-        setCardImageFile(null);
-        setCardImagePreview('');
 
     }, [location.pathname]);
 
@@ -177,56 +158,13 @@ const CustomerAuth = () => {
             toast.error('Enter valid email address');
             return;
         }
-        if (hasCard === null) {
-            toast.error('Please indicate if you have an E-Anndata card');
-            return;
-        }
-        if (hasCard === 'yes') {
-            if (!cardNumber.trim()) {
-                toast.error('Please enter your E-Anndata card number');
-                return;
-            }
-            if (!cardRegDate) {
-                toast.error('Please enter your card registration date');
-                return;
-            }
-            if (!cardImageFile) {
-                toast.error('Please upload your E-Anndata card image');
-                return;
-            }
-        }
-
         setIsLoading(true);
         try {
-            let cardImageUrl = null;
-
-            // Upload card image first if user has a card
-            if (hasCard === 'yes' && cardImageFile) {
-                setIsUploadingCard(true);
-                try {
-                    const uploadRes = await customerApi.uploadCardImage(cardImageFile);
-                    cardImageUrl = uploadRes.data.result.url;
-                } catch (uploadError) {
-                    toast.error('Failed to upload card image. Please try again.');
-                    setIsLoading(false);
-                    setIsUploadingCard(false);
-                    return;
-                } finally {
-                    setIsUploadingCard(false);
-                }
-            }
-
             await customerApi.signup({
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
                 phone: phone.trim(),
                 email: email.trim() || undefined,
-                hasEAnnadataCard: hasCard,
-                ...(hasCard === 'yes' ? {
-                    eAnnadataCardNumber: cardNumber.trim(),
-                    eAnnadataCardImage: cardImageUrl,
-                    eAnnadataCardRegistrationDate: cardRegDate,
-                } : {}),
             });
             setShowOtp(true);
             setTimer(30);
@@ -479,125 +417,6 @@ const CustomerAuth = () => {
                                                         onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
                                                         onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
                                                     />
-                                                </div>
-
-                                                {/* E-Anndata Card Section */}
-                                                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 space-y-3">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <CreditCard size={16} className="text-gray-400" />
-                                                        <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">Do you have an E-Anndata Card?</p>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setHasCard('yes')}
-                                                            className="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all border-2"
-                                                            style={{
-                                                                borderColor: hasCard === 'yes' ? activeCategory.theme : '#E5E7EB',
-                                                                backgroundColor: hasCard === 'yes' ? activeCategory.theme + '15' : 'white',
-                                                                color: hasCard === 'yes' ? activeCategory.theme : '#6B7280'
-                                                            }}
-                                                        >
-                                                            <CheckCircle size={14} />
-                                                            YES, I HAVE
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => { setHasCard('no'); setCardImageFile(null); setCardImagePreview(''); }}
-                                                            className="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all border-2"
-                                                            style={{
-                                                                borderColor: hasCard === 'no' ? '#EF4444' : '#E5E7EB',
-                                                                backgroundColor: hasCard === 'no' ? '#FEF2F2' : 'white',
-                                                                color: hasCard === 'no' ? '#EF4444' : '#6B7280'
-                                                            }}
-                                                        >
-                                                            <XCircle size={14} />
-                                                            NO CARD
-                                                        </button>
-                                                    </div>
-
-                                                    <AnimatePresence>
-                                                        {hasCard === 'yes' && (
-                                                            <motion.div
-                                                                initial={{ opacity: 0, height: 0 }}
-                                                                animate={{ opacity: 1, height: 'auto' }}
-                                                                exit={{ opacity: 0, height: 0 }}
-                                                                className="space-y-3 overflow-hidden"
-                                                            >
-                                                                {/* Card Number */}
-                                                                <div className="relative group mt-1">
-                                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300">
-                                                                        <CreditCard size={16} />
-                                                                    </div>
-                                                                    <input
-                                                                        type="text"
-                                                                        value={cardNumber}
-                                                                        placeholder="E-Anndata Card Number"
-                                                                        className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
-                                                                        onChange={(e) => setCardNumber(e.target.value)}
-                                                                        onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
-                                                                        onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
-                                                                    />
-                                                                </div>
-
-                                                                {/* Card Registration Date */}
-                                                                <div className="relative group">
-                                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300">
-                                                                        <Calendar size={16} />
-                                                                    </div>
-                                                                    <input
-                                                                        type="date"
-                                                                        value={cardRegDate}
-                                                                        max={new Date().toISOString().split('T')[0]}
-                                                                        className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
-                                                                        onChange={(e) => setCardRegDate(e.target.value)}
-                                                                        onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
-                                                                        onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
-                                                                    />
-                                                                </div>
-
-                                                                {/* Card Image Upload */}
-                                                                <input
-                                                                    ref={cardFileRef}
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    className="hidden"
-                                                                    onChange={(e) => {
-                                                                        const file = e.target.files[0];
-                                                                        if (file) {
-                                                                            setCardImageFile(file);
-                                                                            setCardImagePreview(URL.createObjectURL(file));
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                {cardImagePreview ? (
-                                                                    <div className="relative rounded-xl overflow-hidden border-2 border-dashed" style={{ borderColor: activeCategory.theme }}>
-                                                                        <img src={cardImagePreview} alt="Card preview" className="w-full h-28 object-cover" />
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => { setCardImageFile(null); setCardImagePreview(''); cardFileRef.current.value = ''; }}
-                                                                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1"
-                                                                        >
-                                                                            <XCircle size={14} />
-                                                                        </button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => cardFileRef.current?.click()}
-                                                                        className="w-full flex items-center justify-center gap-2 py-4 rounded-xl border-2 border-dashed text-xs font-black transition-all"
-                                                                        style={{ borderColor: activeCategory.theme, color: activeCategory.theme }}
-                                                                    >
-                                                                        <Upload size={14} />
-                                                                        UPLOAD CARD IMAGE
-                                                                    </button>
-                                                                )}
-                                                                <p className="text-[9px] font-bold text-gray-400 text-center uppercase tracking-widest">
-                                                                    Card will be verified by admin • JPEG / PNG / WEBP
-                                                                </p>
-                                                            </motion.div>
-                                                        )}
-                                                    </AnimatePresence>
                                                 </div>
 
                                             </>

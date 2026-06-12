@@ -94,6 +94,9 @@ export const createUser = async (req, res) => {
       phone: payload["Mobile No"],
       "Mobile No": payload["Mobile No"],
       "eAnnadata Card Number": payload["eAnnadata Card Number"],
+      "eAnnadata Card Status": "yes",                                      // Auto-approved by admin
+      "eAnnadata Card Registration Date": payload["eAnnadata Card Registration Date"], // For DBT tier calc
+      isSubsidyEligible: true,                                             // Admin-added farmers get DBT
       "Father/Mother/Husband": payload["Father/Mother/Husband"],
       "Date Of Birth": payload["Date Of Birth"],
       gender: payload.gender,
@@ -102,7 +105,7 @@ export const createUser = async (req, res) => {
       "District Name": payload["District Name"],
       "Block Name": payload["Block Name"],
       "Village Name": payload["Village Name"],
-      "Registration Date": new Date(),
+      "Registration Date": payload["eAnnadata Card Registration Date"], // Store Excel/Form registration date in db
       status: payload.status || "active",
       isActive: payload.status !== "inactive",
       created_by: req.user.id,
@@ -167,6 +170,10 @@ export const updateUser = async (req, res) => {
       user["Mobile No"] = payload["Mobile No"];
     }
     if (payload["eAnnadata Card Number"] !== undefined) user["eAnnadata Card Number"] = payload["eAnnadata Card Number"];
+    if (payload["eAnnadata Card Registration Date"] !== undefined) {
+      user["eAnnadata Card Registration Date"] = payload["eAnnadata Card Registration Date"];
+      user["Registration Date"] = payload["eAnnadata Card Registration Date"];
+    }
     if (payload["Father/Mother/Husband"] !== undefined) user["Father/Mother/Husband"] = payload["Father/Mother/Husband"];
     if (payload["Date Of Birth"] !== undefined) user["Date Of Birth"] = payload["Date Of Birth"];
     if (payload.gender !== undefined) user.gender = payload.gender;
@@ -259,6 +266,9 @@ export const bulkUploadUsers = async (req, res) => {
           normalized["Mobile No"] = value;
         } else if (["dob", "dateofbirth", "birthdate", "birth"].includes(cleanKey)) {
           normalized["Date Of Birth"] = parseDateValue(row[key]);
+        } else if (["registrationdate", "regdate", "carddate", "eannadataregdate", "cardregistrationdate", "eannadatacardregistrationdate"].includes(cleanKey)) {
+          // "Registration Date" from Excel → eAnnadata Card Registration Date (used for DBT tier calculation)
+          normalized["eAnnadata Card Registration Date"] = parseDateValue(row[key]);
         } else if (["gender", "sex"].includes(cleanKey)) {
           normalized.gender = value;
         } else if (["pincode", "pin", "zip", "zipcode"].includes(cleanKey)) {
@@ -402,7 +412,9 @@ export const bulkUploadUsers = async (req, res) => {
             phone: row["Mobile No"],
             "Mobile No": row["Mobile No"],
             "eAnnadata Card Number": row["eAnnadata Card Number"],
-            "eAnnadata Card Status": row["eAnnadata Card Number"] ? "yes" : "no",
+            "eAnnadata Card Status": "yes",                                          // Auto-approved for bulk
+            "eAnnadata Card Registration Date": row["eAnnadata Card Registration Date"], // From Excel → DBT tier
+            isSubsidyEligible: true,                                                 // Bulk-added farmers get DBT
             "Father/Mother/Husband": row["Father/Mother/Husband"],
             "Date Of Birth": row["Date Of Birth"],
             gender: row.gender,
@@ -411,7 +423,7 @@ export const bulkUploadUsers = async (req, res) => {
             "District Name": row["District Name"],
             "Block Name": row["Block Name"],
             "Village Name": row["Village Name"],
-            "Registration Date": new Date(), // Set to current upload date
+            "Registration Date": row["eAnnadata Card Registration Date"], // Store Excel/Form registration date in db
             status: row.status || "active",
             isActive: row.status !== "inactive",
             created_by: req.user.id,

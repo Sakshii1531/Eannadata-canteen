@@ -226,6 +226,8 @@ const orderSchema = new mongoose.Schema(
       handlingFeeCharged: { type: Number, default: 0 },
       tipTotal: { type: Number, default: 0 },
       discountTotal: { type: Number, default: 0 },
+      subsidyDiscount: { type: Number, default: 0 },
+      subsidyDiscountPercent: { type: Number, default: 0 },
       taxTotal: { type: Number, default: 0 },
       grandTotal: { type: Number, default: 0 },
       sellerPayoutTotal: { type: Number, default: 0 },

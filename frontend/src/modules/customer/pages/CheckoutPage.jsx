@@ -39,7 +39,7 @@ import { useToast } from "@shared/components/ui/Toast";
 import { useSettings } from "@core/context/SettingsContext";
 import SlideToPay from "../components/shared/SlideToPay";
 import { getCachedGeocode, setCachedGeocode } from "@/core/utils/geocodeCache";
-import { getJSON, setJSON, STORAGE_KEYS } from "@core/utils/storage";
+import { getJSON, setJSON, rawRemove, STORAGE_KEYS } from "@core/utils/storage";
 import { createSocketTokenReader } from "@core/utils/authStorage";
 import {
   getOrderSocket,
@@ -176,6 +176,55 @@ const CheckoutPage = () => {
   const [coupons, setCoupons] = useState([]);
   const [manualCode, setManualCode] = useState("");
   const [emptyBoxData, setEmptyBoxData] = useState(null);
+
+  // Sync current address and form with logged-in user details on load
+  useEffect(() => {
+    if (user) {
+      const name = user.name || user["Farmer Name"] || "Harshvardhan Panchal";
+      const phone = user.phone || user["Mobile No"] || "6268423925";
+      const primaryAddr = locationSavedAddresses?.find((addr) => addr.isCurrent) || locationSavedAddresses?.[0];
+
+      setCurrentAddress((prev) => {
+        if (prev.name === "Harshvardhan Panchal" && prev.phone === "6268423925") {
+          return {
+            ...prev,
+            name,
+            phone,
+            ...(primaryAddr
+              ? {
+                  type: primaryAddr.label || "Home",
+                  address: primaryAddr.address || prev.address,
+                  city: "",
+                  location: primaryAddr.location || prev.location,
+                  placeId: primaryAddr.placeId || prev.placeId,
+                }
+              : {}),
+          };
+        }
+        return prev;
+      });
+
+      setEditAddressForm((prev) => {
+        if (prev.name === "Harshvardhan Panchal" && prev.phone === "6268423925") {
+          return {
+            ...prev,
+            name,
+            phone,
+            ...(primaryAddr
+              ? {
+                  type: primaryAddr.label || "Home",
+                  address: primaryAddr.address || prev.address,
+                  city: "",
+                  location: primaryAddr.location || prev.location,
+                  placeId: primaryAddr.placeId || prev.placeId,
+                }
+              : {}),
+          };
+        }
+        return prev;
+      });
+    }
+  }, [user, locationSavedAddresses]);
 
   // Dynamically load empty-box Lottie only when cart is empty
   useEffect(() => {
@@ -979,7 +1028,10 @@ const CheckoutPage = () => {
               recipientData={recipientData}
               onRecipientDataChange={setRecipientData}
               onSaveRecipient={handleSaveRecipient}
-              onRemoveRecipient={() => setSavedRecipient(null)}
+              onRemoveRecipient={() => {
+                setSavedRecipient(null);
+                rawRemove(RECIPIENT_STORAGE_KEY);
+              }}
               displayName={displayName}
               displayPhone={displayPhone}
               displayAddress={displayAddress}
@@ -993,6 +1045,7 @@ const CheckoutPage = () => {
               onMoveToWishlist={handleMoveToWishlist}
               showAll={showAllCartItems}
               onToggleShowAll={() => setShowAllCartItems((v) => !v)}
+              subsidyDiscountPercent={pricingPreview?.subsidyDiscountPercent}
             />
 
             {/* Wishlist Section */}

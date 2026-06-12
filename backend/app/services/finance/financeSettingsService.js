@@ -16,8 +16,16 @@ const DEFAULT_FINANCE_SETTINGS = {
   handlingFeeStrategy: HANDLING_FEE_STRATEGY.HIGHEST_CATEGORY_FEE,
   codEnabled: true,
   onlineEnabled: true,
+  // Legacy discount fields (backward compat)
   eAnnadataDiscount1Year: 10,
   eAnnadataDiscount2Years: 20,
+  // DBT Tier Config — all admin-configurable
+  dbtTier1Years: 1,
+  dbtTier1Months: 0,
+  dbtTier1Rate: 10,
+  dbtTier2Years: 2,
+  dbtTier2Months: 0,
+  dbtTier2Rate: 20,
 };
 
 export function normalizeFinanceSettings(raw = {}) {
@@ -71,8 +79,16 @@ export function normalizeFinanceSettings(raw = {}) {
     handlingFeeStrategy,
     codEnabled: raw.codEnabled ?? DEFAULT_FINANCE_SETTINGS.codEnabled,
     onlineEnabled: raw.onlineEnabled ?? DEFAULT_FINANCE_SETTINGS.onlineEnabled,
+    // Legacy discount fields (backward compat)
     eAnnadataDiscount1Year: Number(raw.eAnnadataDiscount1Year ?? DEFAULT_FINANCE_SETTINGS.eAnnadataDiscount1Year),
     eAnnadataDiscount2Years: Number(raw.eAnnadataDiscount2Years ?? DEFAULT_FINANCE_SETTINGS.eAnnadataDiscount2Years),
+    // DBT Tier Config — all admin-configurable
+    dbtTier1Years:  Number(raw.dbtTier1Years  ?? DEFAULT_FINANCE_SETTINGS.dbtTier1Years),
+    dbtTier1Months: Number(raw.dbtTier1Months ?? DEFAULT_FINANCE_SETTINGS.dbtTier1Months),
+    dbtTier1Rate:   Number(raw.dbtTier1Rate   ?? DEFAULT_FINANCE_SETTINGS.dbtTier1Rate),
+    dbtTier2Years:  Number(raw.dbtTier2Years  ?? DEFAULT_FINANCE_SETTINGS.dbtTier2Years),
+    dbtTier2Months: Number(raw.dbtTier2Months ?? DEFAULT_FINANCE_SETTINGS.dbtTier2Months),
+    dbtTier2Rate:   Number(raw.dbtTier2Rate   ?? DEFAULT_FINANCE_SETTINGS.dbtTier2Rate),
   };
 }
 

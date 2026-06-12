@@ -51,6 +51,7 @@ const CustomerManagement = () => {
     const initialCreateForm = {
         "Farmer Name": '',
         "eAnnadata Card Number": '',
+        "eAnnadata Card Registration Date": '',
         "Father/Mother/Husband": '',
         "Mobile No": '',
         "Date Of Birth": '',
@@ -384,11 +385,18 @@ const CustomerManagement = () => {
                                                     >
                                                         {cust["Farmer Name"] || cust.name}
                                                     </p>
-                                                    {cust["eAnnadata Card Number"] && (
-                                                        <p className="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded w-max mt-0.5">
-                                                            Card: {cust["eAnnadata Card Number"]}
-                                                        </p>
-                                                    )}
+                                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                                        {cust["eAnnadata Card Number"] && (
+                                                            <p className="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded w-max">
+                                                                Card: {cust["eAnnadata Card Number"]}
+                                                            </p>
+                                                        )}
+                                                        {cust.isSubsidyEligible && (
+                                                            <p className="text-[10px] font-black text-green-700 bg-green-50 px-1.5 py-0.5 rounded w-max flex items-center gap-0.5">
+                                                                🌾 Instant Subsidy
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                     <p className="ds-body-sm text-gray-500">{cust.email || 'No email'}</p>
                                                     <div className="flex items-center gap-1.5 mt-0.5">
                                                         <Phone className="ds-icon-sm text-gray-300" />
@@ -495,6 +503,18 @@ const CustomerManagement = () => {
                                 type="text"
                                 value={createForm["eAnnadata Card Number"]}
                                 onChange={(e) => setCreateForm({ ...createForm, "eAnnadata Card Number": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Registration Date *</label>
+                            <input
+                                required
+                                type="date"
+                                value={createForm["eAnnadata Card Registration Date"]}
+                                max={new Date().toISOString().split('T')[0]}
+                                onChange={(e) => setCreateForm({ ...createForm, "eAnnadata Card Registration Date": e.target.value })}
                                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
                             />
                         </div>

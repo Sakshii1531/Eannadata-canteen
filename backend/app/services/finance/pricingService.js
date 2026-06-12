@@ -29,31 +29,43 @@ function toObjectIdString(value) {
 }
 
 /**
- * Returns the E-Anndata subsidy discount percentage for a given customer.
- * - 0% if no valid verified card
- * - eAnnadataDiscount1Year% if card is 1-2 years old
- * - eAnnadataDiscount2Years% if card is 2+ years old
+ * Returns the DBT subsidy discount percentage for a given customer.
+ * Only admin-added farmers with isSubsidyEligible=true can receive subsidy.
+ * Tier thresholds and rates are all admin-configurable via Settings.
  */
 export async function getCustomerSubsidyDiscountPercent(customerId) {
   if (!customerId) return 0;
   try {
     const customer = await Customer.findById(customerId)
-      .select('"eAnnadata Card Status" "eAnnadata Card Registration Date"')
+      .select([
+        "eAnnadata Card Status",
+        "eAnnadata Card Registration Date",
+        "isSubsidyEligible",
+      ])
       .lean();
     if (!customer) return 0;
+
+    // Gate 1: Only admin-added farmers with isSubsidyEligible flag
+    if (!customer.isSubsidyEligible) return 0;
+
+    // Gate 2: Card must be verified by admin
     if (customer["eAnnadata Card Status"] !== "yes") return 0;
 
+    // Gate 3: Registration date must exist
     const regDate = customer["eAnnadata Card Registration Date"];
     if (!regDate) return 0;
 
     const yearsElapsed = (Date.now() - new Date(regDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25);
 
+    // Fetch admin-configured thresholds and rates from Settings
     const settings = await getOrCreateFinanceSettings();
-    const discount1y = Number(settings.eAnnadataDiscount1Year ?? 10);
-    const discount2y = Number(settings.eAnnadataDiscount2Years ?? 20);
+    const tier1Threshold = (settings.dbtTier1Years ?? 1) + (settings.dbtTier1Months ?? 0) / 12;
+    const tier2Threshold = (settings.dbtTier2Years ?? 2) + (settings.dbtTier2Months ?? 0) / 12;
+    const rate1 = Number(settings.dbtTier1Rate ?? settings.eAnnadataDiscount1Year ?? 10);
+    const rate2 = Number(settings.dbtTier2Rate ?? settings.eAnnadataDiscount2Years ?? 20);
 
-    if (yearsElapsed >= 2) return discount2y;
-    if (yearsElapsed >= 1) return discount1y;
+    if (yearsElapsed >= tier2Threshold) return rate2;
+    if (yearsElapsed >= tier1Threshold) return rate1;
     return 0;
   } catch {
     return 0;
@@ -400,10 +412,8 @@ export async function hydrateOrderItems(
         ? resolvedVariant.salePrice || resolvedVariant.price || product.salePrice || product.price
         : product.salePrice || product.price,
     );
-    // Apply E-Anndata subsidy discount on top of the regular sale price
-    const serverUnitPrice = subsidyDiscountPercent > 0
-      ? roundCurrency(baseUnitPrice * (1 - subsidyDiscountPercent / 100))
-      : baseUnitPrice;
+    // Do not discount the unit price at checkout. DBT subsidy is credited to wallet later.
+    const serverUnitPrice = baseUnitPrice;
     const inferredUnitPrice = enforceServerPricing
       ? serverUnitPrice
       : normalizeLinePrice(item.price) || serverUnitPrice;
@@ -515,6 +525,12 @@ export async function generateOrderPaymentBreakdown({
   const normalizedTip = roundCurrency(tipTotal || 0);
   const normalizedWallet = roundCurrency(walletAmount || 0);
 
+  // Compute DBT subsidy savings for display in the checkout breakdown
+  const subsidyDiscountPercent = normalizedItems[0]?.subsidyDiscountPercent ?? 0;
+  const subsidyDiscount = subsidyDiscountPercent > 0
+    ? roundCurrency(productSubtotal * subsidyDiscountPercent / 100)
+    : 0;
+
   const grossTotal = roundCurrency(
     productSubtotal +
       delivery.deliveryFeeCharged +
@@ -595,6 +611,9 @@ export async function generateOrderPaymentBreakdown({
     grandTotal,
     walletAmount: walletAllocation,
     payableAmount: grandTotal,
+    // DBT Subsidy — for checkout UI display
+    subsidyDiscount,
+    subsidyDiscountPercent,
     sellerPayoutTotal,
     adminProductCommissionTotal,
     riderPayoutBase: rider.riderPayoutBase,

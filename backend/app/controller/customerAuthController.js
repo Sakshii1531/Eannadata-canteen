@@ -51,7 +51,6 @@ export const signupCustomer = async (req, res) => {
         // Create or update existing unverified user
         let customer = existingPhone;
         const name = `${payload.firstName} ${payload.lastName}`.trim();
-        const hasCard = payload.hasEAnnadataCard === "yes";
 
         const customerData = {
             name,
@@ -60,15 +59,8 @@ export const signupCustomer = async (req, res) => {
             isVerified: false,
             isActive: true,
             role: "user",
-            // E-Anndata card fields
-            ...(hasCard ? {
-                "eAnnadata Card Number": payload.eAnnadataCardNumber,
-                "eAnnadata Card Image": payload.eAnnadataCardImage,
-                "eAnnadata Card Registration Date": payload.eAnnadataCardRegistrationDate,
-                "eAnnadata Card Status": "pending",
-            } : {
-                "eAnnadata Card Status": "no",
-            }),
+            isSubsidyEligible: false,
+            "eAnnadata Card Status": "no",
         };
 
         if (!customer) {
