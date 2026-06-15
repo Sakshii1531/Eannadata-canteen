@@ -187,11 +187,7 @@ const ProductCard = React.memo(
       <div
         className={cn(
           "flex-shrink-0 w-full rounded-xl sm:rounded-2xl overflow-hidden flex flex-col h-full shadow-sm cursor-pointer transition-all duration-300",
-          compact
-            ? "bg-white border-[1.5px] border-brand-50 shadow-[0_8px_20px_-8px_rgba(0,0,0,0.08)]"
-            : neutralBg
-              ? "bg-white border border-slate-100 shadow-[0_8px_20px_-8px_rgba(0,0,0,0.08)]"
-              : "bg-primary/10 border border-primary/20",
+          "bg-white border border-slate-100 shadow-[0_8px_20px_-8px_rgba(0,0,0,0.08)]",
           className,
         )}
         onClick={handleProductClick}>
@@ -253,7 +249,7 @@ const ProductCard = React.memo(
           {/* Product image */}
           <div className={cn(
             "block w-full overflow-hidden flex items-center justify-center aspect-square",
-            compact || neutralBg ? "bg-white/70" : "bg-white/50",
+            "bg-white/70",
           )}>
             <img
               ref={imageRef}
@@ -268,7 +264,7 @@ const ProductCard = React.memo(
         {/* ── Info section ── */}
         <div className={cn(
           "flex flex-col flex-1",
-          compact ? "p-1 pt-0.5 gap-0" : "bg-white/40 p-1.5 pt-2 sm:p-3 sm:pt-3 gap-1",
+          "p-1.5 pt-2 sm:p-3 sm:pt-3 gap-1",
         )}>
           {/* Unit badge + name */}
           <div className={cn("flex items-center gap-1", compact ? "mb-0" : "mb-0.5")}>
@@ -284,15 +280,6 @@ const ProductCard = React.memo(
             {product.name}
           </h4>
 
-          {!compact && (
-            <div className="flex items-center gap-1 text-gray-500">
-              <Clock size={10} className="text-primary/80" />
-              <span className="text-[9px] sm:text-[10px] font-semibold">
-                {product.deliveryTime || "8-12 mins"}
-              </span>
-            </div>
-          )}
-
           {/* ── Subsidy breakdown card (all card sizes, shown when discount or DBT exists) ── */}
           {showBreakdown ? (
             <div className={cn("rounded-xl overflow-hidden border border-gray-100 bg-white/80 mt-1")}>
@@ -305,7 +292,7 @@ const ProductCard = React.memo(
               {/* Instant Subsidy row */}
               {hasInstantDiscount && (
                 <div className={cn("flex items-center justify-between gap-1", compact ? "px-2 py-0.5" : "px-2.5 py-0.5")}>
-                  <span className={cn("text-emerald-600 font-black whitespace-nowrap", compact ? "text-[9px]" : "text-[9px]")}>{compact ? "⚡ Instant" : "⚡ Instant Subsidy"}</span>
+                  <span className={cn("text-emerald-600 font-black whitespace-nowrap", compact ? "text-[9px]" : "text-[9px]")}>⚡ Instant Subsidy</span>
                   <span className={cn("text-emerald-600 font-black whitespace-nowrap", compact ? "text-[9px]" : "text-[9px]")}>-₹{instantSavings}</span>
                 </div>
               )}
@@ -346,7 +333,7 @@ const ProductCard = React.memo(
               {/* DBT Subsidy row */}
               {dbtSavings > 0 && (
                 <div className={cn("flex items-center justify-between gap-1 border-t border-gray-100", compact ? "px-1.5 py-0" : "px-2.5 py-1")}>
-                  <span className={cn("text-blue-600 font-black whitespace-nowrap", compact ? "text-[9px]" : "text-[9px]")}>{compact ? "🏛 DBT" : "🏛 DBT Subsidy"}</span>
+                  <span className={cn("text-blue-600 font-black whitespace-nowrap", compact ? "text-[9px]" : "text-[9px]")}>🏛 DBT Subsidy</span>
                   <div className="flex items-center gap-1 whitespace-nowrap">
                     <span className={cn("text-blue-600 font-black", compact ? "text-[9px]" : "text-[9px]")}>₹{dbtSavings}</span>
                     <span className={cn("font-black bg-blue-100 text-blue-600 rounded uppercase whitespace-nowrap", compact ? "text-[8px] px-1 py-0.5" : "text-[7px] px-1 py-0.5")}>Later</span>
@@ -357,7 +344,7 @@ const ProductCard = React.memo(
               {/* Net Effective Price row */}
               {dbtSavings > 0 && (
                 <div className={cn("flex items-center justify-between gap-1 bg-green-50/70 border-t border-green-100", compact ? "px-1.5 py-0" : "px-2.5 py-1.5")}>
-                  <span className={cn("text-green-700 font-black uppercase tracking-wide whitespace-nowrap", compact ? "text-[9px]" : "text-[9px]")}>{compact ? "Net Price" : "Net Effective Price"}</span>
+                  <span className={cn("text-green-700 font-black uppercase tracking-wide whitespace-nowrap", compact ? "text-[9px]" : "text-[9px]")}>Net Effective Price</span>
                   <span className={cn("text-green-700 font-[1000] whitespace-nowrap", compact ? "text-[11px]" : "text-[11px] sm:text-[12px]")}>₹{netEffectivePrice}</span>
                 </div>
               )}

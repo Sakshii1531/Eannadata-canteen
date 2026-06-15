@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { X, ChevronDown, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, Star, MessageSquare, ArrowLeft, ChevronRight, Bell } from 'lucide-react';
+import { X, ChevronDown, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, Star, MessageSquare, ArrowLeft, ChevronRight, Bell, Info, ShieldCheck } from 'lucide-react';
+import { useAuth } from '@core/context/AuthContext';
 import { useProductDetail } from '../../context/ProductDetailContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
@@ -19,11 +20,12 @@ const ProductDetailSheet = () => {
     const { toggleWishlist: toggleWishlistGlobal, isInWishlist } = useWishlist();
     const { showToast } = useToast();
     const { settings } = useSettings();
+    const { user } = useAuth();
     const supportEmail = settings?.supportEmail || 'support@example.com';
 
     // Controls for sheet animation
     const controls = useAnimation();
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(true);
     const [selectedVariant, setSelectedVariant] = useState(null);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
     const [isNotified, setIsNotified] = useState(false);
@@ -177,6 +179,7 @@ const ProductDetailSheet = () => {
     useEffect(() => {
         if (isOpen) {
             controls.start("visible");
+            setIsExpanded(true);
             document.body.style.overflow = "hidden"; // Prevent background scroll
             document.body.style.touchAction = "none"; // Disable swipe background panning
             document.documentElement.style.overflow = "hidden";
@@ -260,6 +263,20 @@ const ProductDetailSheet = () => {
     if (!selectedProduct) return null;
 
     const cleanDesc = cleanDescription(selectedProduct?.description);
+
+    // ── Subsidy / pricing calculations (same logic as ProductCard) ──────────
+    const isSubsidyUser = user?.isSubsidyEligible === true;
+    const subsidyRate = Number(settings?.dbtTier1Rate ?? settings?.eAnnadataDiscount1Year ?? 10);
+    const mrpPrice = Number(selectedProduct.originalPrice || selectedProduct.price || 0);
+    const payNowPrice = Number(selectedProduct.price || 0);
+    const hasInstantDiscount = mrpPrice > payNowPrice;
+    const instantSavings = hasInstantDiscount ? Math.round(mrpPrice - payNowPrice) : 0;
+    const instantDiscountPct = hasInstantDiscount && mrpPrice > 0
+        ? Math.round(((mrpPrice - payNowPrice) / mrpPrice) * 100) : 0;
+    const dbtSavings = isSubsidyUser && subsidyRate > 0 ? Math.round(payNowPrice * subsidyRate / 100) : 0;
+    const netEffectivePrice = payNowPrice - dbtSavings;
+    const totalSubsidyPct = instantDiscountPct + (isSubsidyUser && subsidyRate > 0 ? subsidyRate : 0);
+    const showSubsidy = hasInstantDiscount || dbtSavings > 0;
 
     const AccordionItem = ({ title, children, id, icon }) => {
         const isOpen = expandedSections.includes(id);
@@ -496,6 +513,132 @@ const ProductDetailSheet = () => {
                                                 <span className="text-[13px] text-gray-400 font-bold uppercase tracking-wider">{selectedProduct.weight}</span>
                                             )}
                                         </motion.div>
+
+                                        {/* ── Subsidy Pricing Breakdown (Desktop) – shown just below product name ── */}
+                                        {showSubsidy && (
+                                            <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white">
+                                                {/* Price row */}
+                                                <div className="flex items-center gap-3 px-4 pt-3 pb-2 border-b border-slate-100">
+                                                    <div className="flex items-baseline gap-2">
+                                                        {hasInstantDiscount && (
+                                                            <span className="text-sm font-medium text-gray-400 line-through">₹{mrpPrice}</span>
+                                                        )}
+                                                        {totalSubsidyPct > 0 && (
+                                                            <span className="text-xs font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">{totalSubsidyPct}% Subsidy</span>
+                                                        )}
+                                                        <span className="text-2xl font-semibold text-[#1A1A1A]">₹{payNowPrice}</span>
+                                                    </div>
+                                                    <span className="text-xs font-normal text-slate-400">eAnnadata Price</span>
+                                                </div>
+
+                                                {/* DBT info box */}
+                                                {dbtSavings > 0 && (
+                                                    <div className="flex items-start gap-3 bg-[#f0fdf4] border-b border-green-100 p-3">
+                                                        <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                            <ShieldCheck size={14} className="text-green-600" strokeWidth={2.5} />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-semibold text-green-800 leading-tight">Upto ₹{dbtSavings} Subsidy</p>
+                                                            <p className="text-[11px] font-medium text-green-700 mt-0.5 leading-snug">
+                                                                This subsidy amount will be transferred to your bank account via DBT.
+                                                            </p>
+                                                        </div>
+                                                        <Info size={15} className="text-green-500 flex-shrink-0 mt-0.5" />
+                                                    </div>
+                                                )}
+
+                                                {/* Pricing table header */}
+                                                <div className="flex items-center bg-slate-50 border-b border-slate-100 px-3 py-2 gap-2">
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-[9px] font-medium text-slate-500 uppercase tracking-wide">MRP</span>
+                                                    </div>
+                                                    {hasInstantDiscount && (
+                                                        <>
+                                                            <span className="text-[9px] text-slate-300 px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[9px] font-medium text-emerald-600 whitespace-nowrap">Instant ({instantDiscountPct}%)</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {dbtSavings > 0 && (
+                                                        <>
+                                                            <span className="text-[9px] text-slate-300 px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[9px] font-medium text-blue-600 whitespace-nowrap">DBT ({subsidyRate}%)</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {totalSubsidyPct > 0 && (
+                                                        <>
+                                                            <span className="text-[9px] text-slate-300 px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[9px] font-medium text-slate-500 whitespace-nowrap">Total ({totalSubsidyPct}%)</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    <span className="text-[9px] text-slate-600 font-semibold px-1.5">=</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-[9px] font-medium text-primary whitespace-nowrap">Pay Now</span>
+                                                    </div>
+                                                    {dbtSavings > 0 && (
+                                                        <div className="flex-1 min-w-0">
+                                                            <span className="text-[9px] font-medium text-green-700 whitespace-nowrap">Net Price</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {/* Pricing table values */}
+                                                <div className="flex items-baseline px-3 py-2 gap-2">
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-[13px] font-medium text-slate-600 line-through">&#8377;{mrpPrice}</span>
+                                                    </div>
+                                                    {hasInstantDiscount && (
+                                                        <>
+                                                            <span className="text-[13px] text-slate-600 font-semibold px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[13px] font-medium text-emerald-600">&#8377;{instantSavings}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {dbtSavings > 0 && (
+                                                        <>
+                                                            <span className="text-[13px] text-slate-600 font-semibold px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[13px] font-medium text-blue-600">&#8377;{dbtSavings}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {totalSubsidyPct > 0 && (
+                                                        <>
+                                                            <span className="text-[13px] text-slate-600 font-semibold px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[13px] font-medium text-slate-600">&#8377;{instantSavings + dbtSavings}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    <span className="text-[13px] text-slate-600 font-semibold px-1.5">=</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-[14px] font-semibold text-primary">&#8377;{payNowPrice}</span>
+                                                        {dbtSavings > 0 && <p className="text-[8px] text-slate-500 font-medium leading-tight">(To be paid now)</p>}
+                                                    </div>
+                                                    {dbtSavings > 0 && (
+                                                        <div className="flex-1 min-w-0">
+                                                            <span className="text-[14px] font-semibold text-green-700">&#8377;{netEffectivePrice}</span>
+                                                            <p className="text-[8px] text-slate-500 font-medium leading-tight">(After subsidy)</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* DBT note */}
+                                                {dbtSavings > 0 && (
+                                                    <div className="flex items-start gap-2 bg-blue-50/60 border-t border-blue-100 px-3 py-2.5">
+                                                        <Info size={12} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                                                        <p className="text-[10px] font-medium text-blue-700 leading-relaxed">
+                                                            <span className="font-black">Note:</span> You have to pay the <span className="font-black text-primary">Pay Now</span> amount (₹{payNowPrice}) now. The subsidy (Upto ₹{dbtSavings}) will be transferred to your bank account by DBT.
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                         {/* Price + Add-to-Cart Card */}
                                         <motion.div
@@ -850,7 +993,7 @@ const ProductDetailSheet = () => {
                             onWheel={handleWheel}
                         >
                             {/* Product Image Carousel */}
-                            <div className="relative w-full bg-gradient-to-b from-[#F5F7F8] to-white pt-0 pb-4 h-[52vh] min-h-[320px] max-h-[560px]">
+                            <div className="relative w-full bg-gradient-to-b from-[#F5F7F8] to-white pt-0 pb-0 h-[52vh] min-h-[320px] max-h-[560px]">
                                 <div
                                     ref={scrollRef}
                                     className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar h-full w-full"
@@ -890,8 +1033,8 @@ const ProductDetailSheet = () => {
                                 )}
                             </div>
 
-                            {/* Product Info Container */}
-                            <div className="px-5 pt-2 pb-6">
+                            {/* Delivery Time + Product Name + Variants – shown just below image */}
+                            <div className="px-5 pt-1 pb-0">
                                 {/* Delivery Time Badge */}
                                 <div className="inline-flex items-center gap-1.5 bg-[#F0FDF4] border border-brand-100 text-primary px-2.5 py-1 rounded-lg text-[10px] font-black uppercase mb-3">
                                     <Clock size={12} strokeWidth={3} />
@@ -904,7 +1047,7 @@ const ProductDetailSheet = () => {
 
                                 {/* Variants Selection (Mobile) */}
                                 {selectedProduct.variants && selectedProduct.variants.length > 0 && (
-                                    <div className="mt-4 mb-2">
+                                    <div className="mt-3 mb-2">
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Select Variant</h4>
                                         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                                             {selectedProduct.variants.map((v, idx) => (
@@ -928,6 +1071,10 @@ const ProductDetailSheet = () => {
                                         </div>
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Product Info Container – accordions only */}
+                            <div className="px-5 pt-0 pb-0">
 
                                 {/* Product Information Accordion (Mobile) */}
                                 <div className="mt-4 border-t border-slate-100">
@@ -965,6 +1112,138 @@ const ProductDetailSheet = () => {
                                             ))}
                                         </div>
                                     </AccordionItem>
+
+                                    {/* ── Subsidy Pricing Breakdown – between Product Details & Customer Reviews ── */}
+                                    {showSubsidy && (
+                                        <div className="py-4 border-t border-slate-100">
+                                            {/* Price + DBT box side by side */}
+                                            <div className="flex items-start gap-3 mb-3">
+                                                {/* Left: price stack */}
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                                        {hasInstantDiscount && (
+                                                            <span className="text-sm font-medium text-gray-400 line-through">₹{mrpPrice}</span>
+                                                        )}
+                                                        {totalSubsidyPct > 0 && (
+                                                            <span className="text-xs font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">{totalSubsidyPct}% Subsidy</span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-2xl font-semibold text-[#1A1A1A] leading-none">₹{payNowPrice}</span>
+                                                    <span className="text-[11px] font-normal text-slate-400 mt-0.5">eAnnadata Price</span>
+                                                </div>
+
+                                                {/* Right: DBT info box */}
+                                                {dbtSavings > 0 && (
+                                                    <div className="flex-1 flex items-start gap-2 bg-[#f0fdf4] border border-green-200 rounded-2xl p-3">
+                                                        <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                            <ShieldCheck size={14} className="text-green-600" strokeWidth={2.5} />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-semibold text-green-800 leading-tight">Upto ₹{dbtSavings} Subsidy</p>
+                                                            <p className="text-[11px] font-medium text-green-700 mt-0.5 leading-snug">
+                                                                This subsidy amount will be transferred to your bank account via DBT.
+                                                            </p>
+                                                        </div>
+                                                        <Info size={15} className="text-green-500 flex-shrink-0 mt-0.5" />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Pricing table – formula style */}
+                                            <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white">
+                                                {/* Header row */}
+                                                <div className="flex items-center bg-slate-50 border-b border-slate-100 px-3 py-1.5 gap-2">
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-[8px] font-medium text-slate-500 uppercase tracking-wide">MRP</span>
+                                                    </div>
+                                                    {hasInstantDiscount && (
+                                                        <>
+                                                            <span className="text-[8px] text-slate-300 px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[8px] font-medium text-emerald-600 whitespace-nowrap">Instant ({instantDiscountPct}%)</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {dbtSavings > 0 && (
+                                                        <>
+                                                            <span className="text-[8px] text-slate-300 px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[8px] font-medium text-blue-600 whitespace-nowrap">DBT ({subsidyRate}%)</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {totalSubsidyPct > 0 && (
+                                                        <>
+                                                            <span className="text-[8px] text-slate-300 px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[8px] font-medium text-slate-500 whitespace-nowrap">Total ({totalSubsidyPct}%)</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    <span className="text-[9px] text-slate-600 font-semibold px-1.5">=</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-[8px] font-medium text-primary whitespace-nowrap">Pay Now</span>
+                                                    </div>
+                                                    {dbtSavings > 0 && (
+                                                        <div className="flex-1 min-w-0">
+                                                            <span className="text-[8px] font-medium text-green-700 whitespace-nowrap">Net Price</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {/* Values row */}
+                                                <div className="flex items-baseline px-3 py-2 gap-2">
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-[12px] font-medium text-slate-600 line-through">&#8377;{mrpPrice}</span>
+                                                    </div>
+                                                    {hasInstantDiscount && (
+                                                        <>
+                                                            <span className="text-[12px] text-slate-600 font-semibold px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[12px] font-medium text-emerald-600">&#8377;{instantSavings}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {dbtSavings > 0 && (
+                                                        <>
+                                                            <span className="text-[12px] text-slate-600 font-semibold px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[12px] font-medium text-blue-600">&#8377;{dbtSavings}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {totalSubsidyPct > 0 && (
+                                                        <>
+                                                            <span className="text-[12px] text-slate-600 font-semibold px-1.5">-</span>
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[12px] font-medium text-slate-600">&#8377;{instantSavings + dbtSavings}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    <span className="text-[12px] text-slate-600 font-semibold px-1.5">=</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-[13px] font-semibold text-primary">&#8377;{payNowPrice}</span>
+                                                        {dbtSavings > 0 && <p className="text-[8px] text-slate-500 font-medium leading-tight">(To be paid now)</p>}
+                                                    </div>
+                                                    {dbtSavings > 0 && (
+                                                        <div className="flex-1 min-w-0">
+                                                            <span className="text-[13px] font-semibold text-green-700">&#8377;{netEffectivePrice}</span>
+                                                            <p className="text-[8px] text-slate-500 font-medium leading-tight">(After subsidy)</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* DBT note */}
+                                            {dbtSavings > 0 && (
+                                                <div className="flex items-start gap-2 mt-3 bg-blue-50/60 border border-blue-100 rounded-xl px-3 py-2.5">
+                                                    <Info size={13} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                                                    <p className="text-[10px] font-medium text-blue-700 leading-relaxed">
+                                                        <span className="font-black">Note:</span> You have to pay the <span className="font-black text-primary">Pay Now</span> amount (₹{payNowPrice}) now. The subsidy (Upto ₹{dbtSavings}) will be transferred to your bank account by DBT.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* Customer Reviews */}
                                     <AccordionItem 
@@ -1038,7 +1317,7 @@ const ProductDetailSheet = () => {
                                     </AccordionItem>
                                 </div>
 
-                                <div className="h-24" /> {/* Bottom spacer for sticky bar */}
+                                <div className="h-4" /> {/* Bottom spacer for sticky bar */}
                             </div>
                         </div>
 
@@ -1046,24 +1325,6 @@ const ProductDetailSheet = () => {
                         <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50">
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-center justify-between gap-4">
-                                    <div className="flex flex-col min-w-[80px]">
-                                        {((selectedVariant?.salePrice && selectedVariant.salePrice < selectedVariant.price) || 
-                                           (!selectedVariant && selectedProduct.originalPrice > selectedProduct.price)) && (
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-medium text-gray-400 line-through decoration-gray-400/50">
-                                                    ₹{selectedVariant?.price || selectedProduct.originalPrice}
-                                                </span>
-                                                <span className="bg-red-50 text-red-500 text-[10px] font-black px-1.5 py-0.5 rounded leading-none">
-                                                    {selectedVariant
-                                                        ? Math.round(((selectedVariant.price - selectedVariant.salePrice) / selectedVariant.price) * 100)
-                                                        : Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)}% OFF
-                                                </span>
-                                            </div>
-                                        )}
-                                        <div className="text-2xl font-black text-[#1A1A1A] leading-none mt-1">
-                                            ₹{selectedVariant?.salePrice || selectedVariant?.price || selectedProduct.price}
-                                        </div>
-                                    </div>
 
                                     {isOutOfStock ? (
                                         <motion.button
