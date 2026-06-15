@@ -7,6 +7,8 @@ import {
     createLowStockAlertCandidate,
     isLowStockAlertsEnabled,
 } from "../services/lowStockAlertService.js";
+import logger from "../services/logger.js";
+import { notifyBackInStock } from "../services/backInStockService.js";
 
 /* ===============================
    ADJUST STOCK MANUALLY
@@ -32,6 +34,13 @@ export const adjustStock = async (req, res) => {
         // 1. Update Product Stock
         product.stock = finalStock;
         await product.save();
+
+        // Trigger back-in-stock notifications if stock went from 0 to > 0
+        if (previousStock === 0 && finalStock > 0) {
+            notifyBackInStock(product).catch((err) => {
+                logger.error("Failed to trigger back-in-stock notifications during adjustStock", { error: err });
+            });
+        }
 
         // 2. Create History Entry
         const historyEntry = new StockHistory({

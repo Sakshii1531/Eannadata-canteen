@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { X, ChevronDown, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, Star, MessageSquare, ArrowLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronDown, Share2, Heart, Search, Clock, Minus, Plus, ShoppingBag, Star, MessageSquare, ArrowLeft, ChevronRight, Bell } from 'lucide-react';
 import { useProductDetail } from '../../context/ProductDetailContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
@@ -26,6 +26,8 @@ const ProductDetailSheet = () => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [selectedVariant, setSelectedVariant] = useState(null);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [isNotified, setIsNotified] = useState(false);
+    const [isNotifying, setIsNotifying] = useState(false);
 
     const [reviews, setReviews] = useState([]);
     const [reviewLoading, setReviewLoading] = useState(true);
@@ -72,7 +74,37 @@ const ProductDetailSheet = () => {
         if (selectedProduct?.id) {
             fetchReviews(selectedProduct.id);
         }
+        setIsNotified(false);
+        setIsNotifying(false);
     }, [selectedProduct]);
+
+    // Reset notification status when variant changes
+    useEffect(() => {
+        setIsNotified(false);
+    }, [selectedVariant]);
+
+    const handleNotifyMe = async (e) => {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        if (isNotified || isNotifying) return;
+        setIsNotifying(true);
+        try {
+            const variantSku = String(selectedVariant?.sku || selectedVariant?.name || "").trim();
+            await customerApi.notifyMe(selectedProduct.id || selectedProduct._id, { variantSku });
+            setIsNotified(true);
+            showToast("We will notify you when back in stock!", "success");
+        } catch (err) {
+            showToast(err.response?.data?.message || "Failed to subscribe to alerts", "error");
+        } finally {
+            setIsNotifying(false);
+        }
+    };
+
+    const isOutOfStock = selectedVariant 
+        ? selectedVariant.stock === 0 || (selectedVariant.stock !== undefined && selectedVariant.stock <= 0)
+        : selectedProduct?.stock === 0 || (selectedProduct?.stock !== undefined && selectedProduct?.stock <= 0);
 
     const fetchReviews = async (productId) => {
         try {
@@ -494,7 +526,23 @@ const ProductDetailSheet = () => {
                                                     )}
                                                 </div>
                                                 <div>
-                                                    {quantity > 0 ? (
+                                                    {isOutOfStock ? (
+                                                        <motion.button
+                                                            whileHover={isNotified ? {} : { scale: 1.02, y: -2 }}
+                                                            whileTap={isNotified ? {} : { scale: 0.98 }}
+                                                            onClick={handleNotifyMe}
+                                                            disabled={isNotified || isNotifying}
+                                                            className={cn(
+                                                                "h-12 px-8 rounded-xl font-black text-[13px] flex items-center gap-2 transition-all uppercase tracking-widest border",
+                                                                isNotified 
+                                                                    ? "bg-emerald-50 border-emerald-300 text-emerald-600 cursor-default"
+                                                                    : "bg-gradient-to-r from-primary to-[var(--brand-400)] text-white shadow-lg shadow-brand-100 hover:shadow-brand-200 border-white/20 cursor-pointer"
+                                                            )}
+                                                        >
+                                                            <Bell size={16} strokeWidth={3} />
+                                                            {isNotifying ? "..." : isNotified ? "Requested" : "Notify Me"}
+                                                        </motion.button>
+                                                    ) : quantity > 0 ? (
                                                         <div className="flex items-center gap-1 bg-white border border-brand-200 rounded-xl p-1 shadow-sm">
                                                             <motion.button whileTap={{ scale: 0.85 }} onClick={handleDecrement} className="w-9 h-9 bg-brand-50 rounded-lg flex items-center justify-center text-brand-700 hover:bg-brand-100 transition-colors">
                                                                 <Minus size={16} strokeWidth={2.5} />
@@ -1017,7 +1065,23 @@ const ProductDetailSheet = () => {
                                         </div>
                                     </div>
 
-                                    {quantity > 0 ? (
+                                    {isOutOfStock ? (
+                                        <motion.button
+                                            whileHover={isNotified ? {} : { scale: 1.02 }}
+                                            whileTap={isNotified ? {} : { scale: 0.95 }}
+                                            onClick={handleNotifyMe}
+                                            disabled={isNotified || isNotifying}
+                                            className={cn(
+                                                "flex-1 h-[56px] rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all border uppercase tracking-[0.05em] whitespace-nowrap px-4",
+                                                isNotified
+                                                    ? "bg-emerald-50 border-emerald-300 text-emerald-600 cursor-default"
+                                                    : "bg-gradient-to-r from-primary to-[var(--brand-400)] text-white shadow-xl shadow-brand-100 border-white/20 cursor-pointer"
+                                            )}
+                                        >
+                                            <Bell size={18} strokeWidth={3} />
+                                            {isNotifying ? "..." : isNotified ? "Requested" : "Notify Me"}
+                                        </motion.button>
+                                    ) : quantity > 0 ? (
                                         <div className="flex items-center gap-1 bg-slate-50 border-2 border-slate-100 rounded-2xl p-1.5 shadow-inner flex-1 justify-between max-w-[170px]">
                                             <motion.button
                                                 whileTap={{ scale: 0.9 }}

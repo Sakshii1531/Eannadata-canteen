@@ -218,7 +218,9 @@ export async function notify(eventType, payload = {}) {
     return { enqueued: 0, skipped: 0, duplicates: 0, notificationIds: [] };
   }
 
-  const dedupeTtlSeconds = DEFAULT_DEDUP_TTL_SECONDS();
+  const dedupeTtlSeconds = (eventType === NOTIFICATION_EVENTS.PRODUCT_NOTIFY_REQUEST || eventType === NOTIFICATION_EVENTS.PRODUCT_BACK_IN_STOCK)
+    ? 5
+    : DEFAULT_DEDUP_TTL_SECONDS();
   let enqueued = 0;
   let skipped = 0;
   let duplicates = 0;

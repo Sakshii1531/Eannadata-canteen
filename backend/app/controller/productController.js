@@ -1,6 +1,10 @@
 import Product from "../models/product.js";
 import { handleResponse } from "../utils/helper.js";
 import { slugify } from "../utils/slugify.js";
+import BackInStockSubscription from "../models/backInStockSubscription.js";
+import { emitSellerNotification } from "../modules/notifications/notification.service.js";
+import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
+import { notifyBackInStock } from "../services/backInStockService.js";
 import getPagination from "../utils/pagination.js";
 import {
   parseCustomerCoordinates,
@@ -812,6 +816,8 @@ export const updateProduct = async (req, res) => {
       return handleResponse(res, 404, "Product not found or unauthorized");
     }
 
+    const previousStock = Number(product.stock || 0);
+
     if (productData.name) {
       if (!productData.slug || productData.slug.trim() === "") {
         productData.slug = slugify(productData.name);
@@ -877,6 +883,13 @@ export const updateProduct = async (req, res) => {
       { $set: productData },
       { new: true, runValidators: true },
     );
+
+    // Trigger back-in-stock notifications if stock went from 0 to > 0
+    if (updatedProduct && previousStock === 0 && Number(updatedProduct.stock || 0) > 0) {
+      notifyBackInStock(updatedProduct).catch((err) => {
+        logger.error("Failed to trigger back-in-stock notifications during updateProduct", { error: err });
+      });
+    }
     
     // Enqueue search indexing asynchronously
     await enqueueProductIndex(id);
@@ -1230,6 +1243,44 @@ export const rejectProduct = async (req, res) => {
       normalizeProductDocumentModeration(updated?.toObject?.() || updated),
     );
   } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+/* ===============================
+   REQUEST OUT OF STOCK NOTIFICATION
+================================ */
+export const requestProductNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const variantSku = String(req.body?.variantSku || "").trim();
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return handleResponse(res, 404, "Product not found");
+    }
+
+    await BackInStockSubscription.findOneAndUpdate(
+      { productId: id, userId, variantSku, status: "pending" },
+      { $setOnInsert: { productId: id, userId, variantSku, status: "pending" } },
+      { upsert: true }
+    );
+
+    emitSellerNotification(NOTIFICATION_EVENTS.PRODUCT_NOTIFY_REQUEST, {
+      sellerId: product.sellerId,
+      productId: product._id,
+      productName: product.name,
+      userId,
+      data: {
+        productId: product._id,
+        productName: product.name,
+      },
+    });
+
+    return handleResponse(res, 200, "Notification request registered successfully");
+  } catch (error) {
+    logger.error("Request Product Notification Error", { scope: "requestProductNotification", error });
     return handleResponse(res, 500, error.message);
   }
 };

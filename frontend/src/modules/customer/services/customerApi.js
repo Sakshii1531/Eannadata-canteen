@@ -154,4 +154,6 @@ export const customerApi = {
   testPushNotification: () => axiosInstance.post("/push/test"),
   getTestPushNotificationStatus: (orderId) =>
     axiosInstance.get(`/push/test-status/${encodeURIComponent(String(orderId || "").trim())}`),
+  notifyMe: (productId, data = {}) =>
+    axiosInstance.post(`/products/${encodeURIComponent(productId)}/notify-me`, data),
 };

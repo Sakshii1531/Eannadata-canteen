@@ -358,6 +358,32 @@ function eventDefinition(eventType) {
           return `Only ${currentStock} left for ${itemLabel}. Restock soon.`;
         },
       };
+    case NOTIFICATION_EVENTS.PRODUCT_NOTIFY_REQUEST:
+      return {
+        role: NOTIFICATION_ROLES.SELLER,
+        recipientIds: (payload) => normalizeIdList(payload.sellerId),
+        title: (payload) => {
+          const productName = String(payload.productName || "Product").trim() || "Product";
+          return `Restock Request: ${productName}`;
+        },
+        body: (payload) => {
+          const productName = String(payload.productName || "Product").trim() || "Product";
+          return `A customer has requested to be notified when ${productName} is restocked.`;
+        },
+      };
+    case NOTIFICATION_EVENTS.PRODUCT_BACK_IN_STOCK:
+      return {
+        role: NOTIFICATION_ROLES.CUSTOMER,
+        recipientIds: (payload) => normalizeIdList(payload.userId),
+        title: (payload) => {
+          const productName = String(payload.productName || "Product").trim() || "Product";
+          return `${productName} is back in stock! 🎉`;
+        },
+        body: (payload) => {
+          const productName = String(payload.productName || "Product").trim() || "Product";
+          return `Good news! ${productName} is now back in stock and available to purchase.`;
+        },
+      };
     default:
       return null;
   }
@@ -375,6 +401,27 @@ function eventData(eventType, payload = {}, role) {
       variantName: String(payload.variantName || "").trim() || undefined,
       imageUrl: String(payload.imageUrl || "").trim() || undefined,
       link: buildSellerInventoryLink(productId),
+      ...(payload.data || {}),
+    };
+  }
+
+  if (eventType === NOTIFICATION_EVENTS.PRODUCT_NOTIFY_REQUEST) {
+    const productId = String(payload.productId || "").trim() || undefined;
+    return {
+      eventType,
+      productId,
+      link: buildSellerInventoryLink(productId),
+      ...(payload.data || {}),
+    };
+  }
+
+  if (eventType === NOTIFICATION_EVENTS.PRODUCT_BACK_IN_STOCK) {
+    const productId = String(payload.productId || "").trim() || undefined;
+    const baseUrl = getFrontendBaseUrl();
+    return {
+      eventType,
+      productId,
+      link: productId ? `${baseUrl}/products/${encodeURIComponent(productId)}` : `${baseUrl}/products`,
       ...(payload.data || {}),
     };
   }

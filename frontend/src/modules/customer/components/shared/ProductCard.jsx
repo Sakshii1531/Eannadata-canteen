@@ -11,6 +11,8 @@ import { Clock } from "lucide-react";
 import { useProductDetail } from "../../context/ProductDetailContext";
 import { useAuth } from "@core/context/AuthContext";
 import { useSettings } from "@core/context/SettingsContext";
+import { customerApi } from "../../services/customerApi";
+import { Bell } from "lucide-react";
 
 const ProductCard = React.memo(
   ({ product, badge, className, compact = false, neutralBg = false }) => {
@@ -22,6 +24,8 @@ const ProductCard = React.memo(
     const { animateAddToCart, animateRemoveFromCart } = useCartAnimation();
     const { openProduct } = useProductDetail();
     const [showHeartPopup, setShowHeartPopup] = React.useState(false);
+    const [isNotified, setIsNotified] = React.useState(false);
+    const [isNotifying, setIsNotifying] = React.useState(false);
     const imageRef = React.useRef(null);
 
     // ── Variant resolution (unchanged logic) ──────────────────────────────
@@ -108,8 +112,46 @@ const ProductCard = React.memo(
     const netEffectivePrice = payNowPrice - dbtSavings;
     const totalSubsidyPct = instantDiscountPct + (isSubsidyUser && subsidyRate > 0 ? subsidyRate : 0);
 
+    const isOutOfStock = product.stock === 0 || (product.stock !== undefined && product.stock <= 0);
+
     // Show breakdown for ALL card sizes when subsidy/discount exists
-    const showBreakdown = hasInstantDiscount || dbtSavings > 0;
+    const showBreakdown = !isOutOfStock && (hasInstantDiscount || dbtSavings > 0);
+
+    const handleNotifyMe = React.useCallback(
+      async (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (isNotified || isNotifying) return;
+        setIsNotifying(true);
+        try {
+          await customerApi.notifyMe(productId, { variantSku: variantKey });
+          setIsNotified(true);
+          showToast("We will notify you when back in stock!", "success");
+        } catch (err) {
+          showToast(err.response?.data?.message || "Failed to subscribe to alerts", "error");
+        } finally {
+          setIsNotifying(false);
+        }
+      },
+      [productId, variantKey, isNotified, isNotifying, showToast]
+    );
+
+    const NotifyControl = () => (
+      <button
+        onClick={handleNotifyMe}
+        disabled={isNotified || isNotifying}
+        className={cn(
+          "border-[1.5px] rounded-lg font-black shadow-sm transition-all uppercase tracking-wide leading-none active:scale-95 flex items-center justify-center gap-1",
+          compact
+            ? "px-2.5 py-1.5 text-[9px]"
+            : "px-4 py-2 text-[10px] sm:px-6 sm:py-2 sm:text-[11px]",
+          isNotified
+            ? "bg-emerald-50 border-emerald-300 text-emerald-600 cursor-default"
+            : "bg-white border-primary text-primary hover:bg-primary/5 cursor-pointer"
+        )}>
+        <Bell size={compact ? 10 : 12} />
+        {isNotifying ? "..." : isNotified ? "Requested" : "Notify Me"}
+      </button>
+    );
 
     // ── Quantity control (shared snippet) ─────────────────────────────────
     const QtyControl = ({ full = false }) =>
@@ -199,6 +241,14 @@ const ProductCard = React.memo(
               </motion.div>
             )}
           </AnimatePresence>
+          {/* Out of Stock Overlay */}
+          {isOutOfStock && (
+            <div className="absolute inset-0 bg-white/70 backdrop-blur-[0.5px] z-10 flex items-center justify-center">
+              <span className="bg-red-500 text-white font-black rounded px-2 py-0.5 shadow-sm uppercase tracking-wider text-[8px] sm:text-[9px]">
+                Sold Out
+              </span>
+            </div>
+          )}
 
           {/* Product image */}
           <div className={cn(
@@ -326,7 +376,7 @@ const ProductCard = React.memo(
                 )}
               </div>
               <div onClick={(e) => e.stopPropagation()}>
-                <QtyControl />
+                {isOutOfStock ? <NotifyControl /> : <QtyControl />}
               </div>
             </div>
           )}
