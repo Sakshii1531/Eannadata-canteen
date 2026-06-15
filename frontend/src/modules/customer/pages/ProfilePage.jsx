@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-    MapPin, Package, CreditCard, Wallet, ChevronRight,
+    MapPin, Package, CreditCard, Wallet, ChevronRight, ChevronLeft,
     LogOut, ShieldCheck, Heart, HelpCircle, Info, Bell,
-    Settings, BookOpen, Building2, Menu, ClipboardList, HandCoins, Hourglass
+    Settings, BookOpen, Building2, ClipboardList, HandCoins, Hourglass
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -22,7 +22,7 @@ const ProfilePage = () => {
     const navigate = useNavigate();
     const { user, role, logout } = useAuth();
     const { settings } = useSettings();
-    const appName = settings?.appName || 'Eannadata canteen';
+    const appName = settings?.appName || 'eAnnadata canteen';
     const [isTestingPush, setIsTestingPush] = useState(false);
 
     // Profile State
@@ -122,7 +122,7 @@ const ProfilePage = () => {
                     onClick={() => navigate(-1)}
                     className="w-9 h-9 flex items-center justify-center"
                 >
-                    <Menu size={22} className="text-slate-800" />
+                    <ChevronLeft size={26} className="text-slate-800" />
                 </button>
                 <h1 className="text-[17px] font-bold text-slate-900">Farmer Dashboard</h1>
                 <button
@@ -146,7 +146,7 @@ const ProfilePage = () => {
                 <div className="flex-1 min-w-0">
                     <h2 className="text-[16px] font-bold text-slate-900 leading-tight">{name}</h2>
                     <p className="text-[12px] text-slate-500 font-medium mt-0.5">
-                        E-Anndata Card No.
+                        eAnnadata Card No.
                     </p>
                     <p className="text-[13px] font-bold text-[#1a8a3c] tracking-wide mt-0.5">
                         {cardNo}

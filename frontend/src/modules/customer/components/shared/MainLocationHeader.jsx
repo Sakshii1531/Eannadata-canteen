@@ -163,7 +163,7 @@ const MainLocationHeader = ({
     useLocation();
   const { isOpen: isProductDetailOpen } = useProductDetail();
   const { settings } = useSettings();
-  const appName = settings?.appName || "Eannadata canteen ";
+  const appName = settings?.appName || "eAnnadata canteen";
   const logoUrl = settings?.logoUrl || LogoImage;
   const navigate = useNavigate();
 

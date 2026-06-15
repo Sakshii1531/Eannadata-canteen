@@ -66,7 +66,8 @@ export class OrderReturnService {
       throw err("Order not found", 404);
     }
 
-    const order = await Order.findOne({ ...orderKey, customer: customerId });
+    const order = await Order.findOne({ ...orderKey, customer: customerId })
+      .populate("items.product", "isReturnable returnWindowDays");
     if (!order) {
       throw err("Order not found", 404);
     }
@@ -80,22 +81,6 @@ export class OrderReturnService {
     }
 
     const now = new Date();
-    const { eligibleAt, windowExpiresAt, eligibleDelay, windowMinutes } =
-      computeReturnWindowForOrder(order);
-
-    if (now < eligibleAt) {
-      throw err(
-        `Return is available after ${eligibleDelay} minutes from delivery. Please try again later.`,
-        400,
-      );
-    }
-
-    if (windowExpiresAt && now > windowExpiresAt) {
-      throw err(
-        `Return window has expired. You can only request a return within ${windowMinutes} minutes of delivery.`,
-        400,
-      );
-    }
 
     const selectedItems = [];
     for (const entry of items) {
@@ -111,6 +96,18 @@ export class OrderReturnService {
       const qty = Number(quantity) || original.quantity;
       if (qty <= 0 || qty > original.quantity) {
         throw err("Invalid quantity for one of the return items.", 400);
+      }
+
+      if (!original.product?.isReturnable) {
+        throw err(`Item at index ${itemIndex} is not returnable.`, 400);
+      }
+
+      const windowDays = original.product.returnWindowDays || 0;
+      const windowMs = windowDays * 24 * 60 * 60 * 1000;
+      const windowStart = new Date(order.deliveredAt || order.createdAt).getTime();
+      
+      if (now.getTime() - windowStart > windowMs) {
+        throw err(`Return window has expired for item at index ${itemIndex}.`, 400);
       }
 
       selectedItems.push({
@@ -131,9 +128,6 @@ export class OrderReturnService {
     order.returnImages = Array.isArray(images) ? images.slice(0, 5) : [];
     order.returnItems = selectedItems;
     order.returnRequestedAt = now;
-    order.returnEligibleAt = eligibleAt;
-    order.returnWindowExpiresAt = windowExpiresAt;
-    order.returnDeadline = windowExpiresAt;
 
     await order.save();
 

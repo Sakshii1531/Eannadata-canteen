@@ -685,6 +685,14 @@ export const createProduct = async (req, res) => {
       }
     }
 
+    // Handle return policy fields
+    if (productData.isReturnable !== undefined) {
+      productData.isReturnable = productData.isReturnable === "true" || productData.isReturnable === true;
+    }
+    if (productData.returnWindowDays !== undefined) {
+      productData.returnWindowDays = parseInt(productData.returnWindowDays, 10) || 0;
+    }
+
     if (Array.isArray(productData.variants)) {
       productData.variants = productData.variants.map((variant, idx) => ({
         ...variant,
@@ -850,6 +858,14 @@ export const updateProduct = async (req, res) => {
       } catch (e) {
         // keep existing if invalid?
       }
+    }
+
+    // Handle return policy fields
+    if (productData.isReturnable !== undefined) {
+      productData.isReturnable = productData.isReturnable === "true" || productData.isReturnable === true;
+    }
+    if (productData.returnWindowDays !== undefined) {
+      productData.returnWindowDays = parseInt(productData.returnWindowDays, 10) || 0;
     }
 
     if (Array.isArray(productData.variants)) {

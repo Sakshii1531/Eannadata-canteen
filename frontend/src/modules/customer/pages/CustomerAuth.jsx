@@ -80,7 +80,7 @@ const CustomerAuth = () => {
     const [carouselIndex, setCarouselIndex] = useState(0);
     const { login } = useAuth();
     const { settings } = useSettings();
-    const appName = settings?.appName || 'Eannadata canteen ';
+    const appName = settings?.appName || 'eAnnadata canteen';
     const logoUrl = settings?.logoUrl || '';
 
     const [formData, setFormData] = useState({
@@ -287,7 +287,7 @@ const CustomerAuth = () => {
                                 <div className="w-10 h-10 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/30">
                                     <ShoppingBag size={20} className="text-white" />
                                 </div>
-                                <span className="text-white font-black tracking-tighter text-xl">{appName.toUpperCase()}</span>
+                                <span className="text-white font-black tracking-tighter text-xl">{appName}</span>
                             </div>
                         </div>
 
@@ -542,7 +542,7 @@ const CustomerAuth = () => {
                                                 disabled={isLoading}
                                                 className="w-full bg-gray-900 text-white py-5 rounded-[24px] text-xs font-black tracking-[4px] shadow-2xl flex items-center justify-center gap-3 uppercase active:scale-95 transition-all"
                                             >
-                                                {isLoading ? 'Authenticating...' : `Enter ${appName}`}
+                                                {isLoading ? 'Authenticating...' : <>Enter <span className="normal-case">{appName}</span></>}
                                             </button>
                                             <div className="flex justify-center">
                                                 <button

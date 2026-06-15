@@ -54,6 +54,8 @@ const AddProduct = () => {
     tags: "",
     weight: "",
     brand: "",
+    isReturnable: false,
+    returnWindowDays: "",
     mainImage: null,
     galleryImages: [],
     variants: [
@@ -146,6 +148,8 @@ const AddProduct = () => {
       data.append("brand", formData.brand);
       data.append("weight", formData.weight);
       data.append("status", formData.status);
+      data.append("isReturnable", formData.isReturnable);
+      data.append("returnWindowDays", formData.returnWindowDays || 0);
 
       // Map top-level price/stock from first variant for indexing/listing
       data.append("price", firstVariant.price);
@@ -361,6 +365,45 @@ const AddProduct = () => {
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1.5 flex flex-col p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                  <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1 flex justify-between items-center">
+                    <span>Return Policy</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={formData.isReturnable}
+                        onChange={(e) => setFormData({ ...formData, isReturnable: e.target.checked })}
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </label>
+                  <p className="text-xs text-slate-500 font-medium ml-1">
+                    Is this product returnable by customers?
+                  </p>
+                  
+                  {formData.isReturnable && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 space-y-1.5 flex flex-col">
+                      <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
+                        Return Window (Days)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.returnWindowDays}
+                        onChange={(e) =>
+                          setFormData({ ...formData, returnWindowDays: e.target.value })
+                        }
+                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-md text-sm font-semibold outline-none ring-primary/5 focus:ring-2 transition-all"
+                        placeholder="e.g. 3"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           )}
 

@@ -40,7 +40,7 @@ const EMOJIS = [
 const NotificationComposer = () => {
     const { showToast } = useToast();
     const { settings } = useSettings();
-    const appName = (settings?.appName || 'Eannadata canteen ').toUpperCase();
+    const appName = settings?.appName || 'eAnnadata canteen';
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [selectedSegment, setSelectedSegment] = useState('customers');

@@ -35,7 +35,7 @@ const VEHICLE_TYPES = [
 const DeliveryAuth = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
-  const appName = settings?.appName || "Eannadata canteen ";
+  const appName = settings?.appName || "eAnnadata canteen";
   const logoUrl = settings?.logoUrl || "";
   const { login } = useAuth();
 

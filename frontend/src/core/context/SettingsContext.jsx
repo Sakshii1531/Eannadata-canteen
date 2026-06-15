@@ -28,6 +28,9 @@ export const SettingsProvider = ({ children }) => {
         forceRefresh: options.forceRefresh || false 
       });
       const data = res.data?.result || res.data;
+      if (data && data.appName) {
+          data.appName = data.appName.replace(/eannadata canteen/i, 'eAnnadata canteen');
+      }
       const merged = { ...DEFAULT_SETTINGS, ...data };
       setSettings(merged);
       applyThemeVariables(merged);

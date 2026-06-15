@@ -279,6 +279,16 @@ const ProductCard = React.memo(
           <h4 className={cn("font-[600] text-[#1A1A1A] leading-tight line-clamp-1", compact ? "text-[10px]" : "text-[12px] sm:text-[13px]")}>
             {product.name}
           </h4>
+          
+          {product.isReturnable ? (
+            <span className={cn("text-emerald-600 font-medium", compact ? "text-[8px]" : "text-[9px] sm:text-[10px]")}>
+               {product.returnWindowDays || 0} Days Return
+            </span>
+          ) : (
+            <span className={cn("text-rose-500 font-medium", compact ? "text-[8px]" : "text-[9px] sm:text-[10px]")}>
+              Non-Returnable
+            </span>
+          )}
 
           {/* ── Subsidy breakdown card (all card sizes, shown when discount or DBT exists) ── */}
           {showBreakdown ? (

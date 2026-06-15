@@ -156,17 +156,7 @@ const OrderDetailPage = () => {
   const [routePolyline, setRoutePolyline] = useState(null);
   const [handoffOtp, setHandoffOtp] = useState(null);
   const [clockTick, setClockTick] = useState(Date.now());
-  const parsedReturnWindowMinutes = parseInt(
-    import.meta.env.VITE_RETURN_WINDOW_MINUTES || "2",
-    10,
-  );
-  const returnWindowMinutes =
-    Number.isFinite(parsedReturnWindowMinutes) && parsedReturnWindowMinutes > 0
-      ? parsedReturnWindowMinutes
-      : 2;
-  const routeOriginRef = useRef(null);
-  const routeRequestRef = useRef({ phase: "", startedAt: 0 });
-  const [returnCountdown, setReturnCountdown] = useState(null);
+
   const refreshRef = useRef({ inFlight: false, lastAt: 0 });
   const extraRoomRef = useRef("");
 
@@ -382,36 +372,7 @@ const OrderDetailPage = () => {
     return () => clearInterval(iv);
   }, []);
 
-  useEffect(() => {
-    if (!order) {
-      setReturnCountdown(null);
-      return;
-    }
 
-    const calculateCountdown = () => {
-      if (order.status !== "delivered") {
-        setReturnCountdown(null);
-        return;
-      }
-      const windowStart = new Date(order.deliveredAt || order.createdAt).getTime();
-      const now = Date.now();
-      const windowMs = returnWindowMinutes * 60 * 1000;
-      const remaining = Math.max(0, (windowStart + windowMs) - now);
-
-      if (remaining <= 0) {
-        setReturnCountdown(0);
-        return;
-      }
-
-      const mins = Math.floor(remaining / 60000);
-      const secs = Math.floor((remaining % 60000) / 1000);
-      setReturnCountdown(`${mins}:${secs.toString().padStart(2, "0")}`);
-    };
-
-    calculateCountdown();
-    const iv = setInterval(calculateCountdown, 1000);
-    return () => clearInterval(iv);
-  }, [order, returnWindowMinutes]);
 
   const handleOpenInMaps = () => {
     const loc = order?.address?.location;
@@ -589,7 +550,7 @@ const OrderDetailPage = () => {
     );
   }
 
-  const canRequestReturn = () => {
+  const isItemReturnEligible = (item) => {
     if (!order) return false;
     if (order.status === "cancelled") return false;
     if (order.status !== "delivered") return false;
@@ -602,10 +563,18 @@ const OrderDetailPage = () => {
       return false;
     }
 
+    if (!item?.product?.isReturnable) return false;
+
     const windowStart = new Date(order.deliveredAt || order.createdAt).getTime();
     const now = Date.now();
-    const windowMs = returnWindowMinutes * 60 * 1000;
+    const windowDays = item.product.returnWindowDays || 0;
+    const windowMs = windowDays * 24 * 60 * 60 * 1000;
     return now - windowStart <= windowMs;
+  };
+
+  const canRequestReturn = () => {
+    if (!order || !order.items) return false;
+    return order.items.some(item => isItemReturnEligible(item));
   };
 
   const toggleItemSelection = (index) => {
@@ -669,9 +638,12 @@ const OrderDetailPage = () => {
       setReturnDetails(retRes.data.result);
     } catch (error) {
       console.error("Failed to submit return request", error);
-      toast.error(
-        error.response?.data?.message || "Failed to submit return request",
-      );
+      const msg = error.response?.data?.message || "Failed to submit return request";
+      if (msg.toLowerCase().includes("return is available after")) {
+        toast.message(msg);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setRequestingReturn(false);
     }
@@ -970,28 +942,43 @@ const OrderDetailPage = () => {
             {order.items.map((item, idx) => (
               <div
                 key={idx}
-                className="flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 transition-colors">
-                <div className="h-14 w-14 bg-slate-50 rounded-xl overflow-hidden flex-shrink-0 border border-slate-100">
-                  <img
-                    src={applyCloudinaryTransform(item.image)}
-                    alt={item.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
+                className="flex flex-col gap-2 p-3 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="h-14 w-14 bg-slate-50 rounded-xl overflow-hidden flex-shrink-0 border border-slate-100">
+                    <img
+                      src={applyCloudinaryTransform(item.image)}
+                      alt={item.name}
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-slate-800 text-sm mb-0.5 truncate">
+                      {item.name}
+                    </h4>
+                    <p className="text-slate-500 text-xs font-medium">
+                      Qty: {item.quantity}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="font-bold text-slate-900">
+                      ₹{item.price * item.quantity}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-slate-800 text-sm mb-0.5 truncate">
-                    {item.name}
-                  </h4>
-                  <p className="text-slate-500 text-xs font-medium">
-                    Qty: {item.quantity}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="font-bold text-slate-900">
-                    ₹{item.price * item.quantity}
-                  </p>
-                </div>
+                {isItemReturnEligible(item) && (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => {
+                        setSelectedReturnItems({ [idx]: { quantity: item.quantity } });
+                        setShowReturnModal(true);
+                      }}
+                      className="text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"
+                    >
+                      Return Item
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1084,16 +1071,11 @@ const OrderDetailPage = () => {
             transition={{ delay: 0.4 }}
             className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"
           >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-bold text-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <Package size={18} className="text-brand-600" />
                 Return & Refund
               </h3>
-              {canRequestReturn() && returnCountdown !== 0 && (
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold ring-1 ring-amber-200">
-                  <Clock size={12} />
-                  Ends in {returnCountdown}
-                </div>
-              )}
             </div>
 
             {returnDetails &&
@@ -1148,7 +1130,7 @@ const OrderDetailPage = () => {
               </div>
             ) : (
               <p className="text-sm text-slate-500 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                You can request a return within the first {returnWindowMinutes} minutes after delivery.
+                You can request a return for eligible items by clicking on 'Return Item' above.
               </p>
             )}
 
@@ -1193,6 +1175,7 @@ const OrderDetailPage = () => {
             </p>
             <div className="max-h-48 overflow-y-auto space-y-3">
               {order.items.map((item, idx) => {
+                if (!isItemReturnEligible(item)) return null;
                 const checked = !!selectedReturnItems[idx];
                 return (
                   <label

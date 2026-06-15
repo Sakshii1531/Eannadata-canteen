@@ -24,7 +24,7 @@ const Topbar = ({ onMenuClick }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const appName = settings?.appName || 'Eannadata canteen ';
+    const appName = settings?.appName || 'eAnnadata canteen';
     const logoUrl = settings?.logoUrl || '';
 
     const [searchQuery, setSearchQuery] = React.useState('');

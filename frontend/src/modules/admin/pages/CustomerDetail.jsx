@@ -215,7 +215,7 @@ const CustomerDetail = () => {
             const { data } = await adminUsersApi.verifyUserCard(id, action);
             if (data.success) {
                 showToast(
-                    action === 'approve' ? 'Card approved! Customer now has E-Anndata benefits.' : 'Card rejected.',
+                    action === 'approve' ? 'Card approved! Customer now has eAnnadata benefits.' : 'Card rejected.',
                     action === 'approve' ? 'success' : 'warning'
                 );
                 fetchCustomerDetails();
@@ -390,7 +390,7 @@ const CustomerDetail = () => {
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-6">
                         <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
                             <User className="h-4 w-4 text-brand-500" />
-                            Eannadata Identity & Family details
+                            eAnnadata Identity & Family details
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6 text-sm">
                             <div className="border-b border-slate-50 pb-2">
@@ -498,7 +498,7 @@ const CustomerDetail = () => {
                                                 <div className="relative rounded-xl overflow-hidden ring-1 ring-slate-200 hover:ring-brand-500 transition-all group">
                                                     <img
                                                         src={customer["eAnnadata Card Image"]}
-                                                        alt="E-Anndata Card"
+                                                        alt="eAnnadata Card"
                                                         className="w-full h-36 object-cover group-hover:scale-105 transition-transform duration-300"
                                                     />
                                                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

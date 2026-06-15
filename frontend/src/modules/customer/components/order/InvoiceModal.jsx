@@ -5,7 +5,7 @@ import { useSettings } from '@core/context/SettingsContext';
 
 const InvoiceModal = ({ isOpen, onClose, order }) => {
     const { settings } = useSettings();
-    const appName = settings?.appName || 'Eannadata canteen ';
+    const appName = settings?.appName || 'eAnnadata canteen';
     const primaryColor = settings?.primaryColor || 'var(--primary)';
     if (!order) return null;
 

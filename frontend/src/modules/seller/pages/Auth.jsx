@@ -56,7 +56,7 @@ const Auth = () => {
   const { login } = useAuth();
   const { settings } = useSettings();
   const navigate = useNavigate();
-  const appName = settings?.appName || "Eannadata canteen ";
+  const appName = settings?.appName || "eAnnadata canteen";
   const logoUrl = settings?.logoUrl || "";
   const [verifications, setVerifications] = useState({
     email: createInitialVerificationState(),

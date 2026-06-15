@@ -24,7 +24,7 @@ const EditProfilePage = () => {
                 </div>
                 <h2 className="text-xl font-bold text-slate-850">Managed by Administrator</h2>
                 <p className="text-xs text-slate-500 font-medium leading-relaxed mt-2">
-                    Your profile details, including your full name, Eannadata card number, and registered address, are managed strictly by the Eannadata canteen administration.
+                    Your profile details, including your full name, eAnnadata card number, and registered address, are managed strictly by the eAnnadata canteen administration.
                 </p>
                 <p className="text-xs text-slate-400 font-medium leading-relaxed mt-2">
                     Public profile modification is not allowed. Please contact your nearest admin office if you need to update any information.

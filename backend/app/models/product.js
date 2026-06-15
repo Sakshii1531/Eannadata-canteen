@@ -125,6 +125,14 @@ const productSchema = new mongoose.Schema(
         isFeatured: {
             type: Boolean,
             default: false,
+        },
+        isReturnable: {
+            type: Boolean,
+            default: false,
+        },
+        returnWindowDays: {
+            type: Number,
+            default: 0,
         }
     },
     { timestamps: true }

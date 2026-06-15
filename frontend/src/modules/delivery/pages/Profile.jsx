@@ -28,7 +28,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { settings } = useSettings();
-  const appName = settings?.appName || "Eannadata canteen ";
+  const appName = settings?.appName || "eAnnadata canteen";
   const [faqs, setFaqs] = useState([]);
 
   useEffect(() => {

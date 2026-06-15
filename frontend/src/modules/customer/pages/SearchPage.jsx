@@ -17,7 +17,7 @@ const SearchPage = () => {
     const { isOpen: isProductDetailOpen } = useProductDetail();
     const { settings } = useSettings();
     const { currentLocation } = useAppLocation();
-    const appName = settings?.appName || 'Eannadata canteen ';
+    const appName = settings?.appName || 'eAnnadata canteen';
 
     // Get initial query from URL state or params
     const initialQuery = location.state?.query || new URLSearchParams(location.search).get('q') || '';
