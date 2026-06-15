@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-    User, MapPin, Package, CreditCard, Wallet, ChevronRight,
-    LogOut, ShieldCheck, Heart, HelpCircle, Info, ChevronLeft, Bell,
-    Lock, Calendar, CheckCircle, Smartphone
+    MapPin, Package, CreditCard, Wallet, ChevronRight,
+    LogOut, ShieldCheck, Heart, HelpCircle, Info, Bell,
+    Settings, BookOpen, Building2, Menu, ClipboardList, HandCoins, Hourglass
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -22,7 +22,7 @@ const ProfilePage = () => {
     const navigate = useNavigate();
     const { user, role, logout } = useAuth();
     const { settings } = useSettings();
-    const appName = settings?.appName || 'Eannadata canteen ';
+    const appName = settings?.appName || 'Eannadata canteen';
     const [isTestingPush, setIsTestingPush] = useState(false);
 
     // Profile State
@@ -44,14 +44,8 @@ const ProfilePage = () => {
             const statusRes = await customerApi.getTestPushNotificationStatus(orderId);
             const result = statusRes?.data?.result || {};
             const status = String(result.status || '').trim().toLowerCase();
-
-            if (status === 'sent' || status === 'failed') {
-                return result;
-            }
-
-            if (attempt < TEST_PUSH_STATUS_MAX_ATTEMPTS - 1) {
-                await wait(TEST_PUSH_STATUS_POLL_INTERVAL_MS);
-            }
+            if (status === 'sent' || status === 'failed') return result;
+            if (attempt < TEST_PUSH_STATUS_MAX_ATTEMPTS - 1) await wait(TEST_PUSH_STATUS_POLL_INTERVAL_MS);
         }
         return null;
     };
@@ -61,42 +55,18 @@ const ProfilePage = () => {
         setIsTestingPush(true);
         try {
             const support = describePushSupport();
-            if (!support.supported) {
-                throw new Error(support.message || 'Push notifications are not supported on this device/browser setup.');
-            }
-
+            if (!support.supported) throw new Error(support.message || 'Push notifications are not supported.');
             await ensureFcmTokenRegistered({ role, platform: 'web' });
             await startForegroundPushListener();
             const res = await customerApi.testPushNotification();
             const orderId = res?.data?.result?.orderId || '';
-            if (!orderId) {
-                toast.success('Test push triggered');
-                return;
-            }
-
+            if (!orderId) { toast.success('Test push triggered'); return; }
             const statusResult = await waitForTestPushResult(orderId);
-            if (!statusResult) {
-                toast.message(`Test push processing (${orderId})`, {
-                    description: 'Notification delivery is taking longer than expected.',
-                });
-                return;
-            }
-
-            if (statusResult.status === 'sent') {
-                toast.success(`Test push sent (${orderId})`, {
-                    description: 'MongoDB status is marked as sent.',
-                });
-                return;
-            }
-
-            toast.error(`Test push failed (${orderId})`, {
-                description: String(statusResult.failureReason || 'Notification delivery failed.'),
-            });
+            if (!statusResult) { toast.message(`Test push processing (${orderId})`); return; }
+            if (statusResult.status === 'sent') { toast.success(`Test push sent (${orderId})`); return; }
+            toast.error(`Test push failed (${orderId})`, { description: String(statusResult.failureReason || 'Delivery failed.') });
         } catch (error) {
-            const message = error?.response?.data?.message || error?.message || 'Unknown error';
-            toast.error('Failed to trigger test push', {
-                description: message,
-            });
+            toast.error('Failed to trigger test push', { description: error?.response?.data?.message || error?.message });
         } finally {
             setIsTestingPush(false);
         }
@@ -108,12 +78,10 @@ const ProfilePage = () => {
             try {
                 setLoading(true);
                 const res = await customerApi.getProfile();
-                if (res.data?.success) {
-                    setProfile(res.data.result);
-                }
+                if (res.data?.success) setProfile(res.data.result);
             } catch (err) {
-                console.error("Error fetching profile details:", err);
-                toast.error("Failed to sync profile data.");
+                console.error('Error fetching profile details:', err);
+                toast.error('Failed to sync profile data.');
             } finally {
                 setLoading(false);
             }
@@ -121,222 +89,142 @@ const ProfilePage = () => {
         fetchProfileData();
     }, []);
 
-    // Combine user details
     const activeUser = profile || user;
 
+    const name = activeUser?.['Farmer Name'] || activeUser?.name || 'Customer';
+    const cardNo = activeUser?.['eAnnadata Card Number'] || activeUser?.eannadata_card_number || '—';
+    const phone = formatIndiaPhone(activeUser?.['Mobile No'] || activeUser?.phone || '');
+    const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}&backgroundColor=f1f5f9`;
+
+    // Stats — use real data if available, fallback to 0
+    const totalSubsidy = activeUser?.totalSubsidy ?? activeUser?.subsidyAmount ?? 0;
+    const orderCount   = activeUser?.orderCount ?? activeUser?.totalOrders ?? 0;
+    const dbtSubsidy   = activeUser?.dbtSubsidy ?? 0;
+    const pendingSubsidy = activeUser?.pendingSubsidy ?? 0;
+
+    const menuItems = [
+        { icon: MapPin,    label: 'My Addresses',      path: '/addresses' },
+        { icon: CreditCard, label: 'My Cards',         path: '/wallet' },
+        { icon: Building2, label: 'Bank Accounts',     path: '/wallet' },
+        { icon: Package,   label: 'My Orders',         path: '/orders' },
+        { icon: Heart,     label: 'Wishlist',          path: '/wishlist' },
+        { icon: BookOpen,  label: 'Subsidy Passbook',  path: '/transactions' },
+        { icon: HelpCircle, label: 'Help & Support',   path: '/support' },
+        { icon: Settings,  label: 'Profile Settings',  path: '/profile/edit' },
+    ];
+
     return (
-        <div className="min-h-screen bg-slate-50 pb-24 md:pb-8 font-sans">
-            <div className="sticky top-0 z-30 bg-slate-50/95 backdrop-blur-sm px-4 pt-4 pb-3 border-b border-slate-200/60 mb-4 flex items-center gap-2">
+        <div className="min-h-screen bg-white pb-24 font-sans">
+            <div className="max-w-2xl mx-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pt-5 pb-3">
                 <button
                     onClick={() => navigate(-1)}
-                    className="w-10 h-10 flex items-center justify-center hover:bg-slate-200/70 rounded-full transition-colors -ml-1"
+                    className="w-9 h-9 flex items-center justify-center"
                 >
-                    <ChevronLeft size={22} className="text-slate-800" />
+                    <Menu size={22} className="text-slate-800" />
                 </button>
-                <h1 className="text-xl font-semibold text-slate-900 tracking-tight">My Profile</h1>
-                <div className="ml-auto flex items-center gap-2">
+                <h1 className="text-[17px] font-bold text-slate-900">Farmer Dashboard</h1>
+                <button
+                    onClick={handleTestPush}
+                    disabled={isTestingPush}
+                    className="w-9 h-9 flex items-center justify-center relative"
+                >
+                    <Bell size={22} className="text-slate-800" />
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
+                </button>
+            </div>
+
+            {/* User Identity Card */}
+            <div className="mx-4 mt-2 mb-4 bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-4 flex items-center gap-4">
+                {/* Avatar */}
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-200 flex-shrink-0">
+                    <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                    <h2 className="text-[16px] font-bold text-slate-900 leading-tight">{name}</h2>
+                    <p className="text-[12px] text-slate-500 font-medium mt-0.5">
+                        E-Anndata Card No.
+                    </p>
+                    <p className="text-[13px] font-bold text-[#1a8a3c] tracking-wide mt-0.5">
+                        {cardNo}
+                    </p>
+                    {phone && (
+                        <p className="text-[12px] text-slate-600 font-medium mt-1 flex items-center gap-1">
+                            <span className="text-slate-400">📱</span>
+                            +91 {phone}
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            {/* Stats Bar */}
+            <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a6b32 0%, #155228 100%)' }}>
+                <div className="grid grid-cols-4">
+                    {[
+                        { label: 'Total Subsidy',      icon: Wallet,        value: `₹${Number(totalSubsidy).toLocaleString('en-IN')}` },
+                        { label: 'Total Order Count',  icon: ClipboardList, value: String(orderCount) },
+                        { label: 'DBT Subsidy',        icon: HandCoins,     value: `₹${Number(dbtSubsidy).toLocaleString('en-IN')}` },
+                        { label: 'Pending Subsidy',    icon: Hourglass,     value: `₹${Number(pendingSubsidy).toLocaleString('en-IN')}` },
+                    ].map((s, i) => (
+                        <div
+                            key={i}
+                            className={`flex flex-col items-center py-4 px-1 ${i < 3 ? 'border-r border-white/20' : ''}`}
+                        >
+                            <p className="text-white/80 text-[9px] font-semibold text-center leading-tight mb-2">{s.label}</p>
+                            <span className="mb-1">
+                                    <s.icon size={28} className="text-white" strokeWidth={1.5} />
+                                </span>
+                            <p className="text-white text-[13px] font-bold">{s.value}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* My Activity */}
+            <div className="mx-4 mt-6">
+                <h2 className="text-[15px] font-bold text-slate-900 mb-3">My Activity</h2>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-100">
+                    {menuItems.map(({ icon: Icon, label, path }) => (
+                        <Link
+                            key={label}
+                            to={path}
+                            className="flex items-center justify-between px-4 py-4 hover:bg-slate-50 transition-colors"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center bg-slate-50">
+                                    <Icon size={18} className="text-slate-600" />
+                                </div>
+                                <span className="text-[14px] font-medium text-slate-800">{label}</span>
+                            </div>
+                            <ChevronRight size={18} className="text-slate-400" />
+                        </Link>
+                    ))}
+
+                    {/* Logout */}
                     <button
-                        type="button"
-                        onClick={handleTestPush}
-                        disabled={isTestingPush}
-                        title="Test push notification"
-                        className="w-10 h-10 flex items-center justify-center rounded-full transition-colors border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                        onClick={logout}
+                        className="w-full flex items-center justify-between px-4 py-4 hover:bg-red-50 transition-colors"
                     >
-                        <Bell size={18} className={isTestingPush ? "text-slate-400" : "text-slate-700"} />
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center bg-slate-50">
+                                <LogOut size={18} className="text-slate-600" />
+                            </div>
+                            <span className="text-[14px] font-medium text-slate-800">Logout</span>
+                        </div>
+                        <ChevronRight size={18} className="text-slate-400" />
                     </button>
                 </div>
             </div>
 
-            <div className="max-w-2xl mx-auto px-4 pt-1 relative z-20 space-y-4">
-                {/* User Identity Card (Read Only) */}
-                <div className="bg-white rounded-xl p-4 border border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-14 w-14 rounded-xl bg-slate-100 flex items-center justify-center p-1 border border-slate-200">
-                            <img
-                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${activeUser?.["Farmer Name"] || activeUser?.name || 'Customer'}&backgroundColor=f1f5f9`}
-                                alt=""
-                                className="h-full w-full rounded-lg object-cover"
-                            />
-                        </div>
-                        <div>
-                            <h2 className="text-base leading-tight font-semibold text-slate-900">
-                                {activeUser?.["Farmer Name"] || activeUser?.name || 'Customer'}
-                            </h2>
-                            <p className="text-slate-500 text-xs font-medium flex items-center gap-1 mt-0.5">
-                                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] uppercase">India</span> +91 {formatIndiaPhone(activeUser?.["Mobile No"] || activeUser?.phone)}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                        <span className="flex items-center gap-1 text-[10px] font-bold text-brand-600 bg-brand-50 px-2 py-1 rounded-full uppercase">
-                            <CheckCircle size={10} /> Verified
-                        </span>
-                    </div>
-                </div>
-
-                {/* Eannadata Card & Address Details (Read Only) */}
-                {(activeUser?.["eAnnadata Card Number"] || activeUser?.eannadata_card_number) && (
-                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200/60 flex items-center justify-between">
-                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Eannadata Card Details</p>
-                            <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                                <Lock size={10} /> Admin Managed
-                            </span>
-                        </div>
-                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-4 text-xs leading-relaxed text-slate-600">
-                            <div className="border-b border-slate-50 pb-2">
-                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Card Number</span>
-                                <span className="font-bold text-brand-600 text-sm">{activeUser["eAnnadata Card Number"] || activeUser.eannadata_card_number}</span>
-                            </div>
-                            <div className="border-b border-slate-50 pb-2">
-                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Farmer Name</span>
-                                <span className="font-bold text-slate-800">{activeUser["Farmer Name"] || activeUser.name}</span>
-                            </div>
-                            <div className="border-b border-slate-50 pb-2 md:col-span-2">
-                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Father/Mother/Husband</span>
-                                <span className="font-semibold text-slate-800">{activeUser["Father/Mother/Husband"] || 'N/A'}</span>
-                            </div>
-                            <div className="border-b border-slate-50 pb-2">
-                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Date of Birth</span>
-                                <span className="font-semibold text-slate-800">
-                                    {activeUser["Date Of Birth"] ? new Date(activeUser["Date Of Birth"]).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A'}
-                                </span>
-                            </div>
-                            <div className="border-b border-slate-50 pb-2">
-                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Gender</span>
-                                <span className="font-semibold text-slate-800">{activeUser.gender || 'N/A'}</span>
-                            </div>
-                            <div className="pb-1 col-span-1 md:col-span-2">
-                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Registered Address</span>
-                                <span className="font-semibold text-slate-800">
-                                    {activeUser["Village Name"] ? `${activeUser["Village Name"]}, Block: ${activeUser["Block Name"]}, District: ${activeUser["District Name"]}, ${activeUser["State Name"]} - ${activeUser["Pin Code"]}` : 'N/A'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Menu Sections */}
-                <div className="space-y-4">
-                    {/* Account Section */}
-                    <div className="bg-white rounded-xl overflow-hidden border border-slate-200">
-                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
-                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Personal Account</p>
-                        </div>
-                        <div className="divide-y divide-slate-100">
-                            <MenuItem
-                                icon={Package}
-                                label="Your Orders"
-                                sub="Track, return or buy things again"
-                                path="/orders"
-                                color="var(--primary)"
-                                bg="rgba(16,185,129,0.10)"
-                            />
-                            <MenuItem
-                                icon={CreditCard}
-                                label="Order Transactions"
-                                sub="View all payments & refunds"
-                                path="/transactions"
-                                color="#f97316"
-                                bg="rgba(249,115,22,0.10)"
-                            />
-                            <MenuItem
-                                icon={Wallet}
-                                label="Wallet"
-                                sub="Balance & return refunds"
-                                path="/wallet"
-                                color="#10b981"
-                                bg="rgba(16,185,129,0.10)"
-                            />
-                            <MenuItem
-                                icon={Heart}
-                                label="Your Wishlist"
-                                sub="Your saved items"
-                                path="/wishlist"
-                                color="#fb7185"
-                                bg="rgba(248,113,113,0.08)"
-                            />
-                            <MenuItem
-                                icon={MapPin}
-                                label="Saved Addresses"
-                                sub="Manage your delivery locations"
-                                path="/addresses"
-                                color="var(--primary)"
-                                bg="rgba(56,189,248,0.10)"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Support Section */}
-                    <div className="bg-white rounded-xl overflow-hidden border border-slate-200">
-                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
-                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Help & Settings</p>
-                        </div>
-                        <div className="divide-y divide-slate-100">
-                            <MenuItem
-                                icon={HelpCircle}
-                                label="Help & Support"
-                                path="/support"
-                                color="#3b82f6"
-                                bg="rgba(59,130,246,0.08)"
-                            />
-                            <MenuItem
-                                icon={ShieldCheck}
-                                label="Privacy Policy"
-                                path="/privacy"
-                                color="#a855f7"
-                                bg="rgba(168,85,247,0.08)"
-                            />
-                            <MenuItem
-                                icon={Info}
-                                label="About Us"
-                                path="/about"
-                                color="#14b8a6"
-                                bg="rgba(45,212,191,0.08)"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Logout Button */}
-                <button
-                    onClick={logout}
-                    className="w-full py-3 rounded-lg border border-slate-300 text-slate-700 font-semibold bg-white hover:bg-slate-100 transition-colors flex items-center justify-center gap-2 mt-2"
-                >
-                    <LogOut size={20} />
-                    Sign out
-                </button>
-
-                <div className="text-center pb-8">
-                    <p className="text-[10px] text-slate-400 font-medium">Version 2.4.0 - {appName}</p>
-                </div>
+            <div className="text-center mt-6 pb-4">
+                <p className="text-[10px] text-slate-400">Version 2.4.0 · {appName}</p>
+            </div>
             </div>
         </div>
     );
 };
-
-const MenuItem = ({ icon: Icon, label, sub, path, color = '#334155', bg = 'rgba(148,163,184,0.12)' }) => (
-    <Link to={path || '#'} className="px-4 py-3.5 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors group">
-        <div className="flex items-center gap-3">
-            <div
-                className="h-10 w-10 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: bg }}
-            >
-                <Icon
-                    size={20}
-                    className="transition-colors"
-                    style={{ color }}
-                />
-            </div>
-            <div>
-                <h3 className="text-sm font-semibold text-slate-800">{label}</h3>
-                {sub && <p className="text-[11px] text-slate-500 mt-0.5">{sub}</p>}
-            </div>
-        </div>
-        <div className="p-1.5 rounded-md group-hover:bg-slate-100 transition-colors">
-            <ChevronRight size={16} className="text-slate-400 group-hover:text-slate-600 transition-all group-hover:translate-x-0.5" />
-        </div>
-    </Link>
-);
 
 export default ProfilePage;
