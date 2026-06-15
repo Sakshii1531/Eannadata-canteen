@@ -15,11 +15,11 @@ const OTP_LOCKOUT_MINUTES = () =>
 const OTP_SEND_LIMIT_WINDOW_SECONDS = () =>
   parseInt(process.env.OTP_SEND_LIMIT_WINDOW_SECONDS || "900", 10);
 const OTP_SEND_LIMIT_PER_WINDOW = () =>
-  parseInt(process.env.OTP_SEND_LIMIT_PER_WINDOW || "5", 10);
+  parseInt(process.env.OTP_SEND_LIMIT_PER_WINDOW || "100", 10);
 const OTP_VERIFY_LIMIT_WINDOW_SECONDS = () =>
   parseInt(process.env.OTP_VERIFY_LIMIT_WINDOW_SECONDS || "900", 10);
 const OTP_VERIFY_LIMIT_PER_WINDOW = () =>
-  parseInt(process.env.OTP_VERIFY_LIMIT_PER_WINDOW || "20", 10);
+  parseInt(process.env.OTP_VERIFY_LIMIT_PER_WINDOW || "200", 10);
 function otpHashSecret() {
   return process.env.OTP_HASH_SECRET || process.env.JWT_SECRET || "unsafe-dev-secret";
 }
