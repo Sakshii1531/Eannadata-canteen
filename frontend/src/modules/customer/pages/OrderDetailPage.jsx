@@ -1236,6 +1236,7 @@ const OrderDetailPage = () => {
                 <p className="text-xs font-bold text-slate-600 uppercase">
                   Photos ({returnImages.length}/5) *
                 </p>
+                <p className="text-[11px] text-slate-400 -mt-1">Upload at least 1 photo and up to 5 photos of the product.</p>
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {returnImages.map((img, index) => (
                     <div key={index} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0">
