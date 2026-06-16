@@ -55,15 +55,19 @@ export default function SeoHead() {
                 linkFavicon = document.createElement('link');
                 linkFavicon.id = 'dynamic-favicon';
                 linkFavicon.rel = 'icon';
-                linkFavicon.type = 'image/x-icon';
                 document.head.appendChild(linkFavicon);
-                metaRefs.current.favicon = linkFavicon;
-            } else if (linkFavicon) {
+            }
+            if (linkFavicon) {
                 metaRefs.current.favicon = linkFavicon;
             }
         }
         if (linkFavicon) {
             linkFavicon.href = faviconUrl || '/vite.svg';
+            if (faviconUrl) {
+                linkFavicon.removeAttribute('type');
+            } else {
+                linkFavicon.type = 'image/svg+xml';
+            }
         }
     }, [settings]);
 
