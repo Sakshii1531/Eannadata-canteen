@@ -333,7 +333,7 @@ const MainLocationHeader = ({
                     src={logoUrl}
                     alt={`${appName} Logo`}
                     loading="lazy"
-                    className="h-16 w-auto object-contain"
+                    className="h-16 w-auto object-contain rounded-full"
                   />
                 </div>
               </div>
