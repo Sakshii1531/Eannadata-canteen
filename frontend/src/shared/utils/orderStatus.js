@@ -30,11 +30,11 @@ function legacyFromWorkflow(workflowStatus) {
     case WORKFLOW_STATUS.SELLER_PENDING:
       return "pending";
     case WORKFLOW_STATUS.SELLER_ACCEPTED:
-    case WORKFLOW_STATUS.DELIVERY_SEARCH:
       return "confirmed";
+    case WORKFLOW_STATUS.DELIVERY_SEARCH:
     case WORKFLOW_STATUS.DELIVERY_ASSIGNED:
     case WORKFLOW_STATUS.PICKUP_READY:
-      return "confirmed";
+      return "packed";
     case WORKFLOW_STATUS.OUT_FOR_DELIVERY:
       return "out_for_delivery";
     case WORKFLOW_STATUS.DELIVERED:
@@ -66,7 +66,7 @@ export function getLegacyStatusFromOrder(order) {
       workflowStatus === WORKFLOW_STATUS.DELIVERY_ASSIGNED ||
       workflowStatus === WORKFLOW_STATUS.PICKUP_READY
     ) {
-      return "confirmed";
+      return "packed";
     }
 
     return legacyFromWorkflow(workflowStatus);

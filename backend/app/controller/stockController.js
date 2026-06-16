@@ -33,6 +33,13 @@ export const adjustStock = async (req, res) => {
 
         // 1. Update Product Stock
         product.stock = finalStock;
+        if (product.variants && product.variants.length > 0) {
+            product.variants.forEach(variant => {
+                variant.stock = type === 'Restock'
+                    ? (variant.stock || 0) + qtyChange
+                    : Math.max(0, (variant.stock || 0) - qtyChange);
+            });
+        }
         await product.save();
 
         // Trigger back-in-stock notifications if stock went from 0 to > 0

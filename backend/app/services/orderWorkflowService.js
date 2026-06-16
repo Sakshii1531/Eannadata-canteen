@@ -138,13 +138,11 @@ export async function removeReturnPickupTimeoutJob(orderId, attempt = 1) {
 }
 
 /**
- * Seller accepts: SELLER_PENDING -> DELIVERY_SEARCH (atomic).
+ * Seller accepts: SELLER_PENDING -> SELLER_ACCEPTED (atomic).
  */
 export async function sellerAcceptAtomic(sellerId, orderId) {
   orderId = await requireCanonicalOrderId(orderId);
   const now = new Date();
-  const sellerMs = DEFAULT_SELLER_TIMEOUT_MS();
-  const deliveryMs = DEFAULT_DELIVERY_TIMEOUT_MS();
 
   const updated = await Order.findOneAndUpdate(
     {
@@ -160,15 +158,9 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
     },
     {
       $set: {
-        workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
-        status: legacyStatusFromWorkflow(WORKFLOW_STATUS.DELIVERY_SEARCH),
+        workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED,
+        status: legacyStatusFromWorkflow(WORKFLOW_STATUS.SELLER_ACCEPTED),
         sellerAcceptedAt: now,
-        deliverySearchExpiresAt: new Date(now.getTime() + deliveryMs),
-        deliverySearchMeta: {
-          radiusMeters: INITIAL_DELIVERY_RADIUS_M(),
-          attempt: 1,
-          lastBroadcastAt: now,
-        },
       },
       // CRITICAL FIX: Remove expiresAt to prevent TTL index from auto-deleting the order
       $unset: { expiresAt: 1 },
@@ -185,6 +177,65 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
   }
 
   await removeSellerTimeoutJob(orderId);
+
+  emitOrderStatusUpdate(
+    updated.orderId,
+    {
+      workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED,
+    },
+    updated.customer?._id || updated.customer,
+  );
+
+  emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CONFIRMED, {
+    orderId: updated.orderId,
+    customerId: updated.customer?._id || updated.customer,
+    userId: updated.customer?._id || updated.customer,
+    sellerId: updated.seller?._id || updated.seller,
+  });
+
+  return updated;
+}
+
+/**
+ * Seller marks order as packed: SELLER_ACCEPTED -> DELIVERY_SEARCH (atomic).
+ * This starts the rider broadcast and schedules the delivery timeout job.
+ */
+export async function sellerPackAtomic(sellerId, orderId) {
+  orderId = await requireCanonicalOrderId(orderId);
+  const now = new Date();
+  const deliveryMs = DEFAULT_DELIVERY_TIMEOUT_MS();
+
+  const updated = await Order.findOneAndUpdate(
+    {
+      orderId,
+      seller: sellerId,
+      workflowVersion: { $gte: 2 },
+      workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED,
+    },
+    {
+      $set: {
+        workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
+        status: "packed",
+        pickupReadyAt: now,
+        deliverySearchExpiresAt: new Date(now.getTime() + deliveryMs),
+        deliverySearchMeta: {
+          radiusMeters: INITIAL_DELIVERY_RADIUS_M(),
+          attempt: 1,
+          lastBroadcastAt: now,
+        },
+      },
+    },
+    { new: true },
+  )
+    .populate("customer", "name phone")
+    .populate("seller", "shopName address name location serviceRadius");
+
+  if (!updated) {
+    const err = new Error("Order not available to mark as packed");
+    err.statusCode = 409;
+    throw err;
+  }
+
   await scheduleDeliveryTimeoutJob(orderId, 1);
 
   await DeliveryAssignment.create({
@@ -204,12 +255,13 @@ export async function sellerAcceptAtomic(sellerId, orderId) {
     },
     updated.customer?._id || updated.customer,
   );
+
   await emitDeliveryBroadcastForSeller(
     updated.seller,
     deliveryBroadcastPayloadFromOrder(updated),
   );
 
-  emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_CONFIRMED, {
+  emitNotificationEvent(NOTIFICATION_EVENTS.ORDER_PACKED || "ORDER_PACKED", {
     orderId: updated.orderId,
     customerId: updated.customer?._id || updated.customer,
     userId: updated.customer?._id || updated.customer,
@@ -1192,7 +1244,15 @@ export async function requestHandoffOtpAtomic(deliveryId, orderId, lat, lng) {
     event: "delivery:otp:generated",
     payload: otpPayload,
   });
-  emitOrderStatusUpdate(orderId, { otpSent: true }, order.customer);
+  emitOrderStatusUpdate(
+    orderId,
+    {
+      otpSent: true,
+      workflowStatus: order.workflowStatus,
+      status: order.status,
+    },
+    order.customer,
+  );
 
   return { expiresAt, attemptsRemaining: 3, message: "OTP sent to customer" };
 }

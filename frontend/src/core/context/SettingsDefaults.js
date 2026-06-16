@@ -54,10 +54,21 @@ export function applyThemeVariables(settings) {
   const primary = settings.primaryColor || DEFAULT_SETTINGS.primaryColor;
   const secondary = settings.secondaryColor || DEFAULT_SETTINGS.secondaryColor;
   
-  root.style.setProperty("--primary", primary);
-  root.style.setProperty("--secondary", secondary);
-  root.style.setProperty("--primary-color", primary);
-  root.style.setProperty("--secondary-color", secondary);
+  if (primary && !primary.startsWith("var")) {
+    root.style.setProperty("--primary", primary);
+    root.style.setProperty("--primary-color", primary);
+  } else {
+    root.style.removeProperty("--primary");
+    root.style.removeProperty("--primary-color");
+  }
+
+  if (secondary && !secondary.startsWith("var")) {
+    root.style.setProperty("--secondary", secondary);
+    root.style.setProperty("--secondary-color", secondary);
+  } else {
+    root.style.removeProperty("--secondary");
+    root.style.removeProperty("--secondary-color");
+  }
 
   // Calculate high-contrast foreground color
   if (primary && !primary.startsWith("var")) {
@@ -68,6 +79,8 @@ export function applyThemeVariables(settings) {
     const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
     const contrastColor = yiq >= 160 ? "#000000" : "#FFFFFF";
     root.style.setProperty("--primary-foreground", contrastColor);
+  } else {
+    root.style.removeProperty("--primary-foreground");
   }
 }
 

@@ -1,73 +1,66 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { CheckCircle, Circle, Clock, Truck, Home } from "lucide-react";
-import { getLegacyStatusFromOrder } from "@/shared/utils/orderStatus";
+import { CheckCircle, Circle, Package, ShoppingBag, User, Home, ClipboardList } from "lucide-react";
 
-const STATUS_TO_STAGE = {
-  pending: "confirmed",
-  confirmed: "confirmed",
-  packed: "confirmed",
-  out_for_delivery: "out_for_delivery",
-  delivered: "delivered",
+const getOrderStatusKey = (order) => {
+  if (!order) return "SELLER_PENDING";
+  if (order.status === "cancelled") return "CANCELLED";
+  
+  if (order.workflowStatus) {
+    const ws = String(order.workflowStatus).toUpperCase();
+    if (ws === "PICKUP_READY") return "DELIVERY_ASSIGNED";
+    return ws;
+  }
+  
+  // Legacy fallback
+  const s = String(order.status || "pending").toLowerCase();
+  if (s === "pending") return "SELLER_PENDING";
+  if (s === "confirmed") return "SELLER_ACCEPTED";
+  if (s === "packed") return "DELIVERY_SEARCH";
+  if (s === "out_for_delivery") return "OUT_FOR_DELIVERY";
+  if (s === "delivered") return "DELIVERED";
+  return "SELLER_PENDING";
 };
 
-const OrderProgressTracker = ({
-  order,
-  estimatedArrivalText = "12:45 PM",
-  arrivingInText = "8 mins",
-  totalDistanceText = "—",
-}) => {
-  const status = getLegacyStatusFromOrder(order);
-  const currentStage = STATUS_TO_STAGE[status] || "confirmed";
+const getStepDate = (stepId, order) => {
+  if (!order) return null;
+  switch (stepId) {
+    case "placed":
+      return order.createdAt;
+    case "confirmed":
+      return order.sellerAcceptedAt;
+    case "packed":
+      return order.pickupReadyAt;
+    case "pickup":
+      return order.assignedAt;
+    case "picked_up":
+      return order.outForDeliveryAt || order.pickupConfirmedAt;
+    case "delivered":
+      return order.deliveredAt;
+    default:
+      return null;
+  }
+};
 
-  const steps = [
-    {
-      id: "confirmed",
-      label: "Order Confirmed",
-      icon: CheckCircle,
-      statuses: ["confirmed"],
-    },
-    {
-      id: "out_for_delivery",
-      label: "Out for delivery",
-      icon: Truck,
-      statuses: ["out_for_delivery", "delivered"],
-    },
-    {
-      id: "delivered",
-      label: "Delivered",
-      icon: Home,
-      statuses: ["delivered"],
-    },
-  ];
+const formatStepTime = (dateStr) => {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "";
+  
+  return date.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+  }) + ", " + date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
 
-  const getStepStatus = (step) => {
-    if (status === "cancelled") return "cancelled";
+const OrderProgressTracker = ({ order }) => {
+  const currentKey = getOrderStatusKey(order);
 
-    const stepIndex = steps.findIndex((s) => s.id === step.id);
-
-    if (status === "pending") {
-      return stepIndex === 0 ? "active" : "pending";
-    }
-
-    if (status === "confirmed" || status === "packed") {
-      return stepIndex === 0 ? "completed" : "pending";
-    }
-
-    if (status === "out_for_delivery") {
-      if (stepIndex === 0) return "completed";
-      if (stepIndex === 1) return "active";
-      return "pending";
-    }
-
-    if (status === "delivered") {
-      return "completed";
-    }
-
-    return step.id === "confirmed" ? "active" : "pending";
-  };
-
-  if (status === "cancelled") {
+  if (currentKey === "CANCELLED") {
     return (
       <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5">
         <p className="text-center text-rose-700 font-semibold">Order Cancelled</p>
@@ -75,79 +68,129 @@ const OrderProgressTracker = ({
     );
   }
 
+  const steps = [
+    {
+      id: "placed",
+      label: "Order Placed",
+      description: "Your order has been placed.",
+      icon: ClipboardList,
+      matchStatuses: ["SELLER_PENDING"],
+    },
+    {
+      id: "confirmed",
+      label: "Order Confirmed",
+      description: "Your order has been confirmed.",
+      icon: CheckCircle,
+      matchStatuses: ["SELLER_ACCEPTED"],
+    },
+    {
+      id: "packed",
+      label: "Packed",
+      description: "Your order has been packed.",
+      icon: Package,
+      matchStatuses: ["DELIVERY_SEARCH"],
+    },
+    {
+      id: "pickup",
+      label: "Ready for Pickup",
+      description: "Your order is ready for pickup by courier partner.",
+      icon: ShoppingBag,
+      matchStatuses: ["DELIVERY_ASSIGNED"],
+    },
+    {
+      id: "picked_up",
+      label: "Picked up",
+      description: "Your order has been picked up.",
+      icon: User,
+      matchStatuses: ["OUT_FOR_DELIVERY"],
+    },
+    {
+      id: "delivered",
+      label: "Delivered",
+      description: "Your order has been delivered.",
+      icon: Home,
+      matchStatuses: ["DELIVERED"],
+    },
+  ];
+
+  const activeIndex = steps.findIndex((step) => step.matchStatuses.includes(currentKey));
+
+  const getStepStatus = (index) => {
+    if (activeIndex === -1) {
+      return index === 0 ? "active" : "pending";
+    }
+    if (index < activeIndex) return "completed";
+    if (index === activeIndex) return "active";
+    return "pending";
+  };
+
   return (
-    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 font-sans">
+      <h3 className="text-base font-bold text-slate-800 mb-6">Order Tracking</h3>
+      
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="space-y-4">
+        className="space-y-6">
         {steps.map((step, index) => {
-          const stepStatus = getStepStatus(step);
+          const stepStatus = getStepStatus(index);
           const Icon = step.icon;
           const isCompleted = stepStatus === "completed";
           const isActive = stepStatus === "active";
-          const isPending = stepStatus === "pending";
+          const dateVal = getStepDate(step.id, order);
 
           return (
-            <div
-              key={step.id}
-              className="relative transition-opacity duration-200">
-              <div className="flex items-center gap-4">
+            <div key={step.id} className="relative">
+              <div className="flex items-start gap-4">
                 {/* Icon Circle */}
                 <div
-                  className={`relative z-10 h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  className={`relative z-10 h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
                     isCompleted
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                      ? "bg-[#1a8a3c] text-white shadow-md shadow-green-100"
                       : isActive
                       ? "bg-amber-100 text-amber-600 border-2 border-amber-400"
                       : "bg-slate-100 text-slate-400"
                   }`}
                 >
                   {isCompleted ? (
-                    <CheckCircle size={24} className="fill-current" />
+                    <Icon size={20} className="stroke-[2.5]" />
                   ) : isActive ? (
-                    <div className="animate-spin">
-                      <Icon size={22} />
+                    <div className="animate-pulse">
+                      <Icon size={18} className="stroke-[2.5]" />
                     </div>
                   ) : (
-                    <Circle size={22} />
+                    <Circle size={18} className="stroke-[2]" />
                   )}
                 </div>
 
-                {/* Label */}
-                <div className="flex-1">
+                {/* Content */}
+                <div className="flex-1 min-w-0 pr-2">
                   <p
-                    className={`text-sm font-bold ${
-                      isCompleted
-                        ? "text-slate-900"
-                        : isActive
-                        ? "text-amber-700"
-                        : "text-slate-400"
+                    className={`text-xs sm:text-sm font-bold leading-tight ${
+                      isCompleted ? "text-[#1a8a3c]" : isActive ? "text-amber-700" : "text-slate-400"
                     }`}
                   >
                     {step.label}
                   </p>
-                  {isActive && (
-                    <p className="text-xs text-amber-600 font-medium mt-0.5">
-                      In progress...
-                    </p>
-                  )}
+                  <p className="text-[11px] sm:text-xs text-slate-500 mt-1 leading-normal font-medium">
+                    {step.description}
+                  </p>
                 </div>
 
-                {/* Status Indicator */}
-                {isCompleted && (
-                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center transition-opacity duration-200">
-                    <CheckCircle size={14} className="text-primary" />
+                {/* Timestamp */}
+                {dateVal && (
+                  <div className="text-[10px] sm:text-xs text-slate-500 font-semibold shrink-0 pt-0.5">
+                    {formatStepTime(dateVal)}
                   </div>
                 )}
               </div>
 
-              {/* Connecting Line */}
+              {/* Connector Line */}
               {index < steps.length - 1 && (
-                <div className="absolute left-6 top-12 bottom-0 w-0.5 -mb-4">
+                <div className="absolute left-5 top-10 bottom-0 w-0.5 -mb-6">
                   <div
                     className={`h-full w-full ${
-                      isCompleted ? "bg-primary" : "bg-slate-200"
+                      isCompleted ? "bg-[#1a8a3c]" : "bg-slate-200"
                     }`}
                   />
                 </div>
@@ -156,34 +199,6 @@ const OrderProgressTracker = ({
           );
         })}
       </motion.div>
-
-      {/* ETA Display */}
-      {status !== "delivered" && (
-        <div className="mt-6 pt-5 border-t border-slate-100">
-          <div className="flex items-center justify-between bg-amber-50 rounded-2xl p-4 gap-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                <Clock size={20} className="text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">
-                  Estimated Time
-                </p>
-                <p className="text-lg font-black text-amber-900">{estimatedArrivalText}</p>
-              </div>
-            </div>
-            <div className="text-right flex flex-col items-end gap-1">
-              <div>
-                <p className="text-xs text-amber-600 font-semibold">Arriving in</p>
-                <p className="text-2xl font-black text-amber-900">{arrivingInText}</p>
-              </div>
-              <div className="inline-flex items-center rounded-full bg-white/80 px-3 py-1 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200">
-                Total distance: {totalDistanceText}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

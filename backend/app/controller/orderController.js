@@ -16,6 +16,7 @@ import {
   afterPlaceOrderV2,
   sellerAcceptAtomic,
   sellerRejectAtomic,
+  sellerPackAtomic,
   deliveryAcceptAtomic,
   customerCancelV2,
   startReturnPickupBroadcast,
@@ -428,6 +429,14 @@ export const updateOrderStatus = async (req, res) => {
         try {
           const updated = await sellerAcceptAtomic(userId, canonicalOrderId);
           return handleResponse(res, 200, "Order accepted", updated);
+        } catch (e) {
+          return handleResponse(res, e.statusCode || 500, e.message);
+        }
+      }
+      if (status === "packed") {
+        try {
+          const updated = await sellerPackAtomic(userId, canonicalOrderId);
+          return handleResponse(res, 200, "Order packed", updated);
         } catch (e) {
           return handleResponse(res, e.statusCode || 500, e.message);
         }

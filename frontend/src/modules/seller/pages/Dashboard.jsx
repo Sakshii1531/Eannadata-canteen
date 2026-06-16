@@ -659,6 +659,17 @@ const Dashboard = () => {
                   >
                     CLOSE
                   </button>
+                  {selectedOrder.status === "confirmed" && (
+                    <button
+                      onClick={async () => {
+                        await handleStatusUpdate(selectedOrder.id, "packed");
+                        setSelectedOrder((prev) => ({ ...prev, status: "packed" }));
+                      }}
+                      className="px-5 py-2.5 bg-[#1a8a3c] hover:bg-[#155228] text-white text-xs font-bold rounded-xl transition-all shadow-md"
+                    >
+                      MARK AS PACKED
+                    </button>
+                  )}
                   <div className="relative inline-block w-40">
                     <select
                       value={selectedOrder.status.toLowerCase()}

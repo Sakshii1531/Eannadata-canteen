@@ -480,6 +480,17 @@ const Orders = () => {
                                                     <Badge variant={getStatusColor(order.status)} className="text-[10px] font-black uppercase px-2 py-0">
                                                         {order.status}
                                                     </Badge>
+                                                    {order.status === 'confirmed' && (
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                await handleStatusUpdate(order.id, 'packed');
+                                                            }}
+                                                            className="w-full px-3 py-1 bg-[#1a8a3c] hover:bg-[#155228] text-white text-[10px] font-black rounded-lg transition-all shadow-sm uppercase tracking-wide"
+                                                        >
+                                                            MARK AS PACKED
+                                                        </button>
+                                                    )}
                                                     <select
                                                         value={order.status}
                                                         onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
@@ -599,6 +610,17 @@ const Orders = () => {
                                                             >
                                                                 <HiOutlineEye className="h-4 w-4" />
                                                             </button>
+                                                            {order.status === 'confirmed' && (
+                                                                <button
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        await handleStatusUpdate(order.id, 'packed');
+                                                                    }}
+                                                                    className="px-3 py-1.5 bg-[#1a8a3c] hover:bg-[#155228] text-white text-[10px] font-black rounded-lg transition-all shadow-sm uppercase tracking-wide"
+                                                                >
+                                                                    MARK AS PACKED
+                                                                </button>
+                                                            )}
                                                             {order.status === 'Pending' && (
                                                                 <>
                                                                     <button
@@ -874,6 +896,17 @@ const Orders = () => {
                                     <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row gap-3 sm:gap-0 sm:items-center justify-end">
                                         <div className="flex gap-2 items-center">
                                             <button onClick={() => setIsDetailsModalOpen(false)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all">CLOSE</button>
+                                            {selectedOrder.status === 'confirmed' && (
+                                                <button
+                                                    onClick={async () => {
+                                                        await handleStatusUpdate(selectedOrder.id, 'packed');
+                                                        setSelectedOrder(prev => ({ ...prev, status: 'packed' }));
+                                                    }}
+                                                    className="px-5 py-2.5 bg-[#1a8a3c] hover:bg-[#155228] text-white text-xs font-bold rounded-xl transition-all shadow-md"
+                                                >
+                                                    MARK AS PACKED
+                                                </button>
+                                            )}
                                             <div className="relative inline-block w-40">
                                                 <select
                                                     value={selectedOrder.status.toLowerCase()}
