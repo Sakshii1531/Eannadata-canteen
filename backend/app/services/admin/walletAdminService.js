@@ -136,6 +136,28 @@ export async function getDeliveryWithdrawalsData({ page, limit, skip }) {
   };
 }
 
+export async function getCustomerWithdrawalsData({ page, limit, skip }) {
+  const query = { userModel: "User", type: "Withdrawal" };
+
+  const [transactions, total] = await Promise.all([
+    Transaction.find(query)
+      .populate("user", "name phone")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Transaction.countDocuments(query),
+  ]);
+
+  return {
+    items: transactions,
+    page,
+    limit,
+    total,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
 export async function updateWithdrawalStatusById({ id, status, reason }) {
   if (!["Settled", "Failed", "Processing"].includes(status)) {
     throw new Error("Invalid status");

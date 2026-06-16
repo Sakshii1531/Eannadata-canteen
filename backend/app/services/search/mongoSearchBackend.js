@@ -111,6 +111,8 @@ export class MongoSearchBackend extends SearchBackend {
         sellerId: 1,
         stock: 1,
         status: 1,
+        isReturnable: 1,
+        returnWindowDays: 1,
       };
       
       // Add text score if text search is used

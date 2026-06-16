@@ -104,6 +104,7 @@ const ProfilePage = () => {
 
     const menuItems = [
         { icon: MapPin,    label: 'My Addresses',      path: '/addresses' },
+        { icon: Wallet,    label: activeUser?.walletBalance !== undefined ? `Wallet (₹${activeUser.walletBalance})` : 'Wallet', path: '/wallet' },
         { icon: CreditCard, label: 'My Cards',         path: '/wallet' },
         { icon: Building2, label: 'Bank Accounts',     path: '/wallet' },
         { icon: Package,   label: 'My Orders',         path: '/orders' },

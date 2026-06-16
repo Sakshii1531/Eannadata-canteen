@@ -7,6 +7,7 @@ import {
     getCustomerProfile,
     updateCustomerProfile,
     getCustomerTransactions,
+    requestWithdrawal,
 } from "../controller/customerAuthController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import {
@@ -62,6 +63,7 @@ router.put("/profile", verifyToken, updateCustomerProfile);
 
 // Wallet
 router.get("/transactions", verifyToken, getCustomerTransactions);
+router.post("/request-withdrawal", verifyToken, requestWithdrawal);
 
 export default router;
 

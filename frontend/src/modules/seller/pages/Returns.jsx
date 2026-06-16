@@ -160,6 +160,7 @@ const Returns = () => {
         try {
             await sellerApi.approveReturn(orderId, {});
             showToast("Return approved", "success");
+            setIsDetailsOpen(false);
             await fetchReturns();
         } catch (error) {
             console.error("Failed to approve return", error);

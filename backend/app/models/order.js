@@ -42,6 +42,12 @@ const orderSchema = new mongoose.Schema(
         },
         variantSlot: String,
         image: String,
+        subsidyDiscount: { type: Number, default: 0 },
+        subsidyStatus: {
+          type: String,
+          enum: ["none", "locked", "released", "cancelled"],
+          default: "none",
+        },
       },
     ],
     address: {

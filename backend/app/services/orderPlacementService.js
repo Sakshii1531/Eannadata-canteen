@@ -76,6 +76,7 @@ function mapOrderItemsForPersistence(hydratedItems = []) {
     price: item.price,
     variantSlot: String(item.variantSku || item.variantSlot || "").trim() || undefined,
     image: item.image || "",
+    subsidyDiscount: item.subsidyDiscount || 0,
   }));
 }
 

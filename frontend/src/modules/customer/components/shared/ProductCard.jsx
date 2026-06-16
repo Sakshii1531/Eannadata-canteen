@@ -115,7 +115,7 @@ const ProductCard = React.memo(
     const isOutOfStock = product.stock === 0 || (product.stock !== undefined && product.stock <= 0);
 
     // Show breakdown for ALL card sizes when subsidy/discount exists
-    const showBreakdown = !isOutOfStock && (hasInstantDiscount || dbtSavings > 0);
+    const showBreakdown = (hasInstantDiscount || dbtSavings > 0);
 
     const handleNotifyMe = React.useCallback(
       async (e) => {
@@ -317,7 +317,20 @@ const ProductCard = React.memo(
                 </div>
                 {/* Cart button in pay-now row */}
                 <div>
-                  {quantity > 0 ? (
+                  {isOutOfStock ? (
+                    <button
+                      onClick={handleNotifyMe}
+                      disabled={isNotified || isNotifying}
+                      className={cn(
+                        "rounded-full flex items-center justify-center shadow-md active:scale-95 transition-all",
+                        compact ? "w-6 h-6" : "w-8 h-8",
+                        isNotified
+                          ? "bg-emerald-50 border border-emerald-300 text-emerald-600 cursor-default"
+                          : "bg-primary text-white hover:bg-primary/90 cursor-pointer"
+                      )}>
+                      <Bell size={compact ? 11 : 14} />
+                    </button>
+                  ) : quantity > 0 ? (
                     <div className={cn("flex items-center bg-white border-[1.5px] border-primary rounded-lg p-0.5 justify-between", compact ? "min-w-[60px]" : "min-w-[70px]")}>
                       <button onClick={handleDecrement} className="p-0.5 px-1 text-primary active:scale-90 transition-transform">
                         <Minus size={compact ? 9 : 11} strokeWidth={3.5} />

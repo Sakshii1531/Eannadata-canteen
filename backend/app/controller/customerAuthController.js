@@ -1,7 +1,12 @@
 import Customer from "../models/customer.js";
 import Transaction from "../models/transaction.js";
 import jwt from "jsonwebtoken";
+import Wallet from "../models/wallet.js";
+import LedgerEntry from "../models/ledgerEntry.js";
+import Order from "../models/order.js";
 import handleResponse from "../utils/helper.js";
+import * as walletService from "../services/finance/walletService.js";
+import { roundCurrency } from "../utils/money.js";
 import {
     issueCustomerOtp,
     sanitizeCustomer,
@@ -141,7 +146,26 @@ export const getCustomerProfile = async (req, res) => {
         if (!customer) {
             return handleResponse(res, 404, "Customer not found");
         }
-        return handleResponse(res, 200, "Profile fetched successfully", customer);
+
+        const customerObj = customer.toObject({ virtuals: true });
+        const wallet = await Wallet.findOne({ ownerId: customer._id, ownerType: "CUSTOMER" });
+        const orderCount = await Order.countDocuments({ customer: customer._id });
+
+        const releasedLedgers = await LedgerEntry.find({
+            actorId: customer._id,
+            type: { $in: ["DBT_SUBSIDY_CREDITED", "DBT_SUBSIDY_RELEASED"] },
+            status: "COMPLETED"
+        });
+        const dbtSubsidy = releasedLedgers.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+        const pendingSubsidy = wallet ? (wallet.lockedSubsidyBalance || 0) : 0;
+
+        customerObj.orderCount = orderCount;
+        customerObj.pendingSubsidy = pendingSubsidy;
+        customerObj.dbtSubsidy = dbtSubsidy;
+        customerObj.totalSubsidy = dbtSubsidy + pendingSubsidy;
+        customerObj.lockedSubsidyBalance = pendingSubsidy;
+
+        return handleResponse(res, 200, "Profile fetched successfully", customerObj);
     } catch (error) {
         return handleResponse(res, 500, error.message);
     }
@@ -181,24 +205,26 @@ export const getCustomerTransactions = async (req, res) => {
         const skip = (Math.max(1, parseInt(page, 10)) - 1) * Math.min(50, Math.max(1, parseInt(limit, 10)));
         const perPage = Math.min(50, Math.max(1, parseInt(limit, 10)));
 
-        const [transactions, total] = await Promise.all([
-            Transaction.find({ user: customerId, userModel: "User" })
+        const [ledgers, total] = await Promise.all([
+            LedgerEntry.find({ actorId: customerId, actorType: "CUSTOMER" })
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(perPage)
-                .populate("order", "orderId")
+                .populate("orderId", "orderId")
                 .lean(),
-            Transaction.countDocuments({ user: customerId, userModel: "User" }),
+            LedgerEntry.countDocuments({ actorId: customerId, actorType: "CUSTOMER" }),
         ]);
 
-        const items = transactions.map((t) => ({
-            _id: t._id,
-            type: t.type === "Refund" ? "credit" : "debit",
-            title: t.type === "Refund" ? "Refund" : t.type,
-            amount: Math.abs(t.amount),
-            date: t.createdAt,
-            reference: t.reference,
-            orderId: t.order?.orderId,
+        const items = ledgers.map((l) => ({
+            _id: l._id,
+            type: l.direction === "CREDIT" ? "credit" : "debit",
+            title: l.type.replace(/_/g, " "),
+            amount: l.amount,
+            date: l.createdAt,
+            reference: l.reference || l.transactionId,
+            orderId: l.orderId?.orderId,
+            description: l.description,
+            status: l.status.toLowerCase(),
         }));
 
         return handleResponse(res, 200, "Transactions fetched", {
@@ -207,6 +233,59 @@ export const getCustomerTransactions = async (req, res) => {
             page: parseInt(page, 10),
             totalPages: Math.ceil(total / perPage) || 1,
         });
+    } catch (error) {
+        return handleResponse(res, 500, error.message);
+    }
+};
+
+/* ===============================
+   REQUEST WITHDRAWAL (Customer)
+================================ */
+export const requestWithdrawal = async (req, res) => {
+    try {
+        const customerId = req.user.id;
+        const { amount } = req.body;
+
+        if (!amount || amount <= 0) {
+            return handleResponse(res, 400, "Please enter a valid amount");
+        }
+
+        const availableBalance = await walletService.getCustomerBalance(customerId);
+        const requestedAmount = roundCurrency(amount);
+
+        if (requestedAmount > availableBalance) {
+            return handleResponse(
+                res,
+                400,
+                `Insufficient balance. Available: ₹${availableBalance}`,
+            );
+        }
+
+        await walletService.debitWallet({
+            ownerType: "CUSTOMER",
+            ownerId: customerId,
+            amount: requestedAmount,
+            bucket: "available",
+            ledgerType: "WITHDRAWAL",
+            ledgerReference: `WDR-CUST-${Date.now()}`,
+            ledgerDescription: "Customer withdrawal request created",
+        });
+
+        const withdrawal = await Transaction.create({
+            user: customerId,
+            userModel: "User",
+            type: "Withdrawal",
+            amount: -Math.abs(requestedAmount),
+            status: "Pending",
+            reference: `WDR-CUST-${Date.now()}`,
+        });
+
+        return handleResponse(
+            res,
+            201,
+            "Withdrawal request submitted successfully",
+            withdrawal,
+        );
     } catch (error) {
         return handleResponse(res, 500, error.message);
     }

@@ -596,13 +596,20 @@ export async function settleDeliveredOrder(orderOrId, { actorId = null } = {}) {
 
     const dbtSubsidy = roundCurrency(order.paymentBreakdown?.subsidyDiscount || 0);
     if (dbtSubsidy > 0) {
+      if (order.paymentBreakdown?.subsidyDiscountPercent > 0) {
+        for (const item of order.items) {
+          item.subsidyDiscount = item.subsidyDiscount || roundCurrency(item.price * item.quantity * (order.paymentBreakdown.subsidyDiscountPercent) / 100);
+          item.subsidyStatus = "locked";
+        }
+      }
+
       await creditWallet({
         ownerType: OWNER_TYPE.CUSTOMER,
         ownerId: order.customer,
         amount: dbtSubsidy,
-        bucket: "available",
-        ledgerType: LEDGER_TRANSACTION_TYPE.DBT_SUBSIDY_CREDITED,
-        ledgerDescription: `DBT subsidy credited to wallet for order ${order.orderId}`,
+        bucket: "lockedSubsidy",
+        ledgerType: LEDGER_TRANSACTION_TYPE.DBT_SUBSIDY_LOCKED,
+        ledgerDescription: `DBT subsidy locked for order ${order.orderId}`,
         reference: order.orderId,
         session,
       });

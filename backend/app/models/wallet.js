@@ -30,6 +30,11 @@ const walletSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    lockedSubsidyBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     cashInHand: {
       type: Number,
       default: 0,

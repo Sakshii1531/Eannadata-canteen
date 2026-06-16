@@ -405,6 +405,82 @@ export async function movePendingToAvailable({
   };
 }
 
+export async function moveLockedSubsidyToAvailable({
+  ownerType,
+  ownerId,
+  amount,
+  session,
+  ledgerType = null,
+  ledgerStatus = null,
+  ledgerReference = "",
+  ledgerDescription = "",
+  orderId = null,
+  payoutId = null,
+  paymentMode = null,
+  metadata = null,
+  idempotencyKey = null,
+  correlationId = null,
+  syncUserWalletBalance = true,
+}) {
+  const normalizedAmount = assertPositiveAmount(amount);
+  const wallet = await getOrCreateWallet(ownerType, ownerId, { session });
+
+  if (wallet.lockedSubsidyBalance < normalizedAmount) {
+    throw new Error("Insufficient locked subsidy balance");
+  }
+
+  const lockedBefore = roundCurrency(wallet.lockedSubsidyBalance);
+  const availableBefore = roundCurrency(wallet.availableBalance);
+
+  wallet.lockedSubsidyBalance = roundCurrency(wallet.lockedSubsidyBalance - normalizedAmount);
+  wallet.availableBalance = roundCurrency(wallet.availableBalance + normalizedAmount);
+  await wallet.save({ session });
+
+  await maybeSyncUserWalletBalance({
+    ownerType,
+    ownerId,
+    signedDelta: normalizedAmount,
+    syncUserWalletBalance,
+    session,
+  });
+
+  const ledgerEntry = await maybeWriteLedgerEntry({
+    wallet,
+    ownerType,
+    ownerId,
+    before: availableBefore,
+    after: roundCurrency(wallet.availableBalance),
+    amount: normalizedAmount,
+    direction: LEDGER_DIRECTION.CREDIT,
+    ledgerType,
+    ledgerStatus,
+    ledgerReference,
+    ledgerDescription,
+    orderId,
+    payoutId,
+    paymentMode,
+    metadata: {
+      ...(metadata || {}),
+      bucket: "lockedSubsidy->available",
+      lockedBefore,
+      lockedAfter: roundCurrency(wallet.lockedSubsidyBalance),
+    },
+    idempotencyKey,
+    correlationId,
+    session,
+  });
+
+  return {
+    wallet,
+    amount: normalizedAmount,
+    lockedBefore,
+    lockedAfter: roundCurrency(wallet.lockedSubsidyBalance),
+    availableBefore,
+    availableAfter: roundCurrency(wallet.availableBalance),
+    ledgerEntry,
+  };
+}
+
 export async function updateCashInHand({
   ownerType,
   ownerId,

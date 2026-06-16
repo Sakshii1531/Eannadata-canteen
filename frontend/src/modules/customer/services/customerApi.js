@@ -156,4 +156,7 @@ export const customerApi = {
     axiosInstance.get(`/push/test-status/${encodeURIComponent(String(orderId || "").trim())}`),
   notifyMe: (productId, data = {}) =>
     axiosInstance.post(`/products/${encodeURIComponent(productId)}/notify-me`, data),
+  requestWithdrawal: (data) =>
+    axiosInstance.post("/customer/request-withdrawal", data),
 };
+

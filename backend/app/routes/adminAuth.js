@@ -24,6 +24,7 @@ import {
     rejectSellerApplication,
     getSellerWithdrawals,
     getDeliveryWithdrawals,
+    getCustomerWithdrawals,
     updateWithdrawalStatus,
     getSellerTransactions,
     getDeliveryCashBalances,
@@ -204,6 +205,7 @@ router.get("/cash-history", verifyToken, allowRoles("admin"), getCashSettlementH
 // Seller Withdrawal Management
 router.get("/seller-withdrawals", verifyToken, allowRoles("admin"), getSellerWithdrawals);
 router.get("/delivery-withdrawals", verifyToken, allowRoles("admin"), getDeliveryWithdrawals);
+router.get("/customer-withdrawals", verifyToken, allowRoles("admin"), getCustomerWithdrawals);
 router.get("/seller-transactions", verifyToken, allowRoles("admin"), getSellerTransactions);
 router.put("/withdrawals/:id", verifyToken, allowRoles("admin"), updateWithdrawalStatus);
 

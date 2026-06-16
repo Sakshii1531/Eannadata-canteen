@@ -429,6 +429,7 @@ export async function hydrateOrderItems(
       variantSku: rawVariantSku || "",
       variantName: resolvedVariant ? String(resolvedVariant?.name || "").trim() : "",
       subsidyDiscountPercent,
+      subsidyDiscount: subsidyDiscountPercent > 0 ? roundCurrency(inferredUnitPrice * quantity * subsidyDiscountPercent / 100) : 0,
     };
   });
 }
