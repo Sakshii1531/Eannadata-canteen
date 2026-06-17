@@ -7,6 +7,7 @@ import LiveTrackingMap from "../components/order/LiveTrackingMap";
 import DeliveryOtpDisplay from "../components/DeliveryOtpDisplay";
 import OrderProgressTracker from "../components/order/OrderProgressTracker";
 import ReturnProgressTracker from "../components/order/ReturnProgressTracker";
+import RefundPayoutForm from "../components/RefundPayoutForm";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import {
   ChevronLeft,
@@ -27,6 +28,10 @@ import {
   Navigation2,
   Camera,
   X,
+  Shield,
+  Landmark,
+  Smartphone,
+  AlertCircle,
 } from "lucide-react";
 import { customerApi } from "../services/customerApi";
 import { toast } from "sonner";
@@ -143,6 +148,7 @@ const OrderDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [returnDetails, setReturnDetails] = useState(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showRefundPayoutForm, setShowRefundPayoutForm] = useState(false);
   const [requestingReturn, setRequestingReturn] = useState(false);
   const [selectedReturnItems, setSelectedReturnItems] = useState({});
   const [returnReason, setReturnReason] = useState("");
@@ -156,6 +162,46 @@ const OrderDetailPage = () => {
   const [routePolyline, setRoutePolyline] = useState(null);
   const [handoffOtp, setHandoffOtp] = useState(null);
   const [clockTick, setClockTick] = useState(Date.now());
+
+  // Return modal multi-step states
+  const [returnModalStep, setReturnModalStep] = useState("RETURN_DETAILS"); // "RETURN_DETAILS" or "BANK_DETAILS"
+  const [isReturnSubmitted, setIsReturnSubmitted] = useState(false);
+  const [showPayoutAccountNumber, setShowPayoutAccountNumber] = useState(false);
+  const [payoutMethod, setPayoutMethod] = useState("UPI");
+  const [payoutHolderName, setPayoutHolderName] = useState("");
+  const [payoutUpiId, setPayoutUpiId] = useState("");
+  const [payoutAccountNumber, setPayoutAccountNumber] = useState("");
+  const [payoutConfirmAccountNumber, setPayoutConfirmAccountNumber] = useState("");
+  const [payoutIfscCode, setPayoutIfscCode] = useState("");
+  const [payoutIfscError, setPayoutIfscError] = useState("");
+  const [payoutBankName, setPayoutBankName] = useState("");
+  const [payoutEmail, setPayoutEmail] = useState("");
+  const [payoutMobile, setPayoutMobile] = useState("");
+
+  // Pre-fill payout details
+  useEffect(() => {
+    if (order) {
+      if (order.customerName) {
+        setPayoutHolderName(order.customerName);
+      }
+      if (order.customerPhone || order.customer?.phone) {
+        setPayoutMobile(order.customerPhone || order.customer?.phone || "");
+      }
+      if (order.customerEmail || order.customer?.email) {
+        setPayoutEmail(order.customerEmail || order.customer?.email || "");
+      }
+    }
+  }, [order]);
+
+  // Reset modal step when opened
+  useEffect(() => {
+    if (showReturnModal) {
+      setReturnModalStep("RETURN_DETAILS");
+      setIsReturnSubmitted(false);
+      setShowPayoutAccountNumber(false);
+      setPayoutIfscError("");
+    }
+  }, [showReturnModal]);
 
   const refreshRef = useRef({ inFlight: false, lastAt: 0 });
   const extraRoomRef = useRef("");
@@ -589,26 +635,113 @@ const OrderDetailPage = () => {
     });
   };
 
-  const handleReturnSubmit = async () => {
-    if (!order) return;
+  const validateReturnDetails = () => {
     if (!Object.keys(selectedReturnItems).length) {
       toast.error("Please select at least one item to return.");
-      return;
+      return false;
     }
     if (!returnReason.trim()) {
       toast.error("Please provide a reason for return.");
-      return;
-    }
-    if (!returnConditionAssurance) {
-      toast.error("Please confirm that the product is in good condition with accessories.");
-      return;
+      return false;
     }
     if (returnImages.length === 0) {
       toast.error("Please upload at least 1 image of the product.");
-      return;
+      return false;
+    }
+    if (!returnConditionAssurance) {
+      toast.error("Please confirm that the product is in good condition with accessories.");
+      return false;
+    }
+    return true;
+  };
+
+  const validateIfscCode = (value) => {
+    const val = (value || "").trim().toUpperCase();
+    if (!val) {
+      return "IFSC Code is required";
+    }
+    const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+    if (!ifscRegex.test(val)) {
+      return "Enter a valid IFSC code (e.g. SBIN0001234)";
+    }
+    return "";
+  };
+
+  const validatePayoutDetails = () => {
+    if (!payoutHolderName.trim()) {
+      toast.error("Account holder name is required");
+      return false;
+    }
+    const nameRegex = /^[a-zA-Z0-9\s.]{2,100}$/;
+    if (!nameRegex.test(payoutHolderName.trim())) {
+      toast.error("Enter a valid account holder name (2-100 chars, alphanumeric, spaces and dots only)");
+      return false;
     }
 
-    const payload = {
+    if (payoutEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(payoutEmail.trim())) {
+        toast.error("Enter a valid email address");
+        return false;
+      }
+    }
+
+    if (payoutMobile.trim()) {
+      const mobileRegex = /^\+?[0-9]{10,15}$/;
+      if (!mobileRegex.test(payoutMobile.trim())) {
+        toast.error("Enter a valid mobile number (10-15 digits)");
+        return false;
+      }
+    }
+
+    if (payoutMethod === "UPI") {
+      if (!payoutUpiId.trim()) {
+        toast.error("UPI ID is required");
+        return false;
+      }
+      const upiRegex = /^[a-zA-Z0-9._\-]{2,256}@[a-zA-Z]{2,64}$/;
+      if (!upiRegex.test(payoutUpiId.trim().toLowerCase())) {
+        toast.error("Enter a valid UPI ID (e.g. name@bank)");
+        return false;
+      }
+    } else {
+      if (!payoutAccountNumber.trim()) {
+        toast.error("Bank account number is required");
+        return false;
+      }
+      const accountRegex = /^\d{9,18}$/;
+      if (!accountRegex.test(payoutAccountNumber.trim())) {
+        toast.error("Account number must be 9-18 digits");
+        return false;
+      }
+      if (payoutAccountNumber.trim() !== payoutConfirmAccountNumber.trim()) {
+        toast.error("Account numbers do not match");
+        return false;
+      }
+      const ifscErr = validateIfscCode(payoutIfscCode);
+      if (ifscErr) {
+        setPayoutIfscError(ifscErr);
+        toast.error(ifscErr);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleCloseReturnModal = () => {
+    if (requestingReturn) return;
+    if (isReturnSubmitted) {
+      toast.warning("Return request created, but refund payout details were not submitted. Click 'Manage Refund Payout Details' to add them.");
+    }
+    setShowReturnModal(false);
+  };
+
+  const handleReturnSubmit = async () => {
+    if (!order) return;
+    if (!validateReturnDetails()) return;
+    if (!validatePayoutDetails()) return;
+
+    const returnPayload = {
       items: Object.entries(selectedReturnItems).map(([idx, val]) => ({
         itemIndex: Number(idx),
         quantity: val.quantity,
@@ -619,11 +752,42 @@ const OrderDetailPage = () => {
       images: returnImages,
     };
 
+    const payoutPayload = {
+      refundMethod: payoutMethod,
+      accountHolderName: payoutHolderName.trim(),
+      mobile: payoutMobile.trim() || undefined,
+      email: payoutEmail.trim() || undefined,
+    };
+
+    if (payoutMethod === "UPI") {
+      payoutPayload.upiId = payoutUpiId.trim().toLowerCase();
+    } else {
+      payoutPayload.accountNumber = payoutAccountNumber.trim();
+      payoutPayload.confirmAccountNumber = payoutConfirmAccountNumber.trim();
+      payoutPayload.ifscCode = payoutIfscCode.trim().toUpperCase();
+      payoutPayload.bankName = payoutBankName.trim() || undefined;
+    }
+
     try {
       setRequestingReturn(true);
-      await customerApi.requestReturn(order.orderId, payload);
-      toast.success("Return request submitted");
+      let freshOrder = order;
+
+      // 1. Submit return request first if not already done
+      if (!isReturnSubmitted) {
+        const res = await customerApi.requestReturn(order.orderId, returnPayload);
+        if (res.data?.result) {
+          freshOrder = res.data.result;
+        }
+        setIsReturnSubmitted(true);
+      }
+
+      // 2. Submit refund payout details
+      await customerApi.submitRefundPayoutDetails(order.orderId, payoutPayload);
+
+      toast.success("Return request and refund payout details submitted successfully.");
       setShowReturnModal(false);
+
+      // Reset modal fields
       setSelectedReturnItems({});
       setReturnReason("");
       setReturnReasonDetail("");
@@ -632,18 +796,14 @@ const OrderDetailPage = () => {
 
       const [orderRes, retRes] = await Promise.all([
         customerApi.getOrderDetails(orderId),
-        customerApi.getReturnDetails(resolveOrderLookupId(order)),
+        customerApi.getReturnDetails(resolveOrderLookupId(freshOrder)),
       ]);
       setOrder(orderRes.data.result);
       setReturnDetails(retRes.data.result);
     } catch (error) {
-      console.error("Failed to submit return request", error);
-      const msg = error.response?.data?.message || "Failed to submit return request";
-      if (msg.toLowerCase().includes("return is available after")) {
-        toast.message(msg);
-      } else {
-        toast.error(msg);
-      }
+      console.error("Failed to submit return request and payout details", error);
+      const msg = error.response?.data?.message || "Failed to submit request";
+      toast.error(msg);
     } finally {
       setRequestingReturn(false);
     }
@@ -1127,6 +1287,18 @@ const OrderDetailPage = () => {
                       </p>
                     </div>
                   )}
+
+                {returnDetails.returnStatus !== "refund_completed" && (
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    <button
+                      onClick={() => setShowRefundPayoutForm(true)}
+                      className="w-full py-3 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold shadow-md shadow-brand-100 transition-all flex items-center justify-center gap-2 active:scale-95"
+                    >
+                      <Shield size={16} />
+                      Manage Refund Payout Details
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-slate-500 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
@@ -1160,150 +1332,400 @@ const OrderDetailPage = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => !requestingReturn && setShowReturnModal(false)}
+            onClick={handleCloseReturnModal}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="relative z-10 w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 space-y-4"
           >
-            <h3 className="text-lg font-black text-slate-900">
-              Request Return
-            </h3>
-            <p className="text-xs text-slate-500">
-              Select the items you want to return and tell us why.
-            </p>
-            <div className="max-h-48 overflow-y-auto space-y-3">
-              {order.items.map((item, idx) => {
-                if (!isItemReturnEligible(item)) return null;
-                const checked = !!selectedReturnItems[idx];
-                return (
-                  <label
-                    key={idx}
-                    className="flex items-center gap-3 p-3 rounded-2xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+            {returnModalStep === "RETURN_DETAILS" ? (
+              <>
+                <h3 className="text-lg font-black text-slate-900">
+                  Request Return
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Select the items you want to return and tell us why.
+                </p>
+                <div className="max-h-48 overflow-y-auto space-y-3">
+                  {order.items.map((item, idx) => {
+                    if (!isItemReturnEligible(item)) return null;
+                    const checked = !!selectedReturnItems[idx];
+                    return (
+                      <label
+                        key={idx}
+                        className="flex items-center gap-3 p-3 rounded-2xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleItemSelection(idx)}
+                          className="h-4 w-4 rounded border-slate-300 text-slate-900"
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-800">
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Qty: {item.quantity} • ₹{item.price * item.quantity}
+                          </p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-600">
+                      Reason for return
+                    </label>
+                    <select
+                      value={returnReason}
+                      onChange={(e) => setReturnReason(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/10"
+                    >
+                      <option value="" disabled>Select a reason...</option>
+                      <option value="Defective product">Defective product</option>
+                      <option value="Wrong item delivered">Wrong item delivered</option>
+                      <option value="Not as expected">Not as expected</option>
+                      <option value="Size issue">Size issue</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-600">
+                      Detailed Issue Mention
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={returnReasonDetail}
+                      onChange={(e) => setReturnReasonDetail(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/10"
+                      placeholder="Describe the issue with the product..."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-600 uppercase">
+                      Photos ({returnImages.length}/5) *
+                    </p>
+                    <p className="text-[11px] text-slate-400 -mt-1">Upload at least 1 photo and up to 5 photos of the product.</p>
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {returnImages.map((img, index) => (
+                        <div key={index} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0">
+                          <img src={img} alt="proof" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center cursor-pointer hover:bg-black/80"
+                          >
+                            <X size={12} className="text-white" />
+                          </button>
+                        </div>
+                      ))}
+                      {returnImages.length < 5 && (
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingImage}
+                          className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors shrink-0"
+                        >
+                          {isUploadingImage ? (
+                            <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+                          ) : (
+                            <Camera className="w-5 h-5 text-slate-400" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                  </div>
+
+                  <label className="flex items-start gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-200 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleItemSelection(idx)}
-                      className="h-4 w-4 rounded border-slate-300 text-slate-900"
+                      checked={returnConditionAssurance}
+                      onChange={(e) => setReturnConditionAssurance(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600"
                     />
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-800">
-                        {item.name}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Qty: {item.quantity} • ₹{item.price * item.quantity}
-                      </p>
-                    </div>
+                    <span className="text-xs font-semibold text-amber-900 leading-tight">
+                      I confirm the product is returned with proper accessories and is in good condition.
+                    </span>
                   </label>
-                );
-              })}
-            </div>
+                </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-600">
-                  Reason for return
-                </label>
-                <select
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/10"
-                >
-                  <option value="" disabled>Select a reason...</option>
-                  <option value="Defective product">Defective product</option>
-                  <option value="Wrong item delivered">Wrong item delivered</option>
-                  <option value="Not as expected">Not as expected</option>
-                  <option value="Size issue">Size issue</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-600">
-                  Detailed Issue Mention
-                </label>
-                <textarea
-                  rows={2}
-                  value={returnReasonDetail}
-                  onChange={(e) => setReturnReasonDetail(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/10"
-                  placeholder="Describe the issue with the product..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-slate-600 uppercase">
-                  Photos ({returnImages.length}/5) *
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    onClick={handleCloseReturnModal}
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                    disabled={requestingReturn}>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (validateReturnDetails()) {
+                        setReturnModalStep("BANK_DETAILS");
+                      }
+                    }}
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 transition-all flex items-center gap-1"
+                    disabled={requestingReturn}>
+                    Continue
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleReturnSubmit();
+                }}
+                className="space-y-4"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Shield size={20} className="text-brand-600" />
+                  <h3 className="text-lg font-black text-slate-900">
+                    Refund Payout Details
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Provide your transfer details. They are stored with secure 256-bit encryption.
                 </p>
-                <p className="text-[11px] text-slate-400 -mt-1">Upload at least 1 photo and up to 5 photos of the product.</p>
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {returnImages.map((img, index) => (
-                    <div key={index} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0">
-                      <img src={img} alt="proof" className="w-full h-full object-cover" />
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                      Refund Payout Option
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center cursor-pointer hover:bg-black/80"
+                        onClick={() => setPayoutMethod("UPI")}
+                        className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border-2 font-bold text-xs transition-all ${
+                          payoutMethod === "UPI"
+                            ? "border-brand-600 bg-brand-50/50 text-brand-700"
+                            : "border-slate-200 hover:border-slate-300 text-slate-600"
+                        }`}
                       >
-                        <X size={12} className="text-white" />
+                        <Smartphone size={14} />
+                        UPI ID
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPayoutMethod("BANK_ACCOUNT")}
+                        className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border-2 font-bold text-xs transition-all ${
+                          payoutMethod === "BANK_ACCOUNT"
+                            ? "border-brand-600 bg-brand-50/50 text-brand-700"
+                            : "border-slate-200 hover:border-slate-300 text-slate-600"
+                        }`}
+                      >
+                        <Landmark size={14} />
+                        Bank Account
                       </button>
                     </div>
-                  ))}
-                  {returnImages.length < 5 && (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploadingImage}
-                      className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors shrink-0"
-                    >
-                      {isUploadingImage ? (
-                        <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
-                      ) : (
-                        <Camera className="w-5 h-5 text-slate-400" />
-                      )}
-                    </button>
-                  )}
+                  </div>
+
+                  <div className="space-y-3 max-h-72 overflow-y-auto px-1">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                        Account Holder Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="As registered in bank/UPI profile"
+                        value={payoutHolderName}
+                        onChange={(e) => setPayoutHolderName(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-semibold"
+                      />
+                    </div>
+
+                    {payoutMethod === "UPI" ? (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                          UPI ID *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. accountname@okaxis"
+                          value={payoutUpiId}
+                          onChange={(e) => setPayoutUpiId(e.target.value)}
+                          onBlur={() => setPayoutUpiId(payoutUpiId.trim().toLowerCase())}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-mono font-semibold"
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                            Bank Account Number *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showPayoutAccountNumber ? "text" : "password"}
+                              required
+                              placeholder="Enter account number"
+                              value={payoutAccountNumber}
+                              onChange={(e) => setPayoutAccountNumber(e.target.value.replace(/\D/g, ""))}
+                              maxLength={18}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-mono font-semibold"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPayoutAccountNumber(!showPayoutAccountNumber)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-[10px] font-semibold"
+                            >
+                              {showPayoutAccountNumber ? "Hide" : "Show"}
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                            Confirm Bank Account Number *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Re-enter account number"
+                            value={payoutConfirmAccountNumber}
+                            onChange={(e) => setPayoutConfirmAccountNumber(e.target.value.replace(/\D/g, ""))}
+                            maxLength={18}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-mono font-semibold"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                              IFSC Code *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="SBIN0001234"
+                              value={payoutIfscCode}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+                                setPayoutIfscCode(val);
+                              }}
+                              onBlur={(e) => {
+                                const trimmed = e.target.value.trim();
+                                setPayoutIfscCode(trimmed);
+                                setPayoutIfscError(validateIfscCode(trimmed));
+                              }}
+                              maxLength={11}
+                              pattern="^[A-Za-z]{4}0[A-Za-z0-9]{6}$"
+                              title="IFSC code must be 11 characters (e.g. SBIN0001234), with 4 letters, followed by a 0, then 6 letters or digits."
+                              className={`w-full bg-slate-50 border rounded-xl px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-mono uppercase font-semibold ${
+                                payoutIfscError ? "border-rose-400 focus:ring-rose-200" : "border-slate-200"
+                              }`}
+                            />
+                            {payoutIfscError && (
+                              <p className="text-[10px] text-rose-500 mt-1 font-semibold leading-normal">
+                                {payoutIfscError}
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 block mb-1">
+                              Bank Name (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g. HDFC Bank"
+                              value={payoutBankName}
+                              onChange={(e) => setPayoutBankName(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-800 font-semibold"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-2.5 mt-2">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 block mb-1">
+                          Mobile for Alerts
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Phone number"
+                          value={payoutMobile}
+                          onChange={(e) => setPayoutMobile(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-[11px] focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-800"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 block mb-1">
+                          Email for Alerts
+                        </label>
+                        <input
+                          type="email"
+                          placeholder="Email address"
+                          value={payoutEmail}
+                          onChange={(e) => setPayoutEmail(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-[11px] focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none text-slate-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImageSelect}
-                  className="hidden"
-                />
-              </div>
 
-              <label className="flex items-start gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-200 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={returnConditionAssurance}
-                  onChange={(e) => setReturnConditionAssurance(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600"
-                />
-                <span className="text-xs font-semibold text-amber-900 leading-tight">
-                  I confirm the product is returned with proper accessories and is in good condition.
-                </span>
-              </label>
-            </div>
+                <div className="bg-amber-50 border border-amber-150 rounded-2xl p-3 flex gap-2 text-amber-900 text-[10px] leading-relaxed">
+                  <AlertCircle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p>
+                    Verify all bank details are correct. Inaccurate details can lead to failed or delayed transfers.
+                  </p>
+                </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => !requestingReturn && setShowReturnModal(false)}
-                className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors"
-                disabled={requestingReturn}>
-                Cancel
-              </button>
-              <button
-                onClick={handleReturnSubmit}
-                className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-70 transition-all"
-                disabled={requestingReturn}>
-                {requestingReturn ? "Submitting..." : "Submit Request"}
-              </button>
-            </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setReturnModalStep("RETURN_DETAILS")}
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                    disabled={requestingReturn}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-70 transition-all flex items-center justify-center gap-2"
+                    disabled={requestingReturn}
+                  >
+                    {requestingReturn ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      "Confirm & Submit"
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
           </motion.div>
         </div>
+      )}
+
+      {/* Refund Payout Details Portal Modal */}
+      {showRefundPayoutForm && (
+        <RefundPayoutForm
+          order={order}
+          onClose={() => setShowRefundPayoutForm(false)}
+          onSuccess={(record) => {
+            customerApi.getOrderDetails(orderId).then(res => setOrder(res.data.result));
+            customerApi.getReturnDetails(resolveOrderLookupId(order)).then(res => setReturnDetails(res.data.result));
+          }}
+        />
       )}
     </div>
   );

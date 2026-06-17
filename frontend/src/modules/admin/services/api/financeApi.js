@@ -47,6 +47,16 @@ export const adminFinanceApi = {
     settleRiderCash: (data) => axiosInstance.post('/admin/settle-cash', data),
     getCashSettlementHistory: (params) =>
         axiosInstance.get('/admin/cash-history', { params }),
+
+    // Refund Payouts
+    listRefundPayouts: (params) =>
+        axiosInstance.get('/admin/refund-payouts', { params }),
+    getRefundPayoutDetail: (id) =>
+        axiosInstance.get(`/admin/refund-payouts/${id}`),
+    decryptRefundPayout: (id) =>
+        axiosInstance.post(`/admin/refund-payouts/${id}/decrypt`),
+    updateRefundPayoutStatus: (id, data) =>
+        axiosInstance.patch(`/admin/refund-payouts/${id}/status`, data),
 };
 
 export default adminFinanceApi;

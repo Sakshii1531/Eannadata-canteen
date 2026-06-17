@@ -92,6 +92,7 @@ const ShopByStoreManagement = React.lazy(
 const AdminSettings = React.lazy(() => import("../pages/AdminSettings"));
 const EnvSettings = React.lazy(() => import("../pages/EnvSettings"));
 const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
+const RefundPayoutManagement = React.lazy(() => import("../pages/RefundPayoutManagement"));
 
 const navItems = [
   {
@@ -162,6 +163,12 @@ const navItems = [
     path: "/admin/withdrawals",
     icon: Banknote,
     color: "cyan",
+  },
+  {
+    label: "Refund Payouts",
+    path: "/admin/refund-payouts",
+    icon: RotateCcw,
+    color: "rose",
   },
   {
     label: "Seller Payments",
@@ -264,6 +271,7 @@ const AdminRoutes = () => {
         <Route path="/delivery-funds" element={<DeliveryFunds />} />
         <Route path="/wallet" element={<AdminWallet />} />
         <Route path="/withdrawals" element={<WithdrawalRequests />} />
+        <Route path="/refund-payouts" element={<RefundPayoutManagement />} />
         <Route path="/seller-transactions" element={<SellerTransactions />} />
         <Route path="/cash-collection" element={<CashCollection />} />
         <Route path="/customers" element={<CustomerManagement />} />
