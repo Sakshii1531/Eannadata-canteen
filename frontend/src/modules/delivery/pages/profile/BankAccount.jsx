@@ -4,17 +4,19 @@ import { ArrowLeft, Landmark, CreditCard, AlertTriangle, CheckCircle2 } from "lu
 import Button from "@/shared/components/ui/Button";
 import Card from "@/shared/components/ui/Card";
 import Input from "@/shared/components/ui/Input";
+import { useAuth } from "@core/context/AuthContext";
 
 const BankAccount = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const bankDetails = {
-    accountHolder: "RAHUL KUMAR",
-    accountNumber: "XXXXXXXX8921",
-    ifsc: "HDFC0001234",
+    accountHolder: user?.accountHolder || "RAHUL KUMAR",
+    accountNumber: user?.accountNumber ? `XXXXXX${user.accountNumber.slice(-4)}` : "XXXXXXXX8921",
+    ifsc: user?.ifsc || "HDFC0001234",
     bankName: "HDFC Bank",
     branch: "MG Road, Bangalore",
-    status: "Verified",
+    status: user?.isVerified ? "Verified" : "Pending",
   };
 
   return (

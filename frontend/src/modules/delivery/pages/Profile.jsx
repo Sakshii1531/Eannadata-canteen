@@ -26,7 +26,7 @@ import { useEffect } from 'react';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { settings } = useSettings();
   const appName = settings?.appName || "eAnnadata canteen";
   const [faqs, setFaqs] = useState([]);
@@ -61,7 +61,7 @@ const Profile = () => {
     {
       icon: CreditCard,
       label: "Bank Account",
-      sub: "HDFC Bank **** 8921",
+      sub: user?.accountNumber ? `Account **** ${user.accountNumber.slice(-4)}` : "HDFC Bank **** 8921",
       color: "text-brand-600 bg-brand-50",
       path: "/delivery/profile/bank-account",
     },
@@ -75,7 +75,7 @@ const Profile = () => {
     {
       icon: FileText,
       label: "Documents",
-      sub: "Aadhar, PAN, DL (Verified)",
+      sub: user?.isVerified ? "Aadhar, PAN, DL (Verified)" : "Aadhar, PAN, DL (Pending)",
       color: "text-purple-600 bg-purple-50",
       path: "/delivery/profile/documents",
     },
@@ -134,7 +134,7 @@ const Profile = () => {
           <div className="relative">
             <div className="w-20 h-20 bg-white rounded-full p-1 shadow-lg">
               <img
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
+                src={user?.profileImage || "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"}
                 alt="Profile"
                 className="w-full h-full rounded-full object-cover bg-gray-100"
               />
@@ -142,16 +142,16 @@ const Profile = () => {
             <div className="absolute bottom-0 right-0 w-6 h-6 bg-brand-500 border-2 border-white rounded-full"></div>
           </div>
           <div className="text-white">
-            <h2 className="font-bold text-xl">Rahul Kumar</h2>
+            <h2 className="font-bold text-xl">{user?.name || "Delivery Partner"}</h2>
             <p className="text-white/80 text-sm flex items-center mb-1">
-              <Phone size={14} className="mr-1" /> +91 98765 43210
+              <Phone size={14} className="mr-1" /> {user?.phone ? `+91 ${user.phone}` : "+91 98765 43210"}
             </p>
             <div className="flex items-center space-x-2">
               <span className="bg-white/20 px-2 py-0.5 rounded text-xs font-medium backdrop-blur-sm">
-                ID: 882190
+                ID: {user?.id ? user.id.slice(-6).toUpperCase() : "882190"}
               </span>
-              <span className="bg-brand-500 text-primary-foreground px-2 py-0.5 rounded text-xs font-bold shadow-sm">
-                VERIFIED
+              <span className={`px-2 py-0.5 rounded text-xs font-bold shadow-sm ${user?.isVerified ? "bg-brand-500 text-primary-foreground" : "bg-amber-500 text-white"}`}>
+                {user?.isVerified ? "VERIFIED" : "PENDING"}
               </span>
             </div>
           </div>
