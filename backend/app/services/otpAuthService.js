@@ -146,7 +146,7 @@ export async function issueCustomerOtp({
     throw err;
   }
 
-  let otp = "1234";
+  let otp = generateOTP();
   customer.otpHash = hashOtp(phone, otp);
   customer.otpExpiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES() * 60 * 1000);
   customer.otpFailedAttempts = 0;

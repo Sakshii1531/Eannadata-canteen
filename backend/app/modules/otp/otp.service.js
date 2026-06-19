@@ -173,7 +173,7 @@ export async function sendSmsOtp({ mobile, userType, purpose, ipAddress = "unkno
     throw error;
   }
 
-  let otp = "1234";
+  let otp = generateOTP();
   const expiresAt = new Date(Date.now() + getExpiryMinutes() * 60 * 1000);
 
   await OtpSession.deleteMany({ mobile: normalizedMobile, userType, purpose });
