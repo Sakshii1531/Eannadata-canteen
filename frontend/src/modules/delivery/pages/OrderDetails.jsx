@@ -13,6 +13,7 @@ import {
   User,
   AlertTriangle,
   ShieldCheck,
+  IndianRupee,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/shared/components/ui/Button";
@@ -618,7 +619,8 @@ const OrderDetails = () => {
             )}
           </span>
           {(order.payment?.method?.toLowerCase() === "cash" ||
-            order.payment?.method?.toLowerCase() === "cod") &&
+            order.payment?.method?.toLowerCase() === "cod" ||
+            order.paymentMode?.toUpperCase() === "COD") &&
             !isReturn &&
             step < 4 && (
               <span className={`mt-1 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm animate-pulse bg-orange-600`}>
@@ -903,6 +905,25 @@ const OrderDetails = () => {
               animate="visible"
             >
               <Card className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                {/* Prominent COD cash collection banner */}
+                {(order.payment?.method?.toLowerCase() === "cash" ||
+                  order.payment?.method?.toLowerCase() === "cod" ||
+                  order.paymentMode?.toUpperCase() === "COD") &&
+                  !isReturn && (
+                  <div className="bg-orange-50 border-b border-orange-100 p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">
+                        COD COLLECTION REQUIRED
+                      </p>
+                      <p className="text-lg font-black text-orange-950 mt-0.5">
+                        Collect: ₹{Math.max(0, (order.pricing?.total || 0) - (order.pricing?.walletAmount || 0))}
+                      </p>
+                    </div>
+                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                      <IndianRupee size={20} />
+                    </div>
+                  </div>
+                )}
                 <div className="p-4 border-b border-gray-100 bg-brand-50/50 flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="p-2 bg-white rounded-full shadow-sm mr-3">
@@ -916,17 +937,21 @@ const OrderDetails = () => {
                       <h2 className="font-bold text-gray-800">
                         {isReturn ? "Return Drop" : "Customer Details"}
                       </h2>
-                      <div className="flex items-center space-x-2 mt-0.5">
+                      <div className="flex items-center space-x-2 mt-0.5 flex-wrap gap-y-1">
                         <p
                           className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${order.payment?.method?.toLowerCase() === "cash" ||
-                              order.payment?.method?.toLowerCase() === "cod"
+                              order.payment?.method?.toLowerCase() === "cod" ||
+                              order.paymentMode?.toUpperCase() === "COD"
                               ? "bg-orange-50 text-orange-700 border-orange-200"
                               : "bg-brand-50 text-brand-700 border-brand-200"
                             }`}
                         >
-                          {order.payment?.method?.toUpperCase() || "PENDING"}
+                          {(order.paymentMode || order.payment?.method || "COD").toUpperCase()}
                         </p>
                         <p className="text-[10px] text-gray-400 font-medium">Bill: Rs.{order.pricing?.total}</p>
+                        <p className="text-[10px] text-brand-700 font-bold bg-brand-50 border border-brand-200 px-1.5 py-0.5 rounded">
+                          Earnings: ₹{Math.round(isReturn ? (order.returnDeliveryCommission || 0) : (order.paymentBreakdown?.riderPayoutTotal || (order.pricing?.total || 0) * 0.1))}
+                        </p>
                       </div>
                     </div>
                   </div>

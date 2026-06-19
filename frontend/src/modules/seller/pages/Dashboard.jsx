@@ -201,6 +201,8 @@ const Dashboard = () => {
       qty: item.quantity ?? 1,
       image: item.image || "",
     }));
+    const subtotal = Number(order.paymentBreakdown?.productSubtotal ?? order.pricing?.subtotal ?? 0);
+    const tax = Number(order.paymentBreakdown?.taxTotal ?? order.pricing?.gst ?? 0);
     return {
       id: order.orderId,
       customer: {
@@ -209,7 +211,9 @@ const Dashboard = () => {
       },
       address: addressStr || "—",
       items,
-      total: Number(order.pricing?.total ?? 0),
+      subtotal,
+      tax,
+      total: subtotal + tax,
       status: order.status || "pending",
       payment:
         order.payment?.method === "cash" || order.payment?.method === "cod"
@@ -462,7 +466,7 @@ const Dashboard = () => {
                     <span className="text-sm text-slate-600">{new Date(order.createdAt).toLocaleDateString()}</span>
                   </td>
                   <td className="py-4 px-4 align-middle">
-                    <span className="text-sm font-semibold text-slate-900">₹{order.pricing?.total || 0}</span>
+                    <span className="text-sm font-semibold text-slate-900">₹{((order.paymentBreakdown?.productSubtotal ?? order.pricing?.subtotal ?? 0) + (order.paymentBreakdown?.taxTotal ?? order.pricing?.gst ?? 0)).toLocaleString()}</span>
                   </td>
                   <td className="py-4 px-4 align-middle">
                     <Badge variant={getStatusColor(order.status)} className="capitalize">
@@ -572,15 +576,15 @@ const Dashboard = () => {
                             Subtotal
                           </span>
                           <span className="font-black text-slate-900">
-                            ₹{(selectedOrder.total - 10).toFixed(2)}
+                            ₹{Number(selectedOrder.subtotal || 0).toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="font-bold text-slate-600">
-                            Delivery Fee
+                            Tax
                           </span>
-                          <span className="font-black text-brand-600">
-                            ₹10.00
+                          <span className="font-black text-slate-900">
+                            ₹{Number(selectedOrder.tax || 0).toFixed(2)}
                           </span>
                         </div>
                         <div className="h-px bg-primary/10 my-2" />
@@ -589,7 +593,7 @@ const Dashboard = () => {
                             Total
                           </span>
                           <span className="font-black text-primary">
-                            ₹{selectedOrder.total.toFixed(2)}
+                            ₹{Number(selectedOrder.total || 0).toFixed(2)}
                           </span>
                         </div>
                       </div>

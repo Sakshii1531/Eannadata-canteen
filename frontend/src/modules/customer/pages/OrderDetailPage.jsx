@@ -1174,6 +1174,34 @@ const OrderDetailPage = () => {
                 <span className="font-semibold">₹{order.pricing.tip}</span>
               </div>
             )}
+            {/* Platform / Handling Fee */}
+            {(order.pricing?.platformFee > 0 || order.paymentBreakdown?.handlingFeeCharged > 0) && (
+              <div className="flex justify-between text-slate-600">
+                <span>Platform/Handling Fee</span>
+                <span className="font-semibold">₹{order.pricing?.platformFee || order.paymentBreakdown?.handlingFeeCharged}</span>
+              </div>
+            )}
+            {/* GST / Tax */}
+            {(order.pricing?.gst > 0 || order.paymentBreakdown?.taxTotal > 0) && (
+              <div className="flex justify-between text-slate-600">
+                <span>Tax/GST</span>
+                <span className="font-semibold">₹{order.pricing?.gst || order.paymentBreakdown?.taxTotal}</span>
+              </div>
+            )}
+            {/* Discount */}
+            {(order.pricing?.discount > 0 || order.paymentBreakdown?.discountTotal > 0) && (
+              <div className="flex justify-between text-green-600 font-medium">
+                <span>Discount</span>
+                <span>-₹{order.pricing?.discount || order.paymentBreakdown?.discountTotal}</span>
+              </div>
+            )}
+            {/* Wallet Applied */}
+            {(order.pricing?.walletAmount > 0 || order.paymentBreakdown?.walletAmount > 0) && (
+              <div className="flex justify-between text-brand-600 font-medium">
+                <span>Wallet Applied</span>
+                <span>-₹{order.pricing?.walletAmount || order.paymentBreakdown?.walletAmount}</span>
+              </div>
+            )}
             <div className="border-t border-slate-100 mt-3 pt-3 flex justify-between items-center">
               <span className="text-base font-bold text-slate-900">
                 Total Amount

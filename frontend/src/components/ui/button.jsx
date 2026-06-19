@@ -37,7 +37,7 @@ const buttonVariants = cva(
   }
 )
 
-const Button = React.forwardRef(({ className, variant, size, asChild = false, ...props }, ref) => {
+const Button = React.forwardRef(({ className, variant, size, asChild = false, loading, ...props }, ref) => {
   // If asChild is true, we use the Slot component (no built-in motion on the wrapper)
   // If asChild is false, we use motion.button
   const Comp = asChild ? Slot : motion.button

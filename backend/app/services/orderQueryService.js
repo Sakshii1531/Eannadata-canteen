@@ -120,7 +120,14 @@ export async function fetchSellerOrdersPage({
         $group: {
           _id: null,
           totalOrders: { $sum: 1 },
-          totalAmount: { $sum: { $ifNull: ["$pricing.total", 0] } },
+          totalAmount: {
+            $sum: {
+              $add: [
+                { $ifNull: ["$paymentBreakdown.productSubtotal", { $ifNull: ["$pricing.subtotal", 0] }] },
+                { $ifNull: ["$paymentBreakdown.taxTotal", { $ifNull: ["$pricing.gst", 0] }] }
+              ]
+            }
+          },
           pending: {
             $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] },
           },

@@ -112,7 +112,9 @@ const Orders = () => {
                     qty: item.quantity,
                     image: item.image
                 })),
-                total: order.pricing?.total || 0,
+                subtotal: order.paymentBreakdown?.productSubtotal ?? order.pricing?.subtotal ?? 0,
+                tax: order.paymentBreakdown?.taxTotal ?? order.pricing?.gst ?? 0,
+                total: (order.paymentBreakdown?.productSubtotal ?? order.pricing?.subtotal ?? 0) + (order.paymentBreakdown?.taxTotal ?? order.pricing?.gst ?? 0),
                 status: getLegacyStatusFromOrder(order),
                 workflowStatus: order.workflowStatus,
                 workflowVersion: order.workflowVersion,
@@ -848,16 +850,16 @@ const Orders = () => {
                                                     <div className="space-y-2">
                                                         <div className="flex justify-between text-xs">
                                                             <span className="font-bold text-slate-600">Subtotal</span>
-                                                            <span className="font-black text-slate-900">₹{(selectedOrder.total - 10).toFixed(2)}</span>
+                                                            <span className="font-black text-slate-900">₹{Number(selectedOrder.subtotal || 0).toFixed(2)}</span>
                                                         </div>
                                                         <div className="flex justify-between text-xs">
-                                                            <span className="font-bold text-slate-600">Delivery Fee</span>
-                                                            <span className="font-black text-brand-600">₹10.00</span>
+                                                            <span className="font-bold text-slate-600">Tax</span>
+                                                            <span className="font-black text-slate-900">₹{Number(selectedOrder.tax || 0).toFixed(2)}</span>
                                                         </div>
                                                         <div className="h-px bg-primary/10 my-2" />
                                                         <div className="flex justify-between text-sm">
                                                             <span className="font-black text-slate-900">Total</span>
-                                                            <span className="font-black text-primary">₹{selectedOrder.total.toFixed(2)}</span>
+                                                            <span className="font-black text-primary">₹{Number(selectedOrder.total || 0).toFixed(2)}</span>
                                                         </div>
                                                     </div>
                                                 </div>

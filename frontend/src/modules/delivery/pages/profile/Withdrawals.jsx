@@ -33,13 +33,15 @@ const Withdrawals = () => {
             setFetching(true);
             const res = await deliveryApi.getEarnings();
             if (res.data.success) {
+                const result = res.data.result;
+                const txns = result.recentTransactions || result.transactions || [];
                 setStats({
-                    availableBalance: res.data.result.totalEarnings || 0,
-                    pendingWithdrawals: (res.data.result.recentTransactions || [])
-                        .filter(t => t.type.includes('Withdrawal') && (t.status === 'Pending' || t.status === 'Processing'))
+                    availableBalance: typeof result.availableBalance === 'number' ? result.availableBalance : (result.totalEarnings || 0),
+                    pendingWithdrawals: txns
+                        .filter(t => t.type && t.type.includes('Withdrawal') && (t.status === 'Pending' || t.status === 'Processing'))
                         .reduce((acc, t) => acc + Math.abs(t.amount), 0),
-                    history: (res.data.result.recentTransactions || [])
-                        .filter(t => t.type.includes('Withdrawal'))
+                    history: txns
+                        .filter(t => t.type && t.type.includes('Withdrawal'))
                 });
             }
         } catch (error) {

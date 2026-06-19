@@ -58,7 +58,14 @@ export const getSellerEarnings = async (req, res) => {
             {
                 $group: {
                     _id: null,
-                    totalRevenue: { $sum: { $ifNull: ["$pricing.total", 0] } },
+                    totalRevenue: {
+                        $sum: {
+                            $add: [
+                                { $ifNull: ["$paymentBreakdown.productSubtotal", { $ifNull: ["$pricing.subtotal", 0] }] },
+                                { $ifNull: ["$paymentBreakdown.taxTotal", { $ifNull: ["$pricing.gst", 0] }] }
+                            ]
+                        }
+                    },
                 },
             },
         ]);

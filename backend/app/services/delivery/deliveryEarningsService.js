@@ -109,20 +109,34 @@ async function computeDeliveryStats(deliveryBoyId) {
  * Earnings page payload: totals, 7-day chart, latest 20 transactions.
  * Cached for ~30s (`deliveryEarnings` TTL) to absorb dashboard polling.
  */
-export async function getDeliveryEarnings(rawId) {
+export async function getDeliveryEarnings(rawId, timeframe = "weekly") {
   const deliveryBoyId = toDeliveryBoyId(rawId);
-  const cacheKey = buildKey("delivery", "earnings", String(deliveryBoyId));
+  const cacheKey = buildKey("delivery", "earnings", String(deliveryBoyId), timeframe);
   return getOrSet(
     cacheKey,
-    () => computeDeliveryEarnings(deliveryBoyId),
+    () => computeDeliveryEarnings(deliveryBoyId, timeframe),
     getTTL("deliveryEarnings"),
   );
 }
 
-async function computeDeliveryEarnings(deliveryBoyId) {
+async function computeDeliveryEarnings(deliveryBoyId, timeframe) {
+  let startDate = new Date(0);
+  const now = new Date();
+  
+  if (timeframe === "today") {
+    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (timeframe === "weekly") {
+    startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - 7);
+  } else if (timeframe === "monthly") {
+    startDate = new Date(now);
+    startDate.setMonth(startDate.getMonth() - 1);
+  }
+
   const transactions = await Transaction.find({
     user: deliveryBoyId,
     userModel: "Delivery",
+    createdAt: { $gte: startDate }
   })
     .sort({ createdAt: -1 })
     .limit(200)
@@ -136,6 +150,41 @@ async function computeDeliveryEarnings(deliveryBoyId) {
   })
     .select("cashInHand")
     .lean();
+
+  const allTx = await Transaction.find({
+    user: deliveryBoyId,
+    userModel: "Delivery",
+  }).lean();
+
+  const settledEarnings = allTx
+    .filter(
+      (t) =>
+        t.status === "Settled" &&
+        (t.type === "Delivery Earning" ||
+          t.type === "Incentive" ||
+          t.type === "Bonus"),
+    )
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
+
+  const withdrawals = allTx
+    .filter(
+      (t) =>
+        t.type === "Withdrawal" &&
+        ["Settled", "Pending", "Processing"].includes(t.status),
+    )
+    .reduce((acc, t) => acc + Math.abs(t.amount || 0), 0);
+
+  const availableBalance = roundCurrency(Math.max(0, settledEarnings - withdrawals));
+
+  const recentTransactions = allTx
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .map(t => ({
+      id: t.reference || String(t._id),
+      amount: t.amount,
+      status: t.status,
+      date: t.createdAt,
+      type: t.type,
+    }));
 
   const totalEarnings = transactions
     .filter(
@@ -215,8 +264,10 @@ async function computeDeliveryEarnings(deliveryBoyId) {
     incentives,
     tipsReceived,
     cashCollected,
+    availableBalance,
     chartData,
     transactions: transactions.slice(0, 20),
+    recentTransactions: recentTransactions,
   };
 }
 

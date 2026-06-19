@@ -1,5 +1,6 @@
 import Delivery from "../../models/delivery.js";
 import Order from "../../models/order.js";
+import Transaction from "../../models/transaction.js";
 import handleResponse from "../../utils/helper.js";
 import getPagination from "../../utils/pagination.js";
 
@@ -34,8 +35,63 @@ export const getDeliveryPartners = async (req, res) => {
       Delivery.countDocuments(query),
     ]);
 
+    // Enrich each partner with todayEarnings and totalDeliveries
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const partnerIds = deliveryPartners.map((dp) => dp._id);
+
+    const [earningsAgg, deliveryCounts] = await Promise.all([
+      // Today's earnings per partner
+      Transaction.aggregate([
+        {
+          $match: {
+            user: { $in: partnerIds },
+            userModel: "Delivery",
+            status: "Settled",
+            type: { $in: ["Delivery Earning", "Incentive", "Bonus"] },
+            createdAt: { $gte: startOfToday },
+          },
+        },
+        {
+          $group: {
+            _id: "$user",
+            todayEarnings: { $sum: "$amount" },
+          },
+        },
+      ]),
+      // Total delivered orders per partner
+      Order.aggregate([
+        {
+          $match: {
+            deliveryBoy: { $in: partnerIds },
+            status: "delivered",
+          },
+        },
+        {
+          $group: {
+            _id: "$deliveryBoy",
+            totalDeliveries: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    const earningsMap = new Map(
+      earningsAgg.map((e) => [String(e._id), e.todayEarnings]),
+    );
+    const deliveryMap = new Map(
+      deliveryCounts.map((d) => [String(d._id), d.totalDeliveries]),
+    );
+
+    const enrichedPartners = deliveryPartners.map((dp) => ({
+      ...dp,
+      todayEarnings: earningsMap.get(String(dp._id)) || 0,
+      totalDeliveries: deliveryMap.get(String(dp._id)) || 0,
+    }));
+
     return handleResponse(res, 200, "Delivery partners fetched successfully", {
-      items: deliveryPartners,
+      items: enrichedPartners,
       page,
       limit,
       total,

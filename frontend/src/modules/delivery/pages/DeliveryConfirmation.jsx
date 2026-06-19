@@ -79,8 +79,10 @@ const DeliveryConfirmation = () => {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  const orderAmount = order?.pricing?.total || 0;
-  const isPrepaid = order?.payment?.method?.toLowerCase() !== 'cash' && order?.payment?.method?.toLowerCase() !== 'cod';
+  const amountToCollect = Math.max(0, (order?.pricing?.total || 0) - (order?.pricing?.walletAmount || 0));
+  const isPrepaid = order?.payment?.method?.toLowerCase() !== 'cash' &&
+                    order?.payment?.method?.toLowerCase() !== 'cod' &&
+                    order?.paymentMode?.toUpperCase() !== 'COD';
 
   if (isCompleted) {
     return (
@@ -143,7 +145,7 @@ const DeliveryConfirmation = () => {
                 </p>
                 <h2
                   className={`text-4xl font-extrabold ${isPrepaid ? "text-brand-600" : "text-orange-600"}`}>
-                  {isPrepaid ? "PAID" : `₹${orderAmount}`}
+                  {isPrepaid ? "PAID" : `₹${amountToCollect}`}
                 </h2>
               </div>
               <div
@@ -175,7 +177,7 @@ const DeliveryConfirmation = () => {
                     onChange={(e) => setCashCollected(e.target.value)}
                   />
                 </div>
-                {Number(cashCollected) > orderAmount && (
+                {Number(cashCollected) > amountToCollect && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
@@ -183,7 +185,7 @@ const DeliveryConfirmation = () => {
                     <CheckCircle size={16} className="mr-2" />
                     Return Change:{" "}
                     <span className="font-bold ml-1">
-                      ₹{Number(cashCollected) - orderAmount}
+                      ₹{Number(cashCollected) - amountToCollect}
                     </span>
                   </motion.div>
                 )}

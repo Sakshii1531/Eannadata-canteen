@@ -3,6 +3,7 @@ import {
   handleCodOrderFinance,
   settleDeliveredOrder,
 } from "./finance/orderFinanceService.js";
+import logger from "./logger.js";
 
 /**
  * Financial side effects when order becomes delivered (mirrors orderController).
@@ -12,10 +13,22 @@ export async function applyDeliveredSettlement(order, orderIdString) {
 
   const method = (order.payment?.method || "").toLowerCase();
   const isCod = settled.paymentMode === "COD" || method === "cash" || method === "cod";
+
+  // COD finance (system float / cashInHand) is best-effort here.
+  // If it fails (e.g. session write conflict) the legacy DEL-ERN
+  // transaction must still be created so rider earnings are visible.
   if (isCod && settled.deliveryBoy && !settled.financeFlags?.codMarkedCollected) {
-    await handleCodOrderFinance(settled._id, {
-      deliveryPartnerId: settled.deliveryBoy,
-    });
+    try {
+      await handleCodOrderFinance(settled._id, {
+        deliveryPartnerId: settled.deliveryBoy,
+      });
+    } catch (codError) {
+      logger.warn("applyDeliveredSettlement: COD finance failed, will retry on next reconciliation", {
+        scope: "applyDeliveredSettlement",
+        orderId: orderIdString,
+        error: codError.message,
+      });
+    }
   }
 
   // Legacy transaction compatibility for existing seller/rider dashboards.

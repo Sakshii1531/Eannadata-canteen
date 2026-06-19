@@ -111,7 +111,14 @@ async function computeSellerStats(sellerOid, range) {
           {
             $group: {
               _id: null,
-              totalSales: { $sum: { $ifNull: ["$pricing.total", 0] } },
+              totalSales: {
+                $sum: {
+                  $add: [
+                    { $ifNull: ["$paymentBreakdown.productSubtotal", { $ifNull: ["$pricing.subtotal", 0] }] },
+                    { $ifNull: ["$paymentBreakdown.taxTotal", { $ifNull: ["$pricing.gst", 0] }] }
+                  ]
+                }
+              },
               totalOrders: { $sum: 1 },
             },
           },
@@ -121,7 +128,14 @@ async function computeSellerStats(sellerOid, range) {
           {
             $group: {
               _id: null,
-              sales: { $sum: { $ifNull: ["$pricing.total", 0] } },
+              sales: {
+                $sum: {
+                  $add: [
+                    { $ifNull: ["$paymentBreakdown.productSubtotal", { $ifNull: ["$pricing.subtotal", 0] }] },
+                    { $ifNull: ["$paymentBreakdown.taxTotal", { $ifNull: ["$pricing.gst", 0] }] }
+                  ]
+                }
+              },
               count: { $sum: 1 },
             },
           },
@@ -131,7 +145,14 @@ async function computeSellerStats(sellerOid, range) {
           {
             $group: {
               _id: null,
-              sales: { $sum: { $ifNull: ["$pricing.total", 0] } },
+              sales: {
+                $sum: {
+                  $add: [
+                    { $ifNull: ["$paymentBreakdown.productSubtotal", { $ifNull: ["$pricing.subtotal", 0] }] },
+                    { $ifNull: ["$paymentBreakdown.taxTotal", { $ifNull: ["$pricing.gst", 0] }] }
+                  ]
+                }
+              },
               count: { $sum: 1 },
             },
           },
@@ -141,7 +162,14 @@ async function computeSellerStats(sellerOid, range) {
           {
             $group: {
               _id: { $dateToString: { format: aggregationFormat, date: "$createdAt" } },
-              sales: { $sum: { $ifNull: ["$pricing.total", 0] } },
+              sales: {
+                $sum: {
+                  $add: [
+                    { $ifNull: ["$paymentBreakdown.productSubtotal", { $ifNull: ["$pricing.subtotal", 0] }] },
+                    { $ifNull: ["$paymentBreakdown.taxTotal", { $ifNull: ["$pricing.gst", 0] }] }
+                  ]
+                }
+              },
               orders: { $sum: 1 },
             },
           },

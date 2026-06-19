@@ -244,7 +244,7 @@ const OrderHistory = () => {
                       </div>
                       <div className="text-left sm:text-right shrink-0">
                         <span className="block font-bold text-lg text-brand-600 whitespace-nowrap">
-                          ₹{Math.round((order.pricing?.total || 0) * 0.1)}
+                          ₹{Math.round(order.isReturnPickup ? (order.returnDeliveryCommission || 0) : (order.paymentBreakdown?.riderPayoutTotal || (order.pricing?.total || 0) * 0.1))}
                         </span>
                         <span className="ds-caption text-gray-400">Earnings</span>
                       </div>

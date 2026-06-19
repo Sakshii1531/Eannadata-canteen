@@ -4,7 +4,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import { Toaster, toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { BellRing, MapPin } from "lucide-react";
+import { BellRing, MapPin, CheckCircle, IndianRupee } from "lucide-react";
 import { deliveryApi } from "../services/deliveryApi";
 import { useAuth } from "@core/context/AuthContext";
 import {
@@ -166,6 +166,8 @@ const DeliveryLayout = () => {
       estTime: "10-15 min",
       value: total,
       earnings: earnings,
+      paymentMode: p.paymentMode || "COD",
+      codAmount: p.codAmount ?? 0,
       expiresAt: payload.deliverySearchExpiresAt || null,
       isReturnPickup: payload.type === "RETURN_PICKUP" || payload.isReturnPickup === true,
       items: payload.items || [],
@@ -190,7 +192,11 @@ const DeliveryLayout = () => {
     shownOrderIdsRef.current = new Set(shownOrderIdsRef.current).add(newOrder.orderId);
     const total = newOrder.pricing?.total || 0;
     const isReturnPickup = newOrder.isReturnPickup || false;
-    const earnings = newOrder.riderEarnings || Math.round(total * 0.1);
+    const earnings = isReturnPickup
+      ? (newOrder.returnDeliveryCommission || 0)
+      : (newOrder.paymentBreakdown?.riderPayoutTotal || newOrder.riderEarnings || Math.round(total * 0.1));
+    const paymentMode = newOrder.paymentMode || newOrder.payment?.method || "COD";
+    const codAmount = Math.max(0, (newOrder.paymentBreakdown?.grandTotal ?? newOrder.pricing?.total ?? 0) - (newOrder.paymentBreakdown?.walletAmount ?? newOrder.pricing?.walletAmount ?? 0));
     setActiveOrder({
       id: newOrder.orderId,
       mongoId: newOrder._id,
@@ -204,6 +210,8 @@ const DeliveryLayout = () => {
       estTime: "10-15 min",
       value: total,
       earnings: earnings,
+      paymentMode,
+      codAmount,
       expiresAt: newOrder.deliverySearchExpiresAt || null,
       isReturnPickup,
       items: newOrder.items || [],
@@ -802,12 +810,41 @@ const DeliveryLayout = () => {
                     <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-4">
                       {activeOrder.isReturnPickup ? "Collect return item" : "Accept or reject"}
                     </p>
-                    <div className="flex items-center gap-2 mb-6">
+                    <div className="flex items-center gap-2 mb-4">
                       <span className="text-2xl font-black text-brand-600">₹{activeOrder.earnings}</span>
                       <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-outfit">
                         Earnings
                       </span>
                     </div>
+
+                    {/* COD Info Banner */}
+                    {!activeOrder.isReturnPickup && (
+                      <div className={`w-full py-2.5 px-4 rounded-2xl border text-center mb-4 flex items-center justify-center gap-2 ${
+                        activeOrder.paymentMode?.toLowerCase() === "cash" ||
+                        activeOrder.paymentMode?.toLowerCase() === "cod"
+                          ? "bg-orange-50 border-orange-200 text-orange-800"
+                          : "bg-brand-50 border-brand-200 text-brand-800"
+                      }`}>
+                        {activeOrder.paymentMode?.toLowerCase() === "cash" ||
+                        activeOrder.paymentMode?.toLowerCase() === "cod" ? (
+                          <>
+                            <IndianRupee className="w-4 h-4 text-orange-600 shrink-0" />
+                            <div className="text-left">
+                              <p className="text-[9px] font-black uppercase leading-none text-orange-600">Collect COD Cash</p>
+                              <p className="text-sm font-black mt-0.5">₹{activeOrder.codAmount}</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 text-brand-600 shrink-0" />
+                            <div className="text-left">
+                              <p className="text-[9px] font-black uppercase leading-none text-brand-600">Prepaid Order</p>
+                              <p className="text-xs font-bold mt-0.5">No cash collection</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     <div className="w-full space-y-4 mb-6">
                       {/* Return Items "Small Cart" */}
