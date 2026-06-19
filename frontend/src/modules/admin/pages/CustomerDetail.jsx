@@ -172,7 +172,20 @@ const CustomerDetail = () => {
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
         try {
-            const { data } = await adminApi.updateUser(id, editForm);
+            const capitalizeText = (str) => {
+                if (!str) return '';
+                return str.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            };
+            const capitalizedForm = {
+                ...editForm,
+                "Farmer Name": capitalizeText(editForm["Farmer Name"]),
+                "Father/Mother/Husband": capitalizeText(editForm["Father/Mother/Husband"]),
+                "State Name": capitalizeText(editForm["State Name"]),
+                "District Name": capitalizeText(editForm["District Name"]),
+                "Block Name": capitalizeText(editForm["Block Name"]),
+                "Village Name": capitalizeText(editForm["Village Name"])
+            };
+            const { data } = await adminApi.updateUser(id, capitalizedForm);
             if (data.success) {
                 showToast('Profile updated successfully', 'success');
                 setIsEditModalOpen(false);
@@ -682,7 +695,7 @@ const CustomerDetail = () => {
 
             {/* EDIT PROFILE DETAILS MODAL */}
             <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Customer Profile details">
-                <form onSubmit={handleUpdateProfile} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+                <form onSubmit={handleUpdateProfile} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Farmer Name</label>
@@ -691,7 +704,7 @@ const CustomerDetail = () => {
                                 type="text"
                                 value={editForm["Farmer Name"]}
                                 onChange={(e) => setEditForm({ ...editForm, "Farmer Name": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
 
@@ -725,7 +738,7 @@ const CustomerDetail = () => {
                                 type="text"
                                 value={editForm["Father/Mother/Husband"]}
                                 onChange={(e) => setEditForm({ ...editForm, "Father/Mother/Husband": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
 
@@ -783,7 +796,7 @@ const CustomerDetail = () => {
                                 type="text"
                                 value={editForm["State Name"]}
                                 onChange={(e) => setEditForm({ ...editForm, "State Name": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
 
@@ -794,7 +807,7 @@ const CustomerDetail = () => {
                                 type="text"
                                 value={editForm["District Name"]}
                                 onChange={(e) => setEditForm({ ...editForm, "District Name": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
 
@@ -805,7 +818,7 @@ const CustomerDetail = () => {
                                 type="text"
                                 value={editForm["Block Name"]}
                                 onChange={(e) => setEditForm({ ...editForm, "Block Name": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
 
@@ -816,7 +829,7 @@ const CustomerDetail = () => {
                                 type="text"
                                 value={editForm["Village Name"]}
                                 onChange={(e) => setEditForm({ ...editForm, "Village Name": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
                     </div>

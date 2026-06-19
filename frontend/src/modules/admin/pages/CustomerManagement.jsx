@@ -148,7 +148,6 @@ const CustomerManagement = () => {
         const diffInDays = Math.floor(diffInHours / 24);
         return `${diffInDays}d ago`;
     };
-
     // Manual creation handler
     const handleCreateSubmit = async (e) => {
         e.preventDefault();
@@ -156,7 +155,20 @@ const CustomerManagement = () => {
         setIsCreating(true);
 
         try {
-            const { data } = await adminApi.createUser(createForm);
+            const capitalizeText = (str) => {
+                if (!str) return '';
+                return str.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            };
+            const capitalizedForm = {
+                ...createForm,
+                "Farmer Name": capitalizeText(createForm["Farmer Name"]),
+                "Father/Mother/Husband": capitalizeText(createForm["Father/Mother/Husband"]),
+                "State Name": capitalizeText(createForm["State Name"]),
+                "District Name": capitalizeText(createForm["District Name"]),
+                "Block Name": capitalizeText(createForm["Block Name"]),
+                "Village Name": capitalizeText(createForm["Village Name"])
+            };
+            const { data } = await adminApi.createUser(capitalizedForm);
             if (data.success) {
                 toast.success('Customer created successfully!');
                 setIsCreateModalOpen(false);
@@ -476,7 +488,7 @@ const CustomerManagement = () => {
                 onClose={() => !isCreating && setIsCreateModalOpen(false)}
                 title="Create Single Customer Manually"
             >
-                <form onSubmit={handleCreateSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+                <form onSubmit={handleCreateSubmit} className="space-y-4">
                     {createError && (
                         <div className="p-3 bg-red-50 text-red-600 rounded-2xl flex items-start gap-2 text-xs font-bold border border-red-100">
                             <AlertCircle size={18} className="shrink-0" />
@@ -492,7 +504,7 @@ const CustomerManagement = () => {
                                 type="text"
                                 value={createForm["Farmer Name"]}
                                 onChange={(e) => setCreateForm({ ...createForm, "Farmer Name": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
 
@@ -526,7 +538,7 @@ const CustomerManagement = () => {
                                 type="text"
                                 value={createForm["Father/Mother/Husband"]}
                                 onChange={(e) => setCreateForm({ ...createForm, "Father/Mother/Husband": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
 
@@ -585,7 +597,7 @@ const CustomerManagement = () => {
                                 type="text"
                                 value={createForm["State Name"]}
                                 onChange={(e) => setCreateForm({ ...createForm, "State Name": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
 
@@ -596,7 +608,7 @@ const CustomerManagement = () => {
                                 type="text"
                                 value={createForm["District Name"]}
                                 onChange={(e) => setCreateForm({ ...createForm, "District Name": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
 
@@ -607,7 +619,7 @@ const CustomerManagement = () => {
                                 type="text"
                                 value={createForm["Block Name"]}
                                 onChange={(e) => setCreateForm({ ...createForm, "Block Name": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
 
@@ -618,7 +630,7 @@ const CustomerManagement = () => {
                                 type="text"
                                 value={createForm["Village Name"]}
                                 onChange={(e) => setCreateForm({ ...createForm, "Village Name": e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
                     </div>

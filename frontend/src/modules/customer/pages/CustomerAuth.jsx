@@ -160,9 +160,13 @@ const CustomerAuth = () => {
         }
         setIsLoading(true);
         try {
+            const capitalizeWord = (str) => {
+                if (!str) return '';
+                return str.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            };
             await customerApi.signup({
-                firstName: firstName.trim(),
-                lastName: lastName.trim(),
+                firstName: capitalizeWord(firstName),
+                lastName: capitalizeWord(lastName),
                 phone: phone.trim(),
                 email: email.trim() || undefined,
             });
@@ -251,8 +255,8 @@ const CustomerAuth = () => {
             {/* Premium Centered Card Container */}
             <div className="w-[92%] max-w-[400px] h-[85vh] max-h-[780px] bg-white relative z-10 overflow-hidden rounded-[40px] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] border border-white/40 flex flex-col transition-colors duration-1000">
 
-                {/* Scrollable Content Container */}
-                <div className="h-full overflow-y-auto no-scrollbar pb-20">
+                {/* Non-scrollable Content Container */}
+                <div className="flex-1 min-h-0 overflow-hidden pb-6">
 
                     {/* Header: Immersive Category Visuals */}
                     <motion.div
@@ -346,7 +350,7 @@ const CustomerAuth = () => {
 
 
                     {/* Authentication Form Block */}
-                    <div className="px-6 pt-6 pb-10">
+                    <div className="px-6 pt-2 pb-10">
                         <AnimatePresence mode="wait">
                             {!showOtp ? (
                                 <motion.div
@@ -356,7 +360,7 @@ const CustomerAuth = () => {
                                     exit={{ opacity: 0, x: -20 }}
                                     className="space-y-5"
                                 >
-                                    <div className="space-y-2 text-center">
+                                    <div className="space-y-1 text-center">
                                         <h3 className="text-xl font-black text-gray-900 tracking-tight">
                                             {isLogin ? 'Welcome to Canteen' : 'Create Account'}
                                         </h3>
@@ -367,10 +371,10 @@ const CustomerAuth = () => {
                                         </p>
                                     </div>
 
-                                    <form onSubmit={isLogin ? handleSendOtp : handleSignup} className="space-y-4">
+                                    <form onSubmit={isLogin ? handleSendOtp : handleSignup} className="space-y-1.5">
                                         {!isLogin && (
                                             <>
-                                                <div className="grid grid-cols-2 gap-3">
+                                                <div className="grid grid-cols-2 gap-2">
                                                     <div className="relative group">
                                                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors">
                                                             <User size={18} />
@@ -380,7 +384,7 @@ const CustomerAuth = () => {
                                                             name="firstName"
                                                             value={formData.firstName}
                                                             placeholder="First Name"
-                                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
+                                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all capitalize"
                                                             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                                                             onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
                                                             onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
@@ -395,7 +399,7 @@ const CustomerAuth = () => {
                                                             name="lastName"
                                                             value={formData.lastName}
                                                             placeholder="Last Name"
-                                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
+                                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all capitalize"
                                                             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                                                             onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
                                                             onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
@@ -412,7 +416,7 @@ const CustomerAuth = () => {
                                                         name="email"
                                                         value={formData.email}
                                                         placeholder="Email Address (Optional)"
-                                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
+                                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
                                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                                         onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
                                                         onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
@@ -434,7 +438,7 @@ const CustomerAuth = () => {
                                                 maxLength={10}
                                                 value={formData.phone}
                                                 placeholder="Mobile Number"
-                                                className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-20 pr-4 py-4 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
+                                                className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-20 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
                                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
                                                 onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
                                                 onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
@@ -446,7 +450,7 @@ const CustomerAuth = () => {
                                         <button
                                             type="submit"
                                             disabled={isLoading}
-                                            className="w-full text-white py-5 rounded-[24px] text-xs font-black tracking-[4px] flex items-center justify-center gap-3 active:scale-95 transition-all uppercase"
+                                            className="w-full text-white py-4 rounded-[24px] text-xs font-black tracking-[4px] flex items-center justify-center gap-3 active:scale-95 transition-all uppercase"
                                             style={{ backgroundColor: activeCategory.theme, boxShadow: `0 20px 40px ${activeCategory.shadow}` }}
                                         >
                                             {isLoading ? 'Verifying...' : 'Continue'}
@@ -466,7 +470,7 @@ const CustomerAuth = () => {
                                     </div>
 
                                     {/* Legal Agreement Footer */}
-                                    <div className="pt-2 flex flex-col items-center gap-1">
+                                    <div className="!-mt-1 flex flex-col items-center gap-1">
                                         <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest text-center">
                                             By continuing, you agree to our
                                         </p>
@@ -540,7 +544,7 @@ const CustomerAuth = () => {
                                             <button
                                                 type="submit"
                                                 disabled={isLoading}
-                                                className="w-full bg-gray-900 text-white py-5 rounded-[24px] text-xs font-black tracking-[4px] shadow-2xl flex items-center justify-center gap-3 uppercase active:scale-95 transition-all"
+                                                className="w-full bg-gray-900 text-white py-4 rounded-[24px] text-xs font-black tracking-[4px] shadow-2xl flex items-center justify-center gap-3 uppercase active:scale-95 transition-all"
                                             >
                                                 {isLoading ? 'Authenticating...' : <>Enter <span className="normal-case">{appName}</span></>}
                                             </button>
@@ -561,7 +565,6 @@ const CustomerAuth = () => {
                             )}
                         </AnimatePresence>
                     </div>
-
                 </div>
             </div>
 
