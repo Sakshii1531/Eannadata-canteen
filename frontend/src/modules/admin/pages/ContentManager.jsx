@@ -35,6 +35,7 @@ const ContentManager = () => {
     const [selectedHeaderId, setSelectedHeaderId] = useState('');
     const [sections, setSections] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [allProductsList, setAllProductsList] = useState([]);
 
     const [activeTab, setActiveTab] = useState('banners');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -76,6 +77,16 @@ const ContentManager = () => {
         return selectedHeader?.children || [];
     }, [headerCategories, pageType, selectedHeader]);
 
+    const allHeaders = useMemo(() => headerCategories, [headerCategories]);
+
+    const allCategories = useMemo(() => {
+        return headerCategories.flatMap(h => h.children || []);
+    }, [headerCategories]);
+
+    const allSubcategories = useMemo(() => {
+        return headerCategories.flatMap(h => h.children || []).flatMap(c => c.children || []);
+    }, [headerCategories]);
+
     const loadHeaderCategories = async () => {
         try {
             // Use category tree so that header -> category -> subcategory hierarchy is available
@@ -115,8 +126,28 @@ const ContentManager = () => {
         }
     };
 
+    const loadAllProducts = async () => {
+        try {
+            const res = await adminApi.getProducts({ limit: 1000 });
+            if (res.data?.success) {
+                const rawResult = res.data.result;
+                const prodList = Array.isArray(res.data.results)
+                    ? res.data.results
+                    : Array.isArray(rawResult?.items)
+                        ? rawResult.items
+                        : Array.isArray(rawResult)
+                            ? rawResult
+                            : [];
+                setAllProductsList(prodList);
+            }
+        } catch (e) {
+            console.error('Failed to load products list', e);
+        }
+    };
+
     useEffect(() => {
         loadHeaderCategories();
+        loadAllProducts();
     }, []);
 
     // Apply deep-link from Hero & categories per page (?pageType=home | ?pageType=header&headerId=xxx)
@@ -662,7 +693,10 @@ const ContentManager = () => {
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <select
                                                         value={item.linkType || 'none'}
-                                                        onChange={(e) => updateBannerItem(idx, { linkType: e.target.value })}
+                                                        onChange={(e) => {
+                                                            const newType = e.target.value;
+                                                            updateBannerItem(idx, { linkType: newType, linkValue: '' });
+                                                        }}
                                                         className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-black outline-none"
                                                     >
                                                         <option value="none">No link</option>
@@ -672,12 +706,73 @@ const ContentManager = () => {
                                                         <option value="product">Product</option>
                                                         <option value="url">External URL</option>
                                                     </select>
-                                                    <input
-                                                        value={item.linkValue || ''}
-                                                        onChange={(e) => updateBannerItem(idx, { linkValue: e.target.value })}
-                                                        className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-bold border-none outline-none"
-                                                        placeholder={item.linkType === 'url' ? "https://..." : "Slug / ID"}
-                                                    />
+
+                                                    {item.linkType === 'none' && (
+                                                        <div className="w-full p-2.5 bg-slate-100 rounded-xl text-xs font-bold text-slate-400 select-none">
+                                                            No link configured
+                                                        </div>
+                                                    )}
+
+                                                    {item.linkType === 'header' && (
+                                                        <select
+                                                            value={item.linkValue || ''}
+                                                            onChange={(e) => updateBannerItem(idx, { linkValue: e.target.value })}
+                                                            className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-bold outline-none"
+                                                        >
+                                                            <option value="">Select Header...</option>
+                                                            {allHeaders.map(h => (
+                                                                <option key={h._id} value={h._id}>{h.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    )}
+
+                                                    {item.linkType === 'category' && (
+                                                        <select
+                                                            value={item.linkValue || ''}
+                                                            onChange={(e) => updateBannerItem(idx, { linkValue: e.target.value })}
+                                                            className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-bold outline-none"
+                                                        >
+                                                            <option value="">Select Category...</option>
+                                                            {allCategories.map(c => (
+                                                                <option key={c._id} value={c._id}>{c.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    )}
+
+                                                    {item.linkType === 'subcategory' && (
+                                                        <select
+                                                            value={item.linkValue || ''}
+                                                            onChange={(e) => updateBannerItem(idx, { linkValue: e.target.value })}
+                                                            className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-bold outline-none"
+                                                        >
+                                                            <option value="">Select Subcategory...</option>
+                                                            {allSubcategories.map(s => (
+                                                                <option key={s._id} value={s._id}>{s.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    )}
+
+                                                    {item.linkType === 'product' && (
+                                                        <select
+                                                            value={item.linkValue || ''}
+                                                            onChange={(e) => updateBannerItem(idx, { linkValue: e.target.value })}
+                                                            className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-bold outline-none"
+                                                        >
+                                                            <option value="">Select Product...</option>
+                                                            {allProductsList.map(p => (
+                                                                <option key={p._id} value={p._id}>{p.name} {p.weight ? `(${p.weight})` : ''}</option>
+                                                            ))}
+                                                        </select>
+                                                    )}
+
+                                                    {item.linkType === 'url' && (
+                                                        <input
+                                                            value={item.linkValue || ''}
+                                                            onChange={(e) => updateBannerItem(idx, { linkValue: e.target.value })}
+                                                            className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-bold border-none outline-none"
+                                                            placeholder="https://..."
+                                                        />
+                                                    )}
                                                 </div>
                                             </div>
                                             {formData.bannerItems.length > 1 && (

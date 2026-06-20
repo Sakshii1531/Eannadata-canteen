@@ -15,13 +15,14 @@ import Lottie from 'lottie-react';
 const ProductDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { cart, addToCart, updateQuantity } = useCart();
+    const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
     const { toggleWishlist: toggleWishlistGlobal, isInWishlist } = useWishlist();
     const { showToast } = useToast();
     const { currentLocation } = useAppLocation();
     const { settings } = useSettings();
 
     const [product, setProduct] = useState(null);
+    const [selectedVariant, setSelectedVariant] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeImage, setActiveImage] = useState('');
@@ -61,6 +62,11 @@ const ProductDetailPage = () => {
                 };
                 setProduct(formatted);
                 setActiveImage(formatted.images[0] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop');
+                if (p.variants && p.variants.length > 0) {
+                    setSelectedVariant(p.variants[0]);
+                } else {
+                    setSelectedVariant(null);
+                }
                 fetchReviews();
             }
         } catch (err) {
@@ -175,9 +181,17 @@ const ProductDetailPage = () => {
         );
     }
 
-    const cartItem = cart.find(item => item.id === product.id);
+    const variantSku = String(selectedVariant?.sku || selectedVariant?.name || "").trim();
+    const cartItem = cart.find(
+        (item) =>
+            item.id === product.id &&
+            String(item.variantSku || "").trim() === variantSku
+    );
     const quantity = cartItem ? cartItem.quantity : 0;
     const isWishlisted = isInWishlist(product.id);
+
+    const activePrice = selectedVariant ? (selectedVariant.salePrice || selectedVariant.price) : (product.salePrice || product.price);
+    const mrpPrice = selectedVariant ? selectedVariant.price : product.price;
 
     return (
         <div className="relative z-10 py-8 w-full max-w-[1920px] mx-auto px-4 md:px-[50px] animate-in fade-in duration-700 mt-24">
@@ -237,34 +251,66 @@ const ProductDetailPage = () => {
                         </h1>
 
                         <div className="flex items-baseline gap-4 mb-5">
-                            <span className="text-4xl font-black text-primary">₹{product.salePrice || product.price}</span>
-                            {(product.salePrice && product.salePrice < product.price) && (
-                                <span className="text-lg text-slate-400 line-through font-bold">₹{product.price}</span>
+                            <span className="text-4xl font-black text-primary">₹{activePrice}</span>
+                            {(activePrice && activePrice < mrpPrice) && (
+                                <span className="text-lg text-slate-400 line-through font-bold">₹{mrpPrice}</span>
                             )}
-                            {product.salePrice && product.salePrice < product.price && (
+                            {activePrice && activePrice < mrpPrice && (
                                 <span className="text-xs bg-red-50 text-red-500 px-2 py-1 rounded-lg font-black uppercase">
-                                    {Math.round(((product.price - product.salePrice) / product.price) * 100)}% OFF
+                                    {Math.round(((mrpPrice - activePrice) / mrpPrice) * 100)}% OFF
                                 </span>
                             )}
                         </div>
-
+ 
                         <p className="text-slate-600 text-lg leading-relaxed mb-6 font-medium max-w-2xl">
                             {product.description || "Fresh and premium quality product sourced directly from local vendors."}
                         </p>
-                    </div>
 
+                        {/* Variants Selector */}
+                        {product.variants && product.variants.length > 0 && (
+                            <div className="mt-5 border-t border-slate-100 pt-5">
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Select Variant</h4>
+                                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                                    {product.variants.map((v, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => setSelectedVariant(v)}
+                                            className={cn(
+                                                "flex-shrink-0 px-5 py-2.5 font-bold rounded-xl text-sm transition-all relative border-2",
+                                                selectedVariant?.sku === v.sku
+                                                    ? "bg-[#ecfeff] border-primary text-primary shadow-sm shadow-brand-100"
+                                                    : "bg-slate-50 border-slate-100 text-slate-500"
+                                            )}
+                                        >
+                                            {v.name}
+                                            {selectedVariant?.sku === v.sku && (
+                                                <div className="absolute top-0 right-0 w-3 h-3 bg-primary rounded-bl-lg" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+ 
                     <div className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
                         {quantity > 0 ? (
                             <div className="flex items-center bg-primary text-primary-foreground rounded-2xl h-16 w-full sm:w-auto px-2 shadow-xl shadow-brand-100">
                                 <button
-                                    onClick={() => updateQuantity(product.id, -1, "")}
+                                    onClick={() => {
+                                        if (quantity === 1) {
+                                            removeFromCart(product.id, String(selectedVariant?.sku || selectedVariant?.name || "").trim());
+                                        } else {
+                                            updateQuantity(product.id, -1, String(selectedVariant?.sku || selectedVariant?.name || "").trim());
+                                        }
+                                    }}
                                     className="w-12 h-12 flex items-center justify-center hover:bg-white/20 rounded-xl transition-all"
                                 >
                                     <Minus size={24} strokeWidth={3} />
                                 </button>
                                 <span className="w-16 text-center font-black text-xl">{quantity}</span>
                                 <button
-                                    onClick={() => updateQuantity(product.id, 1, "")}
+                                    onClick={() => updateQuantity(product.id, 1, String(selectedVariant?.sku || selectedVariant?.name || "").trim())}
                                     className="w-12 h-12 flex items-center justify-center hover:bg-white/20 rounded-xl transition-all"
                                 >
                                     <Plus size={24} strokeWidth={3} />
@@ -273,7 +319,10 @@ const ProductDetailPage = () => {
                         ) : (
                             <Button
                                 onClick={() => {
-                                    addToCart(product);
+                                    addToCart({
+                                        ...product,
+                                        variantSku: String(selectedVariant?.sku || selectedVariant?.name || "").trim(),
+                                    });
                                     showToast(`${product.name} added to cart`, 'success');
                                 }}
                                 className="h-16 w-full sm:w-64 bg-primary hover:bg-[var(--brand-400)] text-white text-lg font-black rounded-2xl shadow-xl transition-all hover:-translate-y-1"

@@ -81,7 +81,14 @@ const SectionRenderer = ({ sections = [], productsById = {}, categoriesById = {}
           if (!items.length) return null;
           return (
             <div key={section._id || sectionKey} className="-mt-8 md:-mt-8">
-              <ExperienceBannerCarousel section={section} items={items} slideGap={12} />
+              {heading && (
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <h3 className="text-2xl font-black text-[#1A1A1A]">
+                    {heading}
+                  </h3>
+                </div>
+              )}
+              <ExperienceBannerCarousel section={section} items={items} slideGap={12} fullWidth />
             </div>
           );
         }
