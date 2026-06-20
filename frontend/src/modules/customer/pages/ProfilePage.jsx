@@ -93,6 +93,7 @@ const ProfilePage = () => {
 
     const name = activeUser?.['Farmer Name'] || activeUser?.name || 'Customer';
     const cardNo = activeUser?.['eAnnadata Card Number'] || activeUser?.eannadata_card_number || '—';
+    const hasCard = !!(activeUser?.['eAnnadata Card Number'] || activeUser?.eannadata_card_number);
     const phone = formatIndiaPhone(activeUser?.['Mobile No'] || activeUser?.phone || '');
     const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}&backgroundColor=f1f5f9`;
 
@@ -146,12 +147,16 @@ const ProfilePage = () => {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                     <h2 className="text-[16px] font-bold text-slate-900 leading-tight">{name}</h2>
-                    <p className="text-[12px] text-slate-500 font-medium mt-0.5">
-                        eAnnadata Card No.
-                    </p>
-                    <p className="text-[13px] font-bold text-[#1a8a3c] tracking-wide mt-0.5">
-                        {cardNo}
-                    </p>
+                    {hasCard && (
+                        <>
+                            <p className="text-[12px] text-slate-500 font-medium mt-0.5">
+                                eAnnadata Card No.
+                            </p>
+                            <p className="text-[13px] font-bold text-[#1a8a3c] tracking-wide mt-0.5">
+                                {cardNo}
+                            </p>
+                        </>
+                    )}
                     {phone && (
                         <p className="text-[12px] text-slate-600 font-medium mt-1 flex items-center gap-1">
                             <span className="text-slate-400">📱</span>

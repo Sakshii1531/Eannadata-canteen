@@ -295,8 +295,12 @@ const ProductDetailSheet = () => {
         if (yearsElapsed >= t1Threshold) return t1Rate;
         return 0;
     })();
-    const mrpPrice = Number(selectedProduct.originalPrice || selectedProduct.price || 0);
-    const payNowPrice = Number(selectedProduct.price || 0);
+    const mrpPrice = selectedVariant
+        ? Number(selectedVariant.price || 0)
+        : Number(selectedProduct.originalPrice || selectedProduct.price || 0);
+    const payNowPrice = selectedVariant
+        ? Number(selectedVariant.salePrice > 0 ? selectedVariant.salePrice : selectedVariant.price || 0)
+        : Number(selectedProduct.price || 0);
     const hasInstantDiscount = mrpPrice > payNowPrice;
     const instantSavings = hasInstantDiscount ? Math.round(mrpPrice - payNowPrice) : 0;
     const instantDiscountPct = hasInstantDiscount && mrpPrice > 0
@@ -400,14 +404,14 @@ const ProductDetailSheet = () => {
                                         </motion.button>
 
                                         {/* Discount Badge (center) */}
-                                        {(selectedProduct.originalPrice > selectedProduct.price) && (
+                                        {(mrpPrice > payNowPrice) && (
                                             <motion.div
                                                 initial={{ scale: 0, rotate: -10 }}
                                                 animate={{ scale: 1, rotate: 0 }}
                                                 transition={{ type: 'spring', delay: 0.2 }}
                                                 className="bg-gradient-to-r from-primary to-[var(--brand-400)] text-white text-[10px] font-[800] px-3 py-1.5 rounded-xl uppercase tracking-wider shadow-md shadow-brand-200/40"
                                             >
-                                                {Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)}% OFF
+                                                {instantDiscountPct}% OFF
                                             </motion.div>
                                         )}
 
@@ -506,14 +510,14 @@ const ProductDetailSheet = () => {
                                                 <Clock size={12} strokeWidth={2.5} className="text-primary" />
                                                 {selectedProduct.deliveryTime || '8-15 MINS'}
                                             </motion.div>
-                                            {selectedProduct.originalPrice > selectedProduct.price && (
+                                            {mrpPrice > payNowPrice && (
                                                 <motion.div
                                                     initial={{ opacity: 0, x: -10 }}
                                                     animate={{ opacity: 1, x: 0 }}
                                                     transition={{ delay: 0.15 }}
                                                     className="text-[10px] font-[700] text-primary bg-brand-50 px-3 py-1.5 rounded-lg border border-brand-200/50 uppercase tracking-wider"
                                                 >
-                                                    💰 Save ₹{selectedProduct.originalPrice - selectedProduct.price}
+                                                    💰 Save ₹{instantSavings}
                                                 </motion.div>
                                             )}
                                             <motion.div
@@ -684,15 +688,15 @@ const ProductDetailSheet = () => {
                                                 <div className="flex flex-col gap-1">
                                                     <div className="flex items-baseline gap-2">
                                                         <span className="text-[28px] lg:text-[32px] font-[800] text-primary tracking-tight leading-none">
-                                                            ₹{selectedProduct.price}
+                                                            ₹{payNowPrice}
                                                         </span>
-                                                        {selectedProduct.originalPrice > selectedProduct.price && (
-                                                            <span className="text-[14px] text-gray-400 line-through font-[600]">₹{selectedProduct.originalPrice}</span>
+                                                        {mrpPrice > payNowPrice && (
+                                                            <span className="text-[14px] text-gray-400 line-through font-[600]">₹{mrpPrice}</span>
                                                         )}
                                                     </div>
-                                                    {selectedProduct.originalPrice > selectedProduct.price && (
+                                                    {mrpPrice > payNowPrice && (
                                                         <span className="inline-flex w-fit items-center text-[10px] font-[800] text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md uppercase tracking-wide">
-                                                            {Math.round(((selectedProduct.originalPrice - selectedProduct.price) / selectedProduct.originalPrice) * 100)}% off
+                                                            {instantDiscountPct}% off
                                                         </span>
                                                     )}
                                                 </div>
@@ -766,42 +770,6 @@ const ProductDetailSheet = () => {
                                                 </Link>
                                             </motion.div>
                                         )}
-
-                                        {/* Variants */}
-                                        {selectedProduct.variants && selectedProduct.variants.length > 0 && (
-                                            <motion.div
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                transition={{ delay: 0.25 }}
-                                                className="bg-gray-50/60 rounded-xl p-3 border border-gray-100/70"
-                                            >
-                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2.5">Select Variant</h4>
-                                                <div className="flex gap-3 flex-wrap">
-                                                    {selectedProduct.variants.map((v, idx) => (
-                                                        <motion.button
-                                                            key={idx}
-                                                            whileHover={{ scale: 1.03 }}
-                                                            whileTap={{ scale: 0.97 }}
-                                                            onClick={() => setSelectedVariant(v)}
-                                                            className={cn(
-                                                                'px-4 py-2 font-[600] rounded-lg text-[13px] transition-all border-2',
-                                                                selectedVariant?.sku === v.sku
-                                                                    ? 'bg-brand-50 border-primary text-primary shadow-md shadow-brand-100/50'
-                                                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:shadow-sm'
-                                                            )}
-                                                        >
-                                                            {v.name}
-                                                        </motion.button>
-                                                    ))}
-                                                </div>
-                                            </motion.div>
-                                        )}
-
-                                        {/* Decorative Divider */}
-                                        <div className="relative -mt-1 -mb-1">
-                                            <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
-                                            <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-2 h-2 bg-white border border-gray-200 rounded-full" />
-                                        </div>
 
                                         {/* Variants Selection (Desktop) */}
                                         {selectedProduct.variants && selectedProduct.variants.length > 0 && (

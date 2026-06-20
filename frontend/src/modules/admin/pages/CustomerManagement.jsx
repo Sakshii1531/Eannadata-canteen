@@ -40,6 +40,7 @@ const CustomerManagement = () => {
     const [pageSize, setPageSize] = useState(25);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [activeDropdownId, setActiveDropdownId] = useState(null);
 
     // Modal & Loading States
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -80,6 +81,34 @@ const CustomerManagement = () => {
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pageSize, searchTerm, filterStatus]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (activeDropdownId && !event.target.closest('.dropdown-container')) {
+                setActiveDropdownId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [activeDropdownId]);
+
+    const handleToggleStatus = async (id, currentStatus) => {
+        setActiveDropdownId(null);
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        try {
+            const { data } = await adminApi.updateUserStatus(id, newStatus);
+            if (data.success) {
+                toast.success(`Customer account ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully!`);
+                setCustomers(prev => prev.map(c => (c.id === id || c._id === id) ? { ...c, status: newStatus } : c));
+            } else {
+                toast.error(data.message || 'Failed to update status');
+            }
+        } catch (error) {
+            console.error("Error updating user status:", error);
+            toast.error(error.response?.data?.message || 'Error occurred while updating status.');
+        }
+    };
+
 
     const fetchCustomers = async (requestedPage = 1) => {
         try {
@@ -448,16 +477,64 @@ const CustomerManagement = () => {
                                             </Badge>
                                         </td>
                                         <td className="ds-table-cell text-right">
-                                            <div className="flex items-center justify-end gap-2">
+                                            <div className="flex items-center justify-end gap-2 relative dropdown-container">
                                                 <button
-                                                    onClick={() => navigate(`/admin/customers/${cust.id}`)}
+                                                    onClick={() => navigate(`/admin/customers/${cust.id || cust._id}`)}
                                                     className="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all"
+                                                    title="View Profile"
                                                 >
                                                     <Eye className="ds-icon-sm" />
                                                 </button>
-                                                <button className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:bg-gray-950 hover:text-white transition-all">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const id = cust.id || cust._id;
+                                                        setActiveDropdownId(activeDropdownId === id ? null : id);
+                                                    }}
+                                                    className={cn(
+                                                        "p-2 rounded-lg transition-all",
+                                                        activeDropdownId === (cust.id || cust._id)
+                                                            ? "bg-slate-900 text-white"
+                                                            : "bg-gray-50 text-gray-400 hover:bg-gray-900 hover:text-white"
+                                                    )}
+                                                    title="More Actions"
+                                                >
                                                     <MoreVertical className="ds-icon-sm" />
                                                 </button>
+
+                                                {activeDropdownId === (cust.id || cust._id) && (
+                                                    <div className="absolute right-0 top-10 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-[50] py-1.5 animate-in fade-in slide-in-from-top-1 duration-200 text-left">
+                                                        <button
+                                                            onClick={() => {
+                                                                setActiveDropdownId(null);
+                                                                navigate(`/admin/customers/${cust.id || cust._id}`);
+                                                            }}
+                                                            className="w-full px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                                        >
+                                                            <Eye size={14} className="text-slate-400" />
+                                                            View Full Profile
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleToggleStatus(cust.id || cust._id, cust.status)}
+                                                            className={cn(
+                                                                "w-full px-4 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-slate-50",
+                                                                cust.status === 'active' ? "text-rose-600" : "text-emerald-600"
+                                                            )}
+                                                        >
+                                                            {cust.status === 'active' ? (
+                                                                <>
+                                                                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
+                                                                    Deactivate Account
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                                                                    Activate Account
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
