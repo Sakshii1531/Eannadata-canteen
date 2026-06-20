@@ -154,11 +154,11 @@ const settingSchema = new mongoose.Schema(
         productApproval: {
             sellerCreateRequiresApproval: {
                 type: Boolean,
-                default: false,
+                default: true,
             },
             sellerEditRequiresApproval: {
                 type: Boolean,
-                default: false,
+                default: true,
             },
         },
 
