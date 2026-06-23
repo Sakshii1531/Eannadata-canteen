@@ -87,6 +87,7 @@ export const signupSeller = async (req, res) => {
             emailVerificationToken,
             phoneVerificationToken,
             shopName,
+            registrationNumber,
             category,
             description,
             address,
@@ -130,8 +131,12 @@ export const signupSeller = async (req, res) => {
         const parsedLng = lng !== undefined ? Number(lng) : undefined;
         const parsedRadius = radius !== undefined ? Number(radius) : undefined;
 
-        if (!name || !email || !phone || !password || !shopName) {
+        if (!name || !email || !phone || !password || !shopName || !registrationNumber) {
             return handleResponse(res, 400, "All fields are required");
+        }
+
+        if (typeof registrationNumber === "string" && registrationNumber.trim().length < 3) {
+            return handleResponse(res, 400, "Registration number must be at least 3 characters");
         }
 
         verifySellerVerificationToken({
@@ -185,6 +190,7 @@ export const signupSeller = async (req, res) => {
             phone,
             password,
             shopName,
+            registrationNumber: registrationNumber.trim(),
             category,
             description,
             address,

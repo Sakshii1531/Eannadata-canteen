@@ -335,6 +335,12 @@ const PendingSellers = () => {
                                                     <HiOutlineEnvelope className="h-4 w-4 text-slate-400" />
                                                     <span className="text-xs font-semibold text-slate-500">{viewingSeller.email}</span>
                                                 </div>
+                                                {viewingSeller.registrationNumber && (
+                                                     <div className="flex items-center gap-3">
+                                                         <HiOutlineDocumentText className="h-4 w-4 text-slate-400" />
+                                                         <span className="text-xs font-semibold text-slate-500">Reg No: {viewingSeller.registrationNumber}</span>
+                                                     </div>
+                                                )}
                                                 <div className="flex items-center gap-3">
                                                     <HiOutlinePhone className="h-4 w-4 text-slate-400" />
                                                     <span className="text-xs font-bold text-slate-700">{viewingSeller.phone}</span>

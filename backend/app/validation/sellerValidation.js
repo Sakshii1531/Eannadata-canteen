@@ -13,6 +13,11 @@ export const sellerSignupSchema = Joi.object({
   password: trimmedString.min(8).max(128).required(),
   phone: phone.required(),
   shopName: trimmedString.min(2).max(200).required(),
+  registrationNumber: trimmedString.min(3).max(50).required().messages({
+    "any.required": "Registration number is required",
+    "string.empty": "Registration number cannot be empty",
+    "string.min": "Registration number must be at least {#limit} characters",
+  }),
   address: trimmedString.max(500).optional(),
 });
 

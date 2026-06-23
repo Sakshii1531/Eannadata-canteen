@@ -546,7 +546,7 @@ const CustomerAuth = () => {
                                                 disabled={isLoading}
                                                 className="w-full bg-gray-900 text-white py-4 rounded-[24px] text-xs font-black tracking-[4px] shadow-2xl flex items-center justify-center gap-3 uppercase active:scale-95 transition-all"
                                             >
-                                                {isLoading ? 'Authenticating...' : <>Enter <span className="normal-case">{appName}</span></>}
+                                                {isLoading ? 'Authenticating...' : <>welcome <span className="normal-case">{appName}</span></>}
                                             </button>
                                             <div className="flex justify-center">
                                                 <button

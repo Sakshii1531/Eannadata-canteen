@@ -61,7 +61,8 @@ const SellerDetail = () => {
             bankName: 'HDFC Bank',
             accountNo: 'XXXX XXXX 1234',
             ifsc: 'HDFC0001234'
-        }
+        },
+        registrationNumber: 'REG-556677'
     });
 
     const handleRefresh = () => {
@@ -343,6 +344,10 @@ const SellerDetail = () => {
                                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Joined</p>
                                                         <p className="text-xs font-black text-slate-900">{seller.joinedDate}</p>
                                                     </div>
+                                                </div>
+                                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mt-4">
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Registration Number</p>
+                                                    <p className="text-xs font-black text-slate-900">{seller.registrationNumber || 'N/A'}</p>
                                                 </div>
                                             </div>
                                         </div>

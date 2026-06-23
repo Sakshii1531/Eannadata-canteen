@@ -40,6 +40,7 @@ describe("sellerAuthController signupSeller", () => {
         emailVerificationToken: "email-token",
         phoneVerificationToken: "phone-token",
         shopName: "Noyo Mart",
+        registrationNumber: "REG12345",
         category: "Groceries",
         address: "MG Road",
         documents: JSON.stringify({

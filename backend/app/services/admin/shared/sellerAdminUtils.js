@@ -80,6 +80,7 @@ export function formatSellerApplication(seller) {
     status:
       seller.applicationStatus ||
       (seller.isVerified ? "approved" : "pending"),
+    registrationNumber: seller.registrationNumber || "",
     documents: docs,
     documentFiles,
     location: seller.address || "Not provided",

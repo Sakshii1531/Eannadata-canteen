@@ -13,6 +13,7 @@ import {
   Globe,
   MapPin,
   CheckCircle,
+  FileText,
 } from "lucide-react";
 import { sellerApi } from "../services/sellerApi";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ const SellerProfile = () => {
     shopName: "",
     phone: "",
     email: "",
+    registrationNumber: "",
     lat: null,
     lng: null,
     radius: 5,
@@ -51,6 +53,7 @@ const SellerProfile = () => {
         shopName: data.shopName,
         phone: data.phone,
         email: data.email,
+        registrationNumber: data.registrationNumber || "",
         lat: data.location?.coordinates[1] || null,
         lng: data.location?.coordinates[0] || null,
         radius: data.serviceRadius || 5,
@@ -309,6 +312,24 @@ const SellerProfile = () => {
                       onChange={handleChange}
                       disabled={!isEditing}
                       className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-100 transition-all disabled:opacity-70"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-600 ml-1">
+                    Registration Number
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300">
+                      <FileText size={18} />
+                    </div>
+                    <input
+                      type="text"
+                      name="registrationNumber"
+                      value={formData.registrationNumber}
+                      disabled={true}
+                      className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none transition-all opacity-60 cursor-not-allowed"
                     />
                   </div>
                 </div>

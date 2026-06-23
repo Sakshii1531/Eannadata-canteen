@@ -68,6 +68,7 @@ const Auth = () => {
     password: "",
     name: "",
     shopName: "",
+    registrationNumber: "",
     phone: "",
     locality: "",
     pincode: "",
@@ -271,6 +272,11 @@ const Auth = () => {
       if (!isLogin) {
         const email = formData.email || "";
         const phone = formData.phone || "";
+        const registrationNumber = formData.registrationNumber || "";
+        if (!registrationNumber.trim() || registrationNumber.trim().length < 3) {
+          toast.error("Please enter a valid registration number (at least 3 characters).");
+          return;
+        }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           toast.error("Please enter a valid business email address.");
           setIsLoading(false);
@@ -528,36 +534,53 @@ const Auth = () => {
                 {(isLogin || signupStep === 1) && (
                   <>
                     {!isLogin && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="relative group">
+                            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-violet-600 transition-colors">
+                              <User size={18} />
+                            </div>
+                            <input
+                              type="text"
+                              name="name"
+                              required
+                              placeholder="Owner Name"
+                              className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all placeholder:text-slate-300"
+                              value={formData.name}
+                              onChange={handleChange}
+                            />
+                          </div>
+                          <div className="relative group">
+                            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-violet-600 transition-colors">
+                              <Store size={18} />
+                            </div>
+                            <input
+                              type="text"
+                              name="shopName"
+                              required
+                              placeholder="Shop / Business Name"
+                              className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all placeholder:text-slate-300"
+                              value={formData.shopName}
+                              onChange={handleChange}
+                            />
+                          </div>
+                        </div>
+
                         <div className="relative group">
                           <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-violet-600 transition-colors">
-                            <User size={18} />
+                            <FileText size={18} />
                           </div>
                           <input
                             type="text"
-                            name="name"
+                            name="registrationNumber"
                             required
-                            placeholder="Owner Name"
+                            placeholder="Business Registration Number"
                             className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all placeholder:text-slate-300"
-                            value={formData.name}
+                            value={formData.registrationNumber}
                             onChange={handleChange}
                           />
                         </div>
-                        <div className="relative group">
-                          <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-violet-600 transition-colors">
-                            <Store size={18} />
-                          </div>
-                          <input
-                            type="text"
-                            name="shopName"
-                            required
-                            placeholder="Shop / Business Name"
-                            className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all placeholder:text-slate-300"
-                            value={formData.shopName}
-                            onChange={handleChange}
-                          />
-                        </div>
-                      </div>
+                      </>
                     )}
 
                     <div className="relative group">
