@@ -17,6 +17,7 @@ import {
     allowRoles,
     optionalVerifyToken,
     requireApprovedSeller,
+    requireAdminPermission,
 } from "../middleware/authMiddleware.js";
 import multer from "multer";
 
@@ -32,9 +33,10 @@ router.get("/", optionalVerifyToken, getProducts);
 router.get("/seller/me", verifyToken, allowRoles("seller"), requireApprovedSeller, getSellerProducts);
 router.get("/stock-history", verifyToken, allowRoles("seller"), requireApprovedSeller, getStockHistory);
 router.post("/adjust-stock", verifyToken, allowRoles("seller"), requireApprovedSeller, adjustStock);
-router.get("/moderation", verifyToken, allowRoles("admin"), getModerationProducts);
-router.patch("/moderation/:id/approve", verifyToken, allowRoles("admin"), approveProduct);
-router.patch("/moderation/:id/reject", verifyToken, allowRoles("admin"), rejectProduct);
+router.get("/moderation", verifyToken, allowRoles("admin"), requireAdminPermission("products"), getModerationProducts);
+router.patch("/moderation/:id/approve", verifyToken, allowRoles("admin"), requireAdminPermission("products"), approveProduct);
+router.patch("/moderation/:id/reject", verifyToken, allowRoles("admin"), requireAdminPermission("products"), rejectProduct);
+
 router.get("/:id", optionalVerifyToken, getProductById);
 router.post("/:id/notify-me", verifyToken, allowRoles("customer"), requestProductNotification);
 

@@ -22,6 +22,27 @@ const seedAdmin = async () => {
       email: process.env.ADMIN_SEED_EMAIL || 'admin123@gmail.com',
       password: process.env.ADMIN_SEED_PASSWORD || 'admin123',
       role: 'admin',
+      isSuperAdmin: true,
+      permissions: [
+        "dashboard",
+        "categories",
+        "products",
+        "marketing",
+        "support",
+        "sellers",
+        "delivery",
+        "wallet",
+        "withdrawals",
+        "refunds",
+        "sellerPayments",
+        "cashCollection",
+        "customers",
+        "faqs",
+        "orders",
+        "billing",
+        "settings",
+        "systemSettings"
+      ],
       isVerified: true,
     };
 
@@ -32,6 +53,8 @@ const seedAdmin = async () => {
       admin.name = adminData.name;
       admin.password = adminData.password;
       admin.role = adminData.role;
+      admin.isSuperAdmin = adminData.isSuperAdmin;
+      admin.permissions = adminData.permissions;
       admin.isVerified = adminData.isVerified;
       await admin.save();
 

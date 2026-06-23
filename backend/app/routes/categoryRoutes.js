@@ -5,7 +5,7 @@ import {
     updateCategory,
     deleteCategory
 } from "../controller/categoryController.js";
-import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
+import { verifyToken, allowRoles, requireAdminPermission } from "../middleware/authMiddleware.js";
 import multer from "multer";
 
 const storage = multer.memoryStorage();
@@ -21,6 +21,7 @@ router.post(
     "/",
     verifyToken,
     allowRoles("admin"),
+    requireAdminPermission("categories"),
     upload.single("image"),
     createCategory
 );
@@ -29,6 +30,7 @@ router.put(
     "/:id",
     verifyToken,
     allowRoles("admin"),
+    requireAdminPermission("categories"),
     upload.single("image"),
     updateCategory
 );
@@ -37,7 +39,9 @@ router.delete(
     "/:id",
     verifyToken,
     allowRoles("admin"),
+    requireAdminPermission("categories"),
     deleteCategory
 );
 
 export default router;
+

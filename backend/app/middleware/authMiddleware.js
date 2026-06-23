@@ -81,6 +81,29 @@ export const allowRoles = (...roles) => {
   };
 };
 
+export const requireAdminPermission = (permissionKey) => {
+  return (req, res, next) => {
+    if (req.user?.role !== "admin") {
+      return handleResponse(res, 403, "Access denied");
+    }
+    if (req.user.isSuperAdmin === true) {
+      return next();
+    }
+    if (Array.isArray(req.user.permissions) && req.user.permissions.includes(permissionKey)) {
+      return next();
+    }
+    return handleResponse(res, 403, `Access denied: missing ${permissionKey} permission`);
+  };
+};
+
+export const requireSuperAdmin = (req, res, next) => {
+  if (req.user?.role === "admin" && req.user?.isSuperAdmin === true) {
+    return next();
+  }
+  return handleResponse(res, 403, "Access denied: Superadmin access required");
+};
+
+
 /* ===============================
    Ensure seller can access seller-only operational routes
 ================================ */

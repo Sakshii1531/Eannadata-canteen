@@ -8,7 +8,7 @@ import {
   adminDecryptRefund,
   adminUpdateRefundStatus,
 } from "../controller/refundPayoutController.js";
-import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
+import { verifyToken, allowRoles, requireAdminPermission } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -39,6 +39,7 @@ router.get(
   "/admin/refund-payouts",
   verifyToken,
   allowRoles("admin"),
+  requireAdminPermission("refunds"),
   adminListRefunds
 );
 
@@ -46,6 +47,7 @@ router.get(
   "/admin/refund-payouts/:id",
   verifyToken,
   allowRoles("admin"),
+  requireAdminPermission("refunds"),
   adminGetRefundDetail
 );
 
@@ -53,6 +55,7 @@ router.post(
   "/admin/refund-payouts/:id/decrypt",
   verifyToken,
   allowRoles("admin"),
+  requireAdminPermission("refunds"),
   adminDecryptRefund
 );
 
@@ -60,6 +63,7 @@ router.patch(
   "/admin/refund-payouts/:id/status",
   verifyToken,
   allowRoles("admin"),
+  requireAdminPermission("refunds"),
   adminUpdateRefundStatus
 );
 

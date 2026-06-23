@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
 import { useSupportUnread } from "@core/context/SupportUnreadContext";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
+import { useAuth } from "@core/context/AuthContext";
 import {
   LayoutDashboard,
   Tag,
@@ -101,11 +102,20 @@ const navItems = [
     icon: LayoutDashboard,
     color: "indigo",
     end: true,
+    permissionKey: "dashboard",
+  },
+  {
+    label: "Platform Users",
+    path: "/admin/users",
+    icon: Users,
+    color: "violet",
+    // Filtered out dynamically for non-superadmins
   },
   {
     label: "Categories",
     icon: Tag,
     color: "rose",
+    permissionKey: "categories",
     children: [
       { label: "All Categories", path: "/admin/categories/hierarchy" },
       { label: "Header Categories", path: "/admin/categories/header" },
@@ -113,11 +123,12 @@ const navItems = [
       { label: "Sub-Categories", path: "/admin/categories/sub" },
     ],
   },
-  { label: "Products", path: "/admin/products", icon: Box, color: "amber" },
+  { label: "Products", path: "/admin/products", icon: Box, color: "amber", permissionKey: "products" },
   {
     label: "Marketing Tools",
     icon: Sparkles,
     color: "amber",
+    permissionKey: "marketing",
     children: [
       { label: "Create Sections", path: "/admin/experience-studio" },
       { label: "Hero & categories per page", path: "/admin/hero-categories" },
@@ -130,6 +141,7 @@ const navItems = [
     label: "Customer Support",
     icon: Receipt,
     color: "emerald",
+    permissionKey: "support",
     children: [
       { label: "Help Tickets", path: "/admin/support-tickets" },
       { label: "Review Content", path: "/admin/moderation" },
@@ -139,6 +151,7 @@ const navItems = [
     label: "Sellers",
     icon: Building2,
     color: "blue",
+    permissionKey: "sellers",
     children: [
       { label: "Active Sellers", path: "/admin/sellers/active" },
       { label: "Waiting for Review", path: "/admin/sellers/pending" },
@@ -149,6 +162,7 @@ const navItems = [
     label: "Delivery Drivers",
     icon: Truck,
     color: "emerald",
+    permissionKey: "delivery",
     children: [
       { label: "Active Drivers", path: "/admin/delivery-boys/active" },
       { label: "Waiting for Review", path: "/admin/delivery-boys/pending" },
@@ -156,37 +170,42 @@ const navItems = [
       { label: "Send Money", path: "/admin/delivery-funds" },
     ],
   },
-  { label: "Wallet", path: "/admin/wallet", icon: Wallet, color: "violet" },
+  { label: "Wallet", path: "/admin/wallet", icon: Wallet, color: "violet", permissionKey: "wallet" },
   {
     label: "Money Requests",
     path: "/admin/withdrawals",
     icon: Banknote,
     color: "cyan",
+    permissionKey: "withdrawals",
   },
   {
     label: "Refund Payouts",
     path: "/admin/refund-payouts",
     icon: RotateCcw,
     color: "rose",
+    permissionKey: "refunds",
   },
   {
     label: "Seller Payments",
     path: "/admin/seller-transactions",
     icon: Receipt,
     color: "orange",
+    permissionKey: "sellerPayments",
   },
   {
     label: "Collect Cash",
     path: "/admin/cash-collection",
     icon: CircleDollarSign,
     color: "green",
+    permissionKey: "cashCollection",
   },
-  { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
-  { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
+  { label: "Customers", path: "/admin/customers", icon: Users, color: "sky", permissionKey: "customers" },
+  { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink", permissionKey: "faqs" },
   {
     label: "Orders",
     icon: ClipboardList,
     color: "fuchsia",
+    permissionKey: "orders",
     children: [
       { label: "All Orders", path: "/admin/orders/all" },
       { label: "New Orders", path: "/admin/orders/pending" },
@@ -203,20 +222,24 @@ const navItems = [
     path: "/admin/billing",
     icon: RotateCcw,
     color: "red",
+    permissionKey: "billing",
   },
   {
     label: "Settings",
     path: "/admin/settings",
     icon: Settings,
     color: "slate",
+    permissionKey: "settings",
   },
   { label: "My Profile", path: "/admin/profile", icon: User, color: "indigo" },
-  { label: "System Settings", path: "/admin/env", icon: Terminal, color: "dark" },
+  { label: "System Settings", path: "/admin/env", icon: Terminal, color: "dark", permissionKey: "systemSettings" },
 ];
 
 const BillingCharges = React.lazy(() => import("../pages/BillingCharges"));
 
 const AdminRoutes = () => {
+  const { user, isLoading } = useAuth();
+
   useEffect(() => {
     setActiveRole(ROLES.ADMIN);
   }, []);
@@ -232,56 +255,78 @@ const AdminRoutes = () => {
     });
   }, [totalUnread]);
 
+  const filteredNavItems = React.useMemo(() => {
+    if (!user) return [];
+    if (user.isSuperAdmin) return navItemsWithBadges;
+    const permissions = user.permissions || [];
+    return navItemsWithBadges.filter(item => {
+      if (item.path === "/admin/users") return false; // Superadmin only
+      return !item.permissionKey || permissions.includes(item.permissionKey);
+    });
+  }, [user, navItemsWithBadges]);
+
+  const hasAccess = (permissionKey) => {
+    return user?.isSuperAdmin || (user?.permissions && user.permissions.includes(permissionKey));
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <DashboardLayout navItems={navItemsWithBadges} title="Admin Center">
+    <DashboardLayout navItems={filteredNavItems} title="Admin Center">
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/users" element={<UserManagement />} />
+        <Route path="/" element={hasAccess("dashboard") ? <Dashboard /> : <Navigate to="/admin/profile" replace />} />
+        <Route path="/users" element={user?.isSuperAdmin ? <UserManagement /> : <Navigate to="/admin" replace />} />
         <Route path="/profile" element={<AdminProfile />} />
         {/* Lazy routes for new sections */}
         <Route
           path="/categories"
-          element={<Navigate to="/admin/categories/header" replace />}
+          element={hasAccess("categories") ? <Navigate to="/admin/categories/header" replace /> : <Navigate to="/admin" replace />}
         />
-        <Route path="/categories/header" element={<HeaderCategories />} />
-        <Route path="/categories/level2" element={<Level2Categories />} />
-        <Route path="/categories/sub" element={<SubCategories />} />
-        <Route path="/categories/hierarchy" element={<CategoryHierarchy />} />
-        <Route path="/products" element={<ProductManagement />} />
-        <Route path="/sellers/active" element={<ActiveSellers />} />
-        <Route path="/sellers/active/:id" element={<SellerDetail />} />
-        <Route path="/support-tickets" element={<SupportTickets />} />
-        <Route path="/moderation" element={<ReviewModeration />} />
-        <Route path="/experience-studio" element={<ContentManager />} />
-        <Route path="/hero-categories" element={<HeroCategoriesPerPage />} />
-        <Route path="/notifications" element={<NotificationComposer />} />
-        <Route path="/offers" element={<OffersManagement />} />
-        <Route path="/offer-sections" element={<OfferSectionsManagement />} />
-        <Route path="/shop-by-store" element={<ShopByStoreManagement />} />
-        <Route path="/coupons" element={<CouponManagement />} />
-        <Route path="/sellers/pending" element={<PendingSellers />} />
-        <Route path="/seller-locations" element={<SellerLocations />} />
-        <Route path="/delivery-boys/active" element={<ActiveDeliveryBoys />} />
+        <Route path="/categories/header" element={hasAccess("categories") ? <HeaderCategories /> : <Navigate to="/admin" replace />} />
+        <Route path="/categories/level2" element={hasAccess("categories") ? <Level2Categories /> : <Navigate to="/admin" replace />} />
+        <Route path="/categories/sub" element={hasAccess("categories") ? <SubCategories /> : <Navigate to="/admin" replace />} />
+        <Route path="/categories/hierarchy" element={hasAccess("categories") ? <CategoryHierarchy /> : <Navigate to="/admin" replace />} />
+        <Route path="/products" element={hasAccess("products") ? <ProductManagement /> : <Navigate to="/admin" replace />} />
+        <Route path="/sellers/active" element={hasAccess("sellers") ? <ActiveSellers /> : <Navigate to="/admin" replace />} />
+        <Route path="/sellers/active/:id" element={hasAccess("sellers") ? <SellerDetail /> : <Navigate to="/admin" replace />} />
+        <Route path="/support-tickets" element={hasAccess("support") ? <SupportTickets /> : <Navigate to="/admin" replace />} />
+        <Route path="/moderation" element={hasAccess("support") ? <ReviewModeration /> : <Navigate to="/admin" replace />} />
+        <Route path="/experience-studio" element={hasAccess("marketing") ? <ContentManager /> : <Navigate to="/admin" replace />} />
+        <Route path="/hero-categories" element={hasAccess("marketing") ? <HeroCategoriesPerPage /> : <Navigate to="/admin" replace />} />
+        <Route path="/notifications" element={hasAccess("marketing") ? <NotificationComposer /> : <Navigate to="/admin" replace />} />
+        <Route path="/offers" element={hasAccess("marketing") ? <OffersManagement /> : <Navigate to="/admin" replace />} />
+        <Route path="/offer-sections" element={hasAccess("marketing") ? <OfferSectionsManagement /> : <Navigate to="/admin" replace />} />
+        <Route path="/shop-by-store" element={hasAccess("marketing") ? <ShopByStoreManagement /> : <Navigate to="/admin" replace />} />
+        <Route path="/coupons" element={hasAccess("marketing") ? <CouponManagement /> : <Navigate to="/admin" replace />} />
+        <Route path="/sellers/pending" element={hasAccess("sellers") ? <PendingSellers /> : <Navigate to="/admin" replace />} />
+        <Route path="/seller-locations" element={hasAccess("sellers") ? <SellerLocations /> : <Navigate to="/admin" replace />} />
+        <Route path="/delivery-boys/active" element={hasAccess("delivery") ? <ActiveDeliveryBoys /> : <Navigate to="/admin" replace />} />
         <Route
           path="/delivery-boys/pending"
-          element={<PendingDeliveryBoys />}
+          element={hasAccess("delivery") ? <PendingDeliveryBoys /> : <Navigate to="/admin" replace />}
         />
-        <Route path="/tracking" element={<FleetTracking />} />
-        <Route path="/delivery-funds" element={<DeliveryFunds />} />
-        <Route path="/wallet" element={<AdminWallet />} />
-        <Route path="/withdrawals" element={<WithdrawalRequests />} />
-        <Route path="/refund-payouts" element={<RefundPayoutManagement />} />
-        <Route path="/seller-transactions" element={<SellerTransactions />} />
-        <Route path="/cash-collection" element={<CashCollection />} />
-        <Route path="/customers" element={<CustomerManagement />} />
-        <Route path="/customers/:id" element={<CustomerDetail />} />
-        <Route path="/faqs" element={<FAQManagement />} />
-        <Route path="/orders/:status" element={<OrdersList />} />
-        <Route path="/orders/view/:orderId" element={<OrderDetail />} />
-        <Route path="/returns" element={<Returns />} />
-        <Route path="/billing" element={<BillingCharges />} />
-        <Route path="/settings" element={<AdminSettings />} />
-        <Route path="/env" element={<EnvSettings />} />
+        <Route path="/tracking" element={hasAccess("delivery") ? <FleetTracking /> : <Navigate to="/admin" replace />} />
+        <Route path="/delivery-funds" element={hasAccess("delivery") ? <DeliveryFunds /> : <Navigate to="/admin" replace />} />
+        <Route path="/wallet" element={hasAccess("wallet") ? <AdminWallet /> : <Navigate to="/admin" replace />} />
+        <Route path="/withdrawals" element={hasAccess("withdrawals") ? <WithdrawalRequests /> : <Navigate to="/admin" replace />} />
+        <Route path="/refund-payouts" element={hasAccess("refunds") ? <RefundPayoutManagement /> : <Navigate to="/admin" replace />} />
+        <Route path="/seller-transactions" element={hasAccess("sellerPayments") ? <SellerTransactions /> : <Navigate to="/admin" replace />} />
+        <Route path="/cash-collection" element={hasAccess("cashCollection") ? <CashCollection /> : <Navigate to="/admin" replace />} />
+        <Route path="/customers" element={hasAccess("customers") ? <CustomerManagement /> : <Navigate to="/admin" replace />} />
+        <Route path="/customers/:id" element={hasAccess("customers") ? <CustomerDetail /> : <Navigate to="/admin" replace />} />
+        <Route path="/faqs" element={hasAccess("faqs") ? <FAQManagement /> : <Navigate to="/admin" replace />} />
+        <Route path="/orders/:status" element={hasAccess("orders") ? <OrdersList /> : <Navigate to="/admin" replace />} />
+        <Route path="/orders/view/:orderId" element={hasAccess("orders") ? <OrderDetail /> : <Navigate to="/admin" replace />} />
+        <Route path="/returns" element={hasAccess("orders") ? <Returns /> : <Navigate to="/admin" replace />} />
+        <Route path="/billing" element={hasAccess("billing") ? <BillingCharges /> : <Navigate to="/admin" replace />} />
+        <Route path="/settings" element={hasAccess("settings") ? <AdminSettings /> : <Navigate to="/admin" replace />} />
+        <Route path="/env" element={hasAccess("systemSettings") ? <EnvSettings /> : <Navigate to="/admin" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </DashboardLayout>

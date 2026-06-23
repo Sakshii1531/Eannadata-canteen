@@ -34,6 +34,14 @@ const adminSchema = new mongoose.Schema(
       type: String,
       default: "admin",
     },
+    isSuperAdmin: {
+      type: Boolean,
+      default: false,
+    },
+    permissions: {
+      type: [String],
+      default: ["dashboard"],
+    },
     isVerified: {
       type: Boolean,
       default: true, // Internal admins might be verified by default or via admin code

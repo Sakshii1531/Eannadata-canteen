@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { getPublicSettings, updateSettings, uploadSettingsImage } from "../controller/settingsController.js";
-import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
+import { verifyToken, allowRoles, requireAdminPermission } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -10,9 +10,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.get("/", getPublicSettings);
 
 // Admin only: update settings
-router.put("/", verifyToken, allowRoles("admin"), updateSettings);
+router.put("/", verifyToken, allowRoles("admin"), requireAdminPermission("settings"), updateSettings);
 
 // Admin only: upload logo or favicon (multipart/form-data, field "image")
-router.post("/upload", verifyToken, allowRoles("admin"), upload.single("image"), uploadSettingsImage);
+router.post("/upload", verifyToken, allowRoles("admin"), requireAdminPermission("settings"), upload.single("image"), uploadSettingsImage);
 
 export default router;

@@ -18,6 +18,11 @@ export const adminUsersApi = {
         headers: { 'Content-Type': 'multipart/form-data' }
     }),
 
+    getInternalAdmins: () => axiosInstance.get('/admin/internal-users'),
+    createInternalAdmin: (data) => axiosInstance.post('/admin/internal-users', data),
+    updateInternalAdmin: (id, data) => axiosInstance.put(`/admin/internal-users/${id}`, data),
+    deleteInternalAdmin: (id) => axiosInstance.delete(`/admin/internal-users/${id}`),
+
     getSellers: (params) => axiosInstance.get('/admin/sellers', { params }),
     getActiveSellers: (params) =>
         axiosInstance.get('/admin/sellers/active', { params }),

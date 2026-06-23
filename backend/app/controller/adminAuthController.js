@@ -19,7 +19,12 @@ function sanitizeAdmin(adminDoc) {
 
 const generateToken = (admin) =>
   jwt.sign(
-    { id: admin._id, role: "admin" },
+    {
+      id: admin._id,
+      role: "admin",
+      isSuperAdmin: admin.isSuperAdmin || false,
+      permissions: admin.permissions || ["dashboard"]
+    },
     process.env.JWT_SECRET,
     { expiresIn: "7d" },
   );
@@ -60,6 +65,27 @@ export const bootstrapAdmin = async (req, res) => {
       email: payload.email,
       password: payload.password,
       role: "admin",
+      isSuperAdmin: true,
+      permissions: [
+        "dashboard",
+        "categories",
+        "products",
+        "marketing",
+        "support",
+        "sellers",
+        "delivery",
+        "wallet",
+        "withdrawals",
+        "refunds",
+        "sellerPayments",
+        "cashCollection",
+        "customers",
+        "faqs",
+        "orders",
+        "billing",
+        "settings",
+        "systemSettings"
+      ],
       isVerified: true,
     });
 
@@ -94,6 +120,27 @@ export const signupAdmin = async (req, res) => {
       email: payload.email,
       password: payload.password,
       role: "admin",
+      isSuperAdmin: true,
+      permissions: [
+        "dashboard",
+        "categories",
+        "products",
+        "marketing",
+        "support",
+        "sellers",
+        "delivery",
+        "wallet",
+        "withdrawals",
+        "refunds",
+        "sellerPayments",
+        "cashCollection",
+        "customers",
+        "faqs",
+        "orders",
+        "billing",
+        "settings",
+        "systemSettings"
+      ],
       isVerified: true,
     });
 
