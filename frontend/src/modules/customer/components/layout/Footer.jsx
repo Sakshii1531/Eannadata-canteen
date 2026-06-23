@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Facebook, Twitter, Instagram, Youtube, Mail, MapPin, Phone } from 'lucide-react';
 import Logo from '@/assets/Logo.png';
 import { useSettings } from '@core/context/SettingsContext';
@@ -29,7 +30,7 @@ const Footer = () => {
                     {/* Brand Info */}
                     <div className="space-y-4 md:space-y-8">
                         <div className="flex items-center">
-                            <img src={logoUrl} alt={`${settings?.appName || 'eAnnadata canteen'} Logo`} loading="lazy" className="h-12 md:h-16 w-auto object-contain rounded-full" />
+                            <img src={logoUrl} alt={`${settings?.appName || 'eAnnadata canteen'} Logo`} loading="lazy" className="h-16 md:h-20 w-auto object-contain rounded-full ml-4" />
                         </div>
                         <p className="text-sm leading-relaxed md:text-base md:leading-loose text-white/90 md:max-w-xs transition-opacity hover:opacity-100 font-medium">
                             Your daily dose of fresh, organic, and healthy products delivered straight to your door. Freshness guaranteed.
@@ -98,8 +99,8 @@ const Footer = () => {
                 <div className="border-t border-white/10 mt-12 pt-8 text-center text-sm md:flex md:justify-between md:text-left md:mt-24 md:pt-12">
                     <p className="md:text-base text-white/60">&copy; {new Date().getFullYear()} {settings?.appName || 'eAnnadata canteen'}. All rights reserved.</p>
                     <div className="flex gap-6 justify-center md:justify-end mt-4 md:mt-0 md:gap-12">
-                        <a href="#" className="hover:text-brand-300 md:text-base text-white/60 transition-all">Privacy Policy</a>
-                        <a href="#" className="hover:text-brand-300 md:text-base text-white/60 transition-all">Terms of Service</a>
+                        <Link to="/privacy" className="hover:text-brand-300 md:text-base text-white/60 transition-all">Privacy Policy</Link>
+                        <Link to="/terms" className="hover:text-brand-300 md:text-base text-white/60 transition-all">Terms of Service</Link>
                     </div>
                 </div>
             </div>

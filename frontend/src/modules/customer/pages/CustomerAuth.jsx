@@ -90,6 +90,7 @@ const CustomerAuth = () => {
         email: '',
         otp: ''
     });
+    const [signupErrors, setSignupErrors] = useState({});
 
     const activeCategory = CATEGORIES[carouselIndex];
 
@@ -145,19 +146,16 @@ const CustomerAuth = () => {
     const handleSignup = async (e) => {
         e?.preventDefault();
         const { firstName, lastName, phone, email } = formData;
-        
-        if (!firstName.trim() || !lastName.trim()) {
-            toast.error('First name and last name are required');
+        const errs = {};
+        if (!firstName.trim()) errs.firstName = 'First name is required';
+        if (!lastName.trim()) errs.lastName = 'Last name is required';
+        if (phone.length !== 10) errs.phone = 'Enter valid 10-digit phone number';
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Enter a valid email address';
+        if (Object.keys(errs).length > 0) {
+            setSignupErrors(errs);
             return;
         }
-        if (phone.length !== 10) {
-            toast.error('Enter valid 10-digit phone number');
-            return;
-        }
-        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            toast.error('Enter valid email address');
-            return;
-        }
+        setSignupErrors({});
         setIsLoading(true);
         try {
             const capitalizeWord = (str) => {
@@ -384,11 +382,12 @@ const CustomerAuth = () => {
                                                             name="firstName"
                                                             value={formData.firstName}
                                                             placeholder="First Name"
-                                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all capitalize"
-                                                            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                                                            onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
-                                                            onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
+                                                            className={`w-full bg-gray-50 border rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all capitalize ${signupErrors.firstName ? 'border-red-400' : 'border-gray-100'}`}
+                                                            onChange={(e) => { setFormData({ ...formData, firstName: e.target.value.replace(/[0-9]/g, '') }); setSignupErrors(prev => ({ ...prev, firstName: '' })); }}
+                                                            onFocus={(e) => e.target.style.borderColor = signupErrors.firstName ? '#f87171' : activeCategory.theme}
+                                                            onBlur={(e) => e.target.style.borderColor = signupErrors.firstName ? '#f87171' : '#F3F4F6'}
                                                         />
+                                                        {signupErrors.firstName && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">{signupErrors.firstName}</p>}
                                                     </div>
                                                     <div className="relative group">
                                                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 transition-colors">
@@ -399,11 +398,12 @@ const CustomerAuth = () => {
                                                             name="lastName"
                                                             value={formData.lastName}
                                                             placeholder="Last Name"
-                                                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all capitalize"
-                                                            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                                                            onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
-                                                            onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
+                                                            className={`w-full bg-gray-50 border rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all capitalize ${signupErrors.lastName ? 'border-red-400' : 'border-gray-100'}`}
+                                                            onChange={(e) => { setFormData({ ...formData, lastName: e.target.value.replace(/[0-9]/g, '') }); setSignupErrors(prev => ({ ...prev, lastName: '' })); }}
+                                                            onFocus={(e) => e.target.style.borderColor = signupErrors.lastName ? '#f87171' : activeCategory.theme}
+                                                            onBlur={(e) => e.target.style.borderColor = signupErrors.lastName ? '#f87171' : '#F3F4F6'}
                                                         />
+                                                        {signupErrors.lastName && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">{signupErrors.lastName}</p>}
                                                     </div>
                                                 </div>
 
@@ -416,11 +416,12 @@ const CustomerAuth = () => {
                                                         name="email"
                                                         value={formData.email}
                                                         placeholder="Email Address (Optional)"
-                                                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
-                                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                        onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
-                                                        onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
+                                                        className={`w-full bg-gray-50 border rounded-2xl pl-12 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all ${signupErrors.email ? 'border-red-400' : 'border-gray-100'}`}
+                                                        onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setSignupErrors(prev => ({ ...prev, email: '' })); }}
+                                                        onFocus={(e) => e.target.style.borderColor = signupErrors.email ? '#f87171' : activeCategory.theme}
+                                                        onBlur={(e) => e.target.style.borderColor = signupErrors.email ? '#f87171' : '#F3F4F6'}
                                                     />
+                                                    {signupErrors.email && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">{signupErrors.email}</p>}
                                                 </div>
 
                                             </>
@@ -438,11 +439,12 @@ const CustomerAuth = () => {
                                                 maxLength={10}
                                                 value={formData.phone}
                                                 placeholder="Mobile Number"
-                                                className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-20 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all"
-                                                onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
-                                                onFocus={(e) => e.target.style.borderColor = activeCategory.theme}
-                                                onBlur={(e) => e.target.style.borderColor = '#F3F4F6'}
+                                                className={`w-full bg-gray-50 border rounded-2xl pl-20 pr-4 py-3 text-sm font-bold text-gray-800 outline-none focus:bg-white transition-all ${signupErrors.phone ? 'border-red-400' : 'border-gray-100'}`}
+                                                onChange={(e) => { setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') }); setSignupErrors(prev => ({ ...prev, phone: '' })); }}
+                                                onFocus={(e) => e.target.style.borderColor = signupErrors.phone ? '#f87171' : activeCategory.theme}
+                                                onBlur={(e) => e.target.style.borderColor = signupErrors.phone ? '#f87171' : '#F3F4F6'}
                                             />
+                                            {signupErrors.phone && <p className="text-[10px] text-red-500 font-bold mt-1 ml-1">{signupErrors.phone}</p>}
                                         </div>
 
 
@@ -484,7 +486,7 @@ const CustomerAuth = () => {
                                             </button>
                                             <span className="text-[8px] text-gray-300">•</span>
                                             <button 
-                                                onClick={() => navigate('/privacy-policy')}
+                                                onClick={() => navigate('/privacy')}
                                                 className="text-[10px] font-black uppercase tracking-widest hover:text-gray-900 transition-colors"
                                                 style={{ color: activeCategory.theme }}
                                             >
