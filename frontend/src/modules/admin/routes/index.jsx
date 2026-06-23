@@ -46,6 +46,9 @@ const ProductManagement = React.lazy(
 const ActiveSellers = React.lazy(() => import("../pages/ActiveSellers"));
 const PendingSellers = React.lazy(() => import("../pages/PendingSellers"));
 const SellerLocations = React.lazy(() => import("../pages/SellerLocations"));
+const SellerProfileRequests = React.lazy(
+  () => import("../pages/SellerProfileRequests"),
+);
 const ActiveDeliveryBoys = React.lazy(
   () => import("../pages/ActiveDeliveryBoys"),
 );
@@ -155,6 +158,7 @@ const navItems = [
     children: [
       { label: "Active Sellers", path: "/admin/sellers/active" },
       { label: "Waiting for Review", path: "/admin/sellers/pending" },
+      { label: "Profile Requests", path: "/admin/sellers/profile-requests" },
       { label: "Seller Locations", path: "/admin/seller-locations" },
     ],
   },
@@ -305,6 +309,7 @@ const AdminRoutes = () => {
         <Route path="/shop-by-store" element={hasAccess("marketing") ? <ShopByStoreManagement /> : <Navigate to="/admin" replace />} />
         <Route path="/coupons" element={hasAccess("marketing") ? <CouponManagement /> : <Navigate to="/admin" replace />} />
         <Route path="/sellers/pending" element={hasAccess("sellers") ? <PendingSellers /> : <Navigate to="/admin" replace />} />
+        <Route path="/sellers/profile-requests" element={hasAccess("sellers") ? <SellerProfileRequests /> : <Navigate to="/admin" replace />} />
         <Route path="/seller-locations" element={hasAccess("sellers") ? <SellerLocations /> : <Navigate to="/admin" replace />} />
         <Route path="/delivery-boys/active" element={hasAccess("delivery") ? <ActiveDeliveryBoys /> : <Navigate to="/admin" replace />} />
         <Route

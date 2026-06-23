@@ -6,6 +6,7 @@ import {
     verifySellerSignupOtp,
 } from "../controller/sellerAuthController.js";
 import { getSellerProfile, updateSellerProfile, requestWithdrawal, getNearbySellers } from "../controller/sellerController.js";
+import { createProfileUpdateRequest, getPendingRequest } from "../controller/admin/sellerProfileRequestController.js";
 import { getSellerStats, getSellerEarnings } from "../controller/sellerStatsController.js";
 import { getSellerWalletSummaryController } from "../controller/adminFinanceController.js";
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
@@ -59,6 +60,20 @@ router.put(
     verifyToken,
     allowRoles("seller"),
     updateSellerProfile
+);
+
+router.post(
+    "/profile-request",
+    verifyToken,
+    allowRoles("seller"),
+    createProfileUpdateRequest
+);
+
+router.get(
+    "/profile-request/pending",
+    verifyToken,
+    allowRoles("seller"),
+    getPendingRequest
 );
 
 // Analytics & Financials

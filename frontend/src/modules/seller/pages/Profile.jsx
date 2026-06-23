@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -27,6 +27,10 @@ const SellerProfile = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [pendingRequest, setPendingRequest] = useState(null);
+  const [reason, setReason] = useState("");
+  const [reasonError, setReasonError] = useState("");
+  const reasonCardRef = useRef(null);
   const [formData, setFormData] = useState({
     name: "",
     shopName: "",
@@ -45,8 +49,11 @@ const SellerProfile = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await sellerApi.getProfile();
-      const data = response.data.result;
+      const [profileRes, pendingRes] = await Promise.all([
+        sellerApi.getProfile(),
+        sellerApi.getPendingProfileUpdateRequest()
+      ]);
+      const data = profileRes.data.result;
       setProfile(data);
       setFormData({
         name: data.name,
@@ -59,6 +66,7 @@ const SellerProfile = () => {
         radius: data.serviceRadius || 5,
         address: data.address || "",
       });
+      setPendingRequest(pendingRes.data?.result || null);
     } catch (error) {
       toast.error("Failed to fetch profile");
     } finally {
@@ -106,20 +114,39 @@ const SellerProfile = () => {
       toast.error("Please enter a valid email address.");
       return;
     }
+    if (!reason || reason.trim().length < 5) {
+      setReasonError("Please enter a valid reason for updating your profile (minimum 5 characters).");
+      setTimeout(() => {
+        if (reasonCardRef.current) {
+          reasonCardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 50);
+      return;
+    }
+    setReasonError("");
     setIsSaving(true);
     try {
       const payload = {
-        ...formData,
-        lat: formData.lat,
-        lng: formData.lng,
-        radius: formData.radius,
+        requestedData: {
+          name: formData.name,
+          shopName: formData.shopName,
+          phone: formData.phone,
+          email: formData.email,
+          registrationNumber: formData.registrationNumber,
+          address: formData.address,
+          serviceRadius: formData.radius,
+          lat: formData.lat,
+          lng: formData.lng,
+        },
+        reason: reason.trim(),
       };
-      await sellerApi.updateProfile(payload);
-      toast.success("Profile updated successfully");
+      await sellerApi.submitProfileUpdateRequest(payload);
+      toast.success("Profile update request submitted successfully for admin review.");
       setIsEditing(false);
+      setReason("");
       fetchProfile();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to update profile");
+      toast.error(error.response?.data?.message || "Failed to submit profile update request");
     } finally {
       setIsSaving(false);
     }
@@ -146,6 +173,32 @@ const SellerProfile = () => {
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-8 font-['Outfit']">
+      {pendingRequest && (
+        <div className="mb-8 p-6 bg-amber-50/80 border border-amber-200 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm backdrop-blur-xs">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-amber-100/70 rounded-xl text-amber-800 mt-1 md:mt-0">
+              <Shield size={24} />
+            </div>
+            <div>
+              <p className="text-sm font-black text-slate-900">Pending Profile Update Request</p>
+              <p className="text-xs font-semibold text-slate-600 mt-1">
+                Reason: "{pendingRequest.reason}"
+              </p>
+              {pendingRequest.adminFeedback && (
+                <p className="text-xs font-semibold text-rose-600 mt-1">
+                  Previous Admin Feedback: "{pendingRequest.adminFeedback}"
+                </p>
+              )}
+              <p className="text-[10px] font-bold text-slate-400 mt-1.5 uppercase tracking-wider">
+                Submitted on {new Date(pendingRequest.createdAt).toLocaleDateString()} at {new Date(pendingRequest.createdAt).toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+          <span className="px-4 py-1.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-black uppercase tracking-[2px] whitespace-nowrap">
+            Pending Review
+          </span>
+        </div>
+      )}
       {/* Header Section */}
       <div className="relative mb-24 px-4">
         {/* Banner Background */}
@@ -201,7 +254,8 @@ const SellerProfile = () => {
             {!isEditing ? (
               <Button
                 onClick={() => setIsEditing(true)}
-                className="w-full md:w-auto bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white hover:text-slate-950 transition-all rounded-lg px-6 lg:px-12 py-4 md:py-5 flex items-center justify-center gap-3 md:gap-4 font-black tracking-[2px] md:tracking-[3px] text-xs shadow-[0_20px_40px_rgba(0,0,0,0.1)] hover:scale-[1.03] active:scale-[0.95] whitespace-nowrap">
+                disabled={!!pendingRequest}
+                className="w-full md:w-auto bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white hover:text-slate-950 transition-all rounded-lg px-6 lg:px-12 py-4 md:py-5 flex items-center justify-center gap-3 md:gap-4 font-black tracking-[2px] md:tracking-[3px] text-xs shadow-[0_20px_40px_rgba(0,0,0,0.1)] hover:scale-[1.03] active:scale-[0.95] whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
                 <Edit2 size={18} /> EDIT PROFILE
               </Button>
             ) : (
@@ -254,7 +308,11 @@ const SellerProfile = () => {
                       value={formData.name}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-100 transition-all disabled:opacity-70"
+                      className={`w-full pl-14 pr-6 py-4 border-2 rounded-lg text-sm font-bold transition-all outline-none ${
+                        isEditing
+                          ? "bg-white border-indigo-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50"
+                          : "bg-slate-50 border-transparent text-slate-500 opacity-80 cursor-not-allowed"
+                      }`}
                     />
                   </div>
                 </div>
@@ -273,7 +331,11 @@ const SellerProfile = () => {
                       value={formData.shopName}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-100 transition-all disabled:opacity-70"
+                      className={`w-full pl-14 pr-6 py-4 border-2 rounded-lg text-sm font-bold transition-all outline-none ${
+                        isEditing
+                          ? "bg-white border-indigo-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50"
+                          : "bg-slate-50 border-transparent text-slate-500 opacity-80 cursor-not-allowed"
+                      }`}
                     />
                   </div>
                 </div>
@@ -292,7 +354,11 @@ const SellerProfile = () => {
                       value={formData.phone}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-100 transition-all disabled:opacity-70"
+                      className={`w-full pl-14 pr-6 py-4 border-2 rounded-lg text-sm font-bold transition-all outline-none ${
+                        isEditing
+                          ? "bg-white border-indigo-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50"
+                          : "bg-slate-50 border-transparent text-slate-500 opacity-80 cursor-not-allowed"
+                      }`}
                     />
                   </div>
                 </div>
@@ -311,7 +377,11 @@ const SellerProfile = () => {
                       value={formData.email}
                       onChange={handleChange}
                       disabled={!isEditing}
-                      className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-100 transition-all disabled:opacity-70"
+                      className={`w-full pl-14 pr-6 py-4 border-2 rounded-lg text-sm font-bold transition-all outline-none ${
+                        isEditing
+                          ? "bg-white border-indigo-200 text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50"
+                          : "bg-slate-50 border-transparent text-slate-500 opacity-80 cursor-not-allowed"
+                      }`}
                     />
                   </div>
                 </div>
@@ -329,7 +399,7 @@ const SellerProfile = () => {
                       name="registrationNumber"
                       value={formData.registrationNumber}
                       disabled={true}
-                      className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none transition-all opacity-60 cursor-not-allowed"
+                      className="w-full pl-14 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-500 outline-none transition-all opacity-70 cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -346,7 +416,8 @@ const SellerProfile = () => {
               {!isEditing && (
                 <Button
                   onClick={() => setIsEditing(true)}
-                  className="bg-slate-900 text-white hover:bg-black rounded-lg px-6 py-2 text-[10px] font-black tracking-[2px]">
+                  disabled={!!pendingRequest}
+                  className="bg-slate-900 text-white hover:bg-black rounded-lg px-6 py-2 text-[10px] font-black tracking-[2px] disabled:opacity-40 disabled:cursor-not-allowed">
                   MANAGE
                 </Button>
               )}
@@ -432,6 +503,35 @@ const SellerProfile = () => {
               </div>
             </div>
           </Card>
+
+          {isEditing && (
+            <div ref={reasonCardRef}>
+            <Card className="p-8 border-none shadow-[0_20px_50px_rgba(0,0,0,0.05)] rounded-lg border-l-4 border-l-indigo-600 bg-indigo-50/10">
+              <h3 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
+                <FileText size={20} className="text-indigo-600" /> Reason for Profile Update
+              </h3>
+              <p className="text-xs text-slate-500 mb-4 font-medium">
+                Please explain why you are requesting these profile updates. An administrator will review your reasoning before approving the changes.
+              </p>
+              <div className="space-y-3">
+                <textarea
+                  required
+                  value={reason}
+                  onChange={(e) => { setReason(e.target.value); if (reasonError) setReasonError(""); }}
+                  placeholder="e.g., We have updated our business phone number and relocated our physical store to the Canteen Block A..."
+                  rows={4}
+                  className={`w-full px-4 py-3 bg-white border-2 rounded-lg text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all placeholder:text-slate-350 resize-none font-sans ${reasonError ? 'border-rose-400' : 'border-slate-200'}`}
+                />
+                {reasonError && (
+                  <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 rounded-xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-rose-500 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <p className="text-xs font-semibold text-rose-600 leading-relaxed">{reasonError}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+            </div>
+          )}
         </div>
 
         {/* Sidebar Card */}

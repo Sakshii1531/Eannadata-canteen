@@ -42,6 +42,7 @@ import "../models/otpVerification.js";
 import "../models/product.js";
 import "../models/review.js";
 import "../models/seller.js";
+import "../models/sellerProfileUpdateRequest.js";
 import "../models/ticket.js";
 import "../models/wishlist.js";
 
@@ -87,6 +88,7 @@ export const REQUIRED_MODELS = Object.freeze([
   // Users
   "User",
   "Seller",
+  "SellerProfileUpdateRequest",
   "Delivery",
   "Admin",
 

@@ -384,6 +384,20 @@ function eventDefinition(eventType) {
           return `Good news! ${productName} is now back in stock and available to purchase.`;
         },
       };
+    case NOTIFICATION_EVENTS.SELLER_PROFILE_APPROVED:
+      return {
+        role: NOTIFICATION_ROLES.SELLER,
+        recipientIds: (payload) => normalizeIdList(payload.sellerId),
+        title: () => "Profile Update Approved ✅",
+        body: () => "Your profile update request has been reviewed and approved by admin.",
+      };
+    case NOTIFICATION_EVENTS.SELLER_PROFILE_REJECTED:
+      return {
+        role: NOTIFICATION_ROLES.SELLER,
+        recipientIds: (payload) => normalizeIdList(payload.sellerId),
+        title: () => "Profile Update Rejected ❌",
+        body: (payload) => `Your profile update request was rejected. Reason: ${payload.feedback || "Details changed do not meet platform criteria."}`,
+      };
     default:
       return null;
   }
@@ -422,6 +436,15 @@ function eventData(eventType, payload = {}, role) {
       eventType,
       productId,
       link: productId ? `${baseUrl}/products/${encodeURIComponent(productId)}` : `${baseUrl}/products`,
+      ...(payload.data || {}),
+    };
+  }
+
+  if (eventType === NOTIFICATION_EVENTS.SELLER_PROFILE_APPROVED || eventType === NOTIFICATION_EVENTS.SELLER_PROFILE_REJECTED) {
+    const baseUrl = getFrontendBaseUrl();
+    return {
+      eventType,
+      link: `${baseUrl}/seller/profile`,
       ...(payload.data || {}),
     };
   }

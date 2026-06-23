@@ -33,6 +33,8 @@ export const adminUsersApi = {
     approveSeller: (id) => axiosInstance.patch(`/admin/sellers/approve/${id}`),
     rejectSeller: (id, data) =>
         axiosInstance.delete(`/admin/sellers/reject/${id}`, { data }),
+    getSellerProfileRequests: (params) => axiosInstance.get('/admin/sellers/profile-requests', { params }),
+    decideSellerProfileRequest: (id, data) => axiosInstance.put(`/admin/sellers/profile-requests/${id}/decide`, data),
 };
 
 export default adminUsersApi;

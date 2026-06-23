@@ -57,6 +57,11 @@ import {
     updateDeliverySettingsController,
 } from "../controller/adminFinanceController.js";
 
+import {
+    listProfileUpdateRequests,
+    decideProfileUpdateRequest,
+} from "../controller/admin/sellerProfileRequestController.js";
+
 import { verifyToken, allowRoles, requireAdminPermission, requireSuperAdmin } from "../middleware/authMiddleware.js";
 import {
     adminBootstrapRateLimiter,
@@ -180,6 +185,9 @@ router.get("/sellers/active", verifyToken, allowRoles("admin"), requireAdminPerm
 router.get("/sellers/pending", verifyToken, allowRoles("admin"), requireAdminPermission("sellers"), getPendingSellers);
 router.patch("/sellers/approve/:id", verifyToken, allowRoles("admin"), requireAdminPermission("sellers"), approveSellerApplication);
 router.delete("/sellers/reject/:id", verifyToken, allowRoles("admin"), requireAdminPermission("sellers"), rejectSellerApplication);
+
+router.get("/sellers/profile-requests", verifyToken, allowRoles("admin"), requireAdminPermission("sellers"), listProfileUpdateRequests);
+router.put("/sellers/profile-requests/:id/decide", verifyToken, allowRoles("admin"), requireAdminPermission("sellers"), decideProfileUpdateRequest);
 
 router.get(
     "/delivery-partners",
