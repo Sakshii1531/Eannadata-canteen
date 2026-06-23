@@ -22,11 +22,16 @@ export const signupDelivery = async (req, res) => {
             name, phone, vehicleType,
             email, address, vehicleNumber,
             drivingLicenseNumber,
+            vehicleRegistrationNumber,
             accountHolder, accountNumber, ifsc
         } = req.body;
 
         if (!name || !phone) {
             return handleResponse(res, 400, "Name and phone are required");
+        }
+
+        if (!vehicleRegistrationNumber) {
+            return handleResponse(res, 400, "Vehicle Registration Number (RC) is required");
         }
 
         let delivery = await Delivery.findOne({ phone });
@@ -40,6 +45,7 @@ export const signupDelivery = async (req, res) => {
         let aadharUrl = delivery?.documents?.aadhar || "";
         let panUrl = delivery?.documents?.pan || "";
         let dlUrl = delivery?.documents?.drivingLicense || "";
+        let vehicleRegistrationUrl = delivery?.documents?.vehicleRegistration || "";
         let profileImageUrl = delivery?.profileImage || "";
 
         // Handle File Uploads via Multer
@@ -53,6 +59,8 @@ export const signupDelivery = async (req, res) => {
                     panUrl = await uploadToCloudinary(file.buffer, "delivery/documents");
                 } else if (file.fieldname === "dl") {
                     dlUrl = await uploadToCloudinary(file.buffer, "delivery/documents");
+                } else if (file.fieldname === "vehicleRegistration") {
+                    vehicleRegistrationUrl = await uploadToCloudinary(file.buffer, "delivery/documents");
                 }
             }
         }
@@ -62,12 +70,20 @@ export const signupDelivery = async (req, res) => {
         const normalizedDl = String(
           req.body?.drivingLicenseUrl || req.body?.dlUrl || req.body?.dl || "",
         ).trim();
+        const normalizedVehicleRegistration = String(
+          req.body?.vehicleRegistrationUrl || req.body?.vehicleRegistrationUrl || req.body?.vehicleRegistration || "",
+        ).trim();
         const normalizedProfileImage = String(req.body?.profileImageUrl || req.body?.profileImage || "").trim();
 
         if (/^https?:\/\//i.test(normalizedAadhar)) aadharUrl = normalizedAadhar;
         if (/^https?:\/\//i.test(normalizedPan)) panUrl = normalizedPan;
         if (/^https?:\/\//i.test(normalizedDl)) dlUrl = normalizedDl;
+        if (/^https?:\/\//i.test(normalizedVehicleRegistration)) vehicleRegistrationUrl = normalizedVehicleRegistration;
         if (/^https?:\/\//i.test(normalizedProfileImage)) profileImageUrl = normalizedProfileImage;
+
+        if (!vehicleRegistrationUrl) {
+            return handleResponse(res, 400, "Vehicle Registration document (RC) photo upload is required");
+        }
 
         const deliveryData = {
             name,
@@ -77,6 +93,7 @@ export const signupDelivery = async (req, res) => {
             address,
             vehicleNumber,
             drivingLicenseNumber,
+            vehicleRegistrationNumber,
             accountHolder,
             accountNumber,
             ifsc,
@@ -85,6 +102,7 @@ export const signupDelivery = async (req, res) => {
                 aadhar: aadharUrl,
                 pan: panUrl,
                 drivingLicense: dlUrl,
+                vehicleRegistration: vehicleRegistrationUrl,
             },
             otp,
             otpExpiry: Date.now() + 5 * 60 * 1000,
@@ -200,7 +218,7 @@ export const getDeliveryProfile = async (req, res) => {
 ================================ */
 export const updateDeliveryProfile = async (req, res) => {
     try {
-        const { name, vehicleType, vehicleNumber, drivingLicenseNumber, currentArea, isOnline } = req.body;
+        const { name, vehicleType, vehicleNumber, drivingLicenseNumber, vehicleRegistrationNumber, currentArea, isOnline } = req.body;
 
         const delivery = await Delivery.findById(req.user.id);
         if (!delivery) {
@@ -211,6 +229,7 @@ export const updateDeliveryProfile = async (req, res) => {
         if (vehicleType) delivery.vehicleType = vehicleType;
         if (vehicleNumber) delivery.vehicleNumber = vehicleNumber;
         if (drivingLicenseNumber) delivery.drivingLicenseNumber = drivingLicenseNumber;
+        if (vehicleRegistrationNumber) delivery.vehicleRegistrationNumber = vehicleRegistrationNumber;
         if (currentArea) delivery.currentArea = currentArea;
 
         // Capture going-offline transition before the save so we know whether

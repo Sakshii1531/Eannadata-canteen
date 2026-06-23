@@ -47,10 +47,15 @@ const PendingDeliveryBoys = () => {
                 name: r.name,
                 phone: r.phone,
                 email: r.email,
+                avatar: r.profileImage,
                 appliedDate: new Date(r.createdAt).toLocaleDateString(),
                 location: r.currentArea || 'Unknown',
                 vehicle: r.vehicleType,
-                documents: Object.keys(r.documents || {}).filter(key => r.documents[key]),
+                vehicleNumber: r.vehicleNumber,
+                vehicleRegistrationNumber: r.vehicleRegistrationNumber,
+                documents: Object.entries(r.documents || {})
+                    .filter(([key, val]) => val)
+                    .map(([key, val]) => ({ name: key, url: val })),
                 status: r.isVerified ? 'approved' : 'pending_review',
                 experience: 'Not Specified', // Mock for now
                 preferredArea: r.currentArea || 'Not Specified'
@@ -241,7 +246,7 @@ return (
                                             <div className="flex gap-1">
                                                 {rider.documents.slice(0, 2).map((doc, i) => (
                                                     <div key={i} className="h-5 px-2 bg-slate-100 rounded-md text-[8px] font-bold text-slate-500 flex items-center">
-                                                        {doc}
+                                                        {doc.name}
                                                     </div>
                                                 ))}
                                                 {rider.documents.length > 2 && (
@@ -355,14 +360,24 @@ return (
 
                                 <div className="space-y-4">
                                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Vehicle Identification</h4>
-                                    <div className="p-6 bg-slate-50 rounded-xl border-2 border-brand-500/10">
+                                    <div className="p-6 bg-slate-50 rounded-xl border-2 border-brand-500/10 space-y-2">
                                         <div className="flex items-center gap-4">
                                             <div className="h-12 w-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-brand-600">
                                                 <Truck className="h-6 w-6" />
                                             </div>
                                             <div>
-                                                <p className="text-sm font-black text-slate-900">{viewingRider.vehicle}</p>
+                                                <p className="text-sm font-black text-slate-900 capitalize">{viewingRider.vehicle}</p>
                                                 <p className="text-[9px] font-bold text-brand-600 uppercase tracking-widest mt-0.5">Eco-Friendly Ready</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-xs font-bold text-slate-700 space-y-1 pt-2 border-t border-slate-200">
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">Plate Number:</span>
+                                                <span>{viewingRider.vehicleNumber || 'N/A'}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-400">Registration No (RC):</span>
+                                                <span>{viewingRider.vehicleRegistrationNumber || 'N/A'}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -373,13 +388,13 @@ return (
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Submitted Documents ({viewingRider.documents.length})</h4>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {viewingRider.documents.map((doc, idx) => (
-                                        <div key={idx} className="group relative aspect-[4/3] bg-slate-100 rounded-[24px] overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all">
+                                        <a key={idx} href={doc.url} target="_blank" rel="noopener noreferrer" className="group relative aspect-[4/3] bg-slate-100 rounded-[24px] overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all">
                                             <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
                                                 <FileSearch className="h-8 w-8 text-slate-400 group-hover:text-primary transition-colors" />
-                                                <p className="text-[9px] font-black text-slate-500 uppercase mt-2 text-center">{doc}</p>
+                                                <p className="text-[9px] font-black text-slate-500 uppercase mt-2 text-center">{doc.name}</p>
                                             </div>
                                             <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/5 transition-colors" />
-                                        </div>
+                                        </a>
                                     ))}
                                 </div>
                             </div>

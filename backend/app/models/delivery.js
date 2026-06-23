@@ -49,6 +49,7 @@ const deliverySchema = new mongoose.Schema(
             aadhar: { type: String },
             pan: { type: String },
             drivingLicense: { type: String },
+            vehicleRegistration: { type: String },
         },
 
         vehicleNumber: {
@@ -57,6 +58,11 @@ const deliverySchema = new mongoose.Schema(
         },
 
         drivingLicenseNumber: {
+            type: String,
+            trim: true,
+        },
+
+        vehicleRegistrationNumber: {
             type: String,
             trim: true,
         },

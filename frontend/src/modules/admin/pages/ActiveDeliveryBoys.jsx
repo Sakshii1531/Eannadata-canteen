@@ -67,6 +67,7 @@ const ActiveDeliveryBoys = () => {
                 status: r.isOnline ? 'available' : 'offline',
                 vehicle: r.vehicleType,
                 vehicleNum: r.vehicleNumber || 'N/A',
+                vehicleRegistrationNumber: r.vehicleRegistrationNumber,
                 rating: 4.5, // Mock rating for now
                 totalOrders: r.totalDeliveries || 0,
                 todayEarnings: r.todayEarnings || 0,
@@ -415,14 +416,18 @@ return (
                                     <p className="text-sm font-bold text-slate-900">{viewingRider.joinDate}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vehicle Assigned</p>
-                                    <p className="text-sm font-bold text-slate-900">{viewingRider.vehicle}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registration No.</p>
-                                    <p className="text-sm font-bold text-slate-900">{viewingRider.vehicleNum}</p>
-                                </div>
-                                <div className="space-y-1">
+                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vehicle Assigned</p>
+                                     <p className="text-sm font-bold text-slate-900 capitalize">{viewingRider.vehicle}</p>
+                                 </div>
+                                 <div className="space-y-1">
+                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plate Number</p>
+                                     <p className="text-sm font-bold text-slate-900">{viewingRider.vehicleNum}</p>
+                                 </div>
+                                 <div className="space-y-1">
+                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registration No (RC)</p>
+                                     <p className="text-sm font-bold text-slate-900">{viewingRider.vehicleRegistrationNumber || 'N/A'}</p>
+                                 </div>
+                                 <div className="space-y-1">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Synced Area</p>
                                     <p className="text-sm font-bold text-slate-900">{viewingRider.location}</p>
                                 </div>

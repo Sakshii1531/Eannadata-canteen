@@ -68,6 +68,7 @@ const DeliveryAuth = () => {
   const [aadharFile, setAadharFile] = useState(null);
   const [panFile, setPanFile] = useState(null);
   const [dlFile, setDlFile] = useState(null);
+  const [vehicleRegistrationFile, setVehicleRegistrationFile] = useState(null);
 
   // OTP state
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -81,6 +82,8 @@ const DeliveryAuth = () => {
   const [dlVerified, setDlVerified] = useState(null);
   const [panVerified, setPanVerified] = useState(null);
   const [aadharVerified, setAadharVerified] = useState(null);
+  const [vehicleRegistrationVerified, setVehicleRegistrationVerified] = useState(null);
+  const [signupVehicleRegistrationNumber, setSignupVehicleRegistrationNumber] = useState("");
 
   useEffect(() => {
     let interval;
@@ -98,6 +101,7 @@ const DeliveryAuth = () => {
     if (type === "dl") setDlVerified(null);
     if (type === "pan") setPanVerified(null);
     if (type === "aadhar") setAadharVerified(null);
+    if (type === "vehicleRegistration") setVehicleRegistrationVerified(null);
 
     try {
       const result = await Tesseract.recognize(file, 'eng', {
@@ -180,6 +184,25 @@ const DeliveryAuth = () => {
           setAadharFile(null);
           toast.error("Aadhar mismatch. 12-digit number should be clearly visible.");
         }
+      } else if (type === "vehicleRegistration") {
+        targetNumber = signupVehicleRegistrationNumber.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const normalizedTarget = normalize(targetNumber);
+
+        const rcKeywords = ["registration", "certificate", "owner", "vehicle", "chassis", "engine", "maker", "model", "rto", "transport", "government", "ind"];
+        const hasRcKeywords = rcKeywords.some(k => rawText.includes(k));
+
+        isMatch = (targetNumber && cleanText.includes(targetNumber)) ||
+          (normalizedTarget && normalizedCleanText.includes(normalizedTarget));
+
+        if (isMatch || (hasRcKeywords && isMatch)) {
+          setVehicleRegistrationVerified(true);
+          setVehicleRegistrationFile(file);
+          toast.success("Vehicle Registration Document (RC) Verified!");
+        } else {
+          setVehicleRegistrationVerified(false);
+          setVehicleRegistrationFile(null);
+          toast.error("RC Number mismatch. Photo must be clear and show the registration number.");
+        }
       }
     } catch (error) {
       console.error("OCR Error:", error);
@@ -202,6 +225,11 @@ const DeliveryAuth = () => {
   const handleAadharUpload = (file) => {
     if (file) performOCR(file, "aadhar");
     else { setAadharFile(null); setAadharVerified(null); }
+  };
+
+  const handleVehicleRegistrationUpload = (file) => {
+    if (file) performOCR(file, "vehicleRegistration");
+    else { setVehicleRegistrationFile(null); setVehicleRegistrationVerified(null); }
   };
 
   const handleSendOtp = async () => {
@@ -227,6 +255,7 @@ const DeliveryAuth = () => {
         formData.append("address", signupAddress);
         formData.append("vehicleNumber", signupVehicleNumber);
         formData.append("drivingLicenseNumber", signupDLNumber);
+        formData.append("vehicleRegistrationNumber", signupVehicleRegistrationNumber);
         formData.append("accountHolder", signupAccountHolder);
         formData.append("accountNumber", signupAccountNumber);
         formData.append("ifsc", signupIfsc);
@@ -235,6 +264,7 @@ const DeliveryAuth = () => {
         if (aadharFile) formData.append("aadhar", aadharFile);
         if (panFile) formData.append("pan", panFile);
         if (dlFile) formData.append("dl", dlFile);
+        if (vehicleRegistrationFile) formData.append("vehicleRegistration", vehicleRegistrationFile);
 
         const res = await deliveryApi.sendSignupOtp(formData);
         toast.success(res.data?.message || "OTP sent!");
@@ -300,12 +330,18 @@ const DeliveryAuth = () => {
     setSignupVehicle("bike");
     setSignupVehicleNumber("");
     setSignupDLNumber("");
+    setSignupVehicleRegistrationNumber("");
     setSignupAccountNumber("");
     setSignupIfsc("");
     setSignupAccountHolder("");
     setAadharFile(null);
     setPanFile(null);
     setDlFile(null);
+    setVehicleRegistrationFile(null);
+    setDlVerified(null);
+    setPanVerified(null);
+    setAadharVerified(null);
+    setVehicleRegistrationVerified(null);
     setAgreed(false);
     setProfileImageFile(null);
     setProfileImagePreview("");
@@ -599,6 +635,20 @@ const DeliveryAuth = () => {
                             </div>
                           </div>
 
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Vehicle Registration Number (RC)</label>
+                            <div className="relative">
+                              <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4" />
+                              <input
+                                type="text"
+                                value={signupVehicleRegistrationNumber}
+                                onChange={(e) => setSignupVehicleRegistrationNumber(e.target.value.toUpperCase())}
+                                className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                                placeholder="e.g. MH12AB1234"
+                              />
+                            </div>
+                          </div>
+
                           <div className="flex gap-4 pt-2">
                             <button
                               onClick={() => setSignupStep(1)}
@@ -614,6 +664,10 @@ const DeliveryAuth = () => {
                                 }
                                 if (!signupDLNumber) {
                                   toast.error("Please enter your driving license number");
+                                  return;
+                                }
+                                if (!signupVehicleRegistrationNumber) {
+                                  toast.error("Please enter your vehicle registration number");
                                   return;
                                 }
                                 setSignupStep(3);
@@ -727,6 +781,7 @@ const DeliveryAuth = () => {
                               { label: "Aadhar Card (Front/Back)", state: aadharFile, setter: setAadharFile, id: "aadhar" },
                               { label: "PAN Card", state: panFile, setter: setPanFile, id: "pan" },
                               { label: "Driving License", state: dlFile, setter: setDlFile, id: "dl" },
+                              { label: "Vehicle Registration (RC)", state: vehicleRegistrationFile, setter: setVehicleRegistrationFile, id: "vehicleRegistration" },
                             ].map((doc) => (
                               <div key={doc.id} className="relative">
                                 <input
@@ -739,6 +794,7 @@ const DeliveryAuth = () => {
                                     if (doc.id === "dl") handleDLUpload(file);
                                     else if (doc.id === "pan") handlePanUpload(file);
                                     else if (doc.id === "aadhar") handleAadharUpload(file);
+                                    else if (doc.id === "vehicleRegistration") handleVehicleRegistrationUpload(file);
                                     else doc.setter(file);
                                   }}
                                 />
@@ -775,7 +831,7 @@ const DeliveryAuth = () => {
                                     </button>
                                   )}
                                 </label>
-
+ 
                                 {/* OCR Progress & Badge for DL */}
                                 {doc.id === "dl" && (
                                   <div className="mt-2 px-1">
@@ -794,14 +850,14 @@ const DeliveryAuth = () => {
                                         </div>
                                       </div>
                                     )}
-
+ 
                                     {!isScanning && dlVerified === true && (
                                       <div className="flex items-center gap-1.5 text-brand-600 animate-in zoom-in-95 duration-300">
                                         <CheckCircle className="w-3.5 h-3.5" />
                                         <span className="text-[10px] font-black uppercase tracking-wider">AI Verified: Valid DL Found</span>
                                       </div>
                                     )}
-
+ 
                                     {!isScanning && dlVerified === false && (
                                       <div className="flex items-center gap-1.5 text-rose-500 animate-in shake duration-500">
                                         <XCircle className="w-3.5 h-3.5" />
@@ -810,7 +866,7 @@ const DeliveryAuth = () => {
                                     )}
                                   </div>
                                 )}
-
+ 
                                 {/* OCR Progress & Badge for PAN */}
                                 {doc.id === "pan" && (
                                   <div className="mt-2 px-1">
@@ -829,14 +885,14 @@ const DeliveryAuth = () => {
                                         </div>
                                       </div>
                                     )}
-
+ 
                                     {!isScanning && panVerified === true && (
                                       <div className="flex items-center gap-1.5 text-brand-600 animate-in zoom-in-95 duration-300">
                                         <CheckCircle className="w-3.5 h-3.5" />
                                         <span className="text-[10px] font-black uppercase tracking-wider">AI Verified: Valid PAN Found</span>
                                       </div>
                                     )}
-
+ 
                                     {!isScanning && panVerified === false && (
                                       <div className="flex items-center gap-1.5 text-rose-500 animate-in shake duration-500">
                                         <XCircle className="w-3.5 h-3.5" />
@@ -845,7 +901,7 @@ const DeliveryAuth = () => {
                                     )}
                                   </div>
                                 )}
-
+ 
                                 {/* OCR Progress & Badge for Aadhar */}
                                 {doc.id === "aadhar" && (
                                   <div className="mt-2 px-1">
@@ -864,18 +920,53 @@ const DeliveryAuth = () => {
                                         </div>
                                       </div>
                                     )}
-
+ 
                                     {!isScanning && aadharVerified === true && (
                                       <div className="flex items-center gap-1.5 text-brand-600 animate-in zoom-in-95 duration-300">
                                         <CheckCircle className="w-3.5 h-3.5" />
                                         <span className="text-[10px] font-black uppercase tracking-wider">AI Verified: Valid Aadhar Found</span>
                                       </div>
                                     )}
-
+ 
                                     {!isScanning && aadharVerified === false && (
                                       <div className="flex items-center gap-1.5 text-rose-500 animate-in shake duration-500">
                                         <XCircle className="w-3.5 h-3.5" />
                                         <span className="text-[10px] font-black uppercase tracking-wider text-rose-500">AI Warning: Aadhar Match Failed</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* OCR Progress & Badge for Vehicle Registration */}
+                                {doc.id === "vehicleRegistration" && (
+                                  <div className="mt-2 px-1">
+                                    {(isScanning && doc.state === null) && (
+                                      <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-brand-500">
+                                          <span>AI Scanning RC...</span>
+                                          <span>{ocrProgress}%</span>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-brand-50 rounded-full overflow-hidden">
+                                          <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${ocrProgress}%` }}
+                                            className="h-full bg-brand-500"
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {!isScanning && vehicleRegistrationVerified === true && (
+                                      <div className="flex items-center gap-1.5 text-brand-600 animate-in zoom-in-95 duration-300">
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                        <span className="text-[10px] font-black uppercase tracking-wider">AI Verified: Valid RC Found</span>
+                                      </div>
+                                    )}
+
+                                    {!isScanning && vehicleRegistrationVerified === false && (
+                                      <div className="flex items-center gap-1.5 text-rose-500 animate-in shake duration-500">
+                                        <XCircle className="w-3.5 h-3.5" />
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-500">AI Warning: RC Match Failed</span>
                                       </div>
                                     )}
                                   </div>
@@ -887,7 +978,7 @@ const DeliveryAuth = () => {
                               Documents will be verified by our team after submission.
                             </p>
                           </div>
-
+ 
                           <div className="flex gap-3">
                             <button
                               onClick={() => setSignupStep(3)}
@@ -897,7 +988,7 @@ const DeliveryAuth = () => {
                             </button>
                             <button
                               onClick={handleSendOtp}
-                              disabled={loading || dlVerified !== true || panVerified !== true || aadharVerified !== true}
+                              disabled={loading || dlVerified !== true || panVerified !== true || aadharVerified !== true || vehicleRegistrationVerified !== true}
                               className="flex-[2] py-4 bg-black  text-primary-foreground rounded-2xl text-sm font-black tracking-widest uppercase shadow-lg shadow-brand-200 hover:bg-brand-700 transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               {loading ? (
