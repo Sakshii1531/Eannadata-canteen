@@ -115,15 +115,19 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
             <span className="font-black text-slate-800">₹{taxAmount}</span>
           </div>
 
-          {pricingPreview?.subsidyDiscount > 0 && (
+          {pricingPreview && (
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="flex justify-between items-center px-3 py-2 bg-green-50 rounded-xl border border-green-100">
-              <span className="text-green-700 font-black text-xs flex items-center gap-2 uppercase tracking-wider">
-                🌾 DBT Subsidy (Will be credited to wallet) ({pricingPreview.subsidyDiscountPercent}%)
+              className={`flex justify-between items-center px-3 py-2 rounded-xl border ${
+                (pricingPreview.subsidyDiscount || 0) > 0
+                  ? "bg-green-50 border-green-100 text-green-700"
+                  : "bg-slate-50 border-slate-200 text-slate-600"
+              }`}>
+              <span className="font-black text-xs flex items-center gap-2 uppercase tracking-wider">
+                🌾 DBT Subsidy (Will be credited to wallet) ({pricingPreview.subsidyDiscountPercent || 0}%)
               </span>
-              <span className="font-black text-green-700">₹{pricingPreview.subsidyDiscount}</span>
+              <span className="font-black">₹{pricingPreview.subsidyDiscount || 0}</span>
             </motion.div>
           )}
 

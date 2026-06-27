@@ -140,10 +140,16 @@ const ProductCard = React.memo(
     const netEffectivePrice = payNowPrice - dbtSavings;
     const totalSubsidyPct = instantDiscountPct + (isSubsidyUser && subsidyRate > 0 ? subsidyRate : 0);
 
+    const t1RateConfig = Number(settings?.dbtTier1Rate ?? settings?.eAnnadataDiscount1Year ?? 10);
+    const t2RateConfig = Number(settings?.dbtTier2Rate ?? settings?.eAnnadataDiscount2Years ?? 20);
+    const maxDbtRate = Math.max(t1RateConfig, t2RateConfig);
+    const displayDbtRate = (isSubsidyUser && subsidyRate > 0) ? subsidyRate : maxDbtRate;
+    const displayDbtSavings = Math.round(payNowPrice * displayDbtRate / 100);
+
     const isOutOfStock = product.stock === 0 || (product.stock !== undefined && product.stock <= 0);
 
-    // Show breakdown for ALL card sizes when subsidy/discount exists
-    const showBreakdown = (hasInstantDiscount || dbtSavings > 0);
+    // Show breakdown for ALL card sizes and users (including guests)
+    const showBreakdown = true;
 
     const handleNotifyMe = React.useCallback(
       async (e) => {
@@ -382,15 +388,13 @@ const ProductCard = React.memo(
               </div>
 
               {/* DBT Subsidy row */}
-              {dbtSavings > 0 && (
-                <div className={cn("flex items-center justify-between gap-1 border-t border-gray-100", compact ? "px-1.5 py-0" : "px-2.5 py-1")}>
-                  <span className={cn("text-blue-600 font-black whitespace-nowrap", compact ? "text-[9px]" : "text-[9px]")}>🏛 DBT Subsidy</span>
-                  <div className="flex items-center gap-1 whitespace-nowrap">
-                    <span className={cn("text-blue-600 font-black", compact ? "text-[9px]" : "text-[9px]")}>₹{dbtSavings}</span>
-                    <span className={cn("font-black bg-blue-100 text-blue-600 rounded uppercase whitespace-nowrap", compact ? "text-[8px] px-1 py-0.5" : "text-[7px] px-1 py-0.5")}>Later</span>
-                  </div>
+              <div className={cn("flex items-center justify-between gap-1 border-t border-gray-100", compact ? "px-1.5 py-0" : "px-2.5 py-1")}>
+                <span className={cn("text-blue-600 font-black whitespace-nowrap", compact ? "text-[9px]" : "text-[9px]")}>🏛 DBT Subsidy</span>
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <span className={cn("text-blue-600 font-black", compact ? "text-[9px]" : "text-[9px]")}>₹{displayDbtSavings}</span>
+                  <span className={cn("font-black bg-blue-100 text-blue-600 rounded uppercase whitespace-nowrap", compact ? "text-[8px] px-1 py-0.5" : "text-[7px] px-1 py-0.5")}>{(isSubsidyUser && subsidyRate > 0) ? "Later" : `Upto ${displayDbtRate}%`}</span>
                 </div>
-              )}
+              </div>
 
               {/* Net Effective Price row */}
               {dbtSavings > 0 && (

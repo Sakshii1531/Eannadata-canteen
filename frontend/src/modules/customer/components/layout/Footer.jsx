@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, Twitter, Instagram, Youtube, Mail, MapPin, Phone } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Youtube, Mail, MapPin, Phone, ExternalLink, UserCheck, Utensils, HeartPulse } from 'lucide-react';
 import Logo from '@/assets/Logo.png';
 import { useSettings } from '@core/context/SettingsContext';
 
@@ -93,6 +93,84 @@ const Footer = () => {
                                 <span className="md:text-base text-white font-medium">{settings?.supportEmail || '—'}</span>
                             </li>
                         </ul>
+                    </div>
+                </div>
+
+                {/* Partner & Registration Portals Banner */}
+                <div className="mt-12 md:mt-16 pt-8 border-t border-white/10">
+                    <div className="text-center md:text-left mb-6 md:mb-8">
+                        <h3 className="text-white font-bold text-lg md:text-xl uppercase tracking-wider flex items-center justify-center md:justify-start gap-2">
+                            <span className="h-1.5 w-6 rounded-full" style={{ backgroundColor: primaryColor }}></span>
+                            Registration & Partner Portals
+                        </h3>
+                        <p className="text-xs md:text-sm text-white/70 mt-1">
+                            Direct links to join our network as a partner, canteen, or care center operator.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5">
+                        {/* Service Partner Registration */}
+                        <a
+                            href="https://eannadata.in/Customer/PartnerRegistration"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group relative flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 hover:border-emerald-400 hover:bg-emerald-500/20 transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-emerald-950/40 active:scale-[0.98]"
+                        >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                                <div className="h-10 w-10 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 transition-transform">
+                                    <UserCheck size={20} />
+                                </div>
+                                <div className="truncate">
+                                    <span className="block text-white font-bold text-sm md:text-base group-hover:text-emerald-300 transition-colors truncate">
+                                        Service Partner Registration
+                                    </span>
+                                    <span className="block text-[11px] text-emerald-200/70 font-medium">Click to register</span>
+                                </div>
+                            </div>
+                            <ExternalLink size={16} className="text-emerald-400 opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0 ml-2" />
+                        </a>
+
+                        {/* Canteen Registration */}
+                        <a
+                            href="https://eannadata.in/Customer/CanteenRegistration"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group relative flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 hover:border-amber-400 hover:bg-amber-500/20 transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-amber-950/40 active:scale-[0.98]"
+                        >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                                <div className="h-10 w-10 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 transition-transform">
+                                    <Utensils size={20} />
+                                </div>
+                                <div className="truncate">
+                                    <span className="block text-white font-bold text-sm md:text-base group-hover:text-amber-300 transition-colors truncate">
+                                        Canteen Registration
+                                    </span>
+                                    <span className="block text-[11px] text-amber-200/70 font-medium">Click to register</span>
+                                </div>
+                            </div>
+                            <ExternalLink size={16} className="text-amber-400 opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0 ml-2" />
+                        </a>
+
+                        {/* Care Center Registration */}
+                        <a
+                            href="https://eannadata.in/Customer/FhcRegistration"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group relative flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-rose-500/10 to-pink-500/10 border border-rose-500/30 hover:border-rose-400 hover:bg-rose-500/20 transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-rose-950/40 active:scale-[0.98]"
+                        >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                                <div className="h-10 w-10 rounded-lg bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 transition-transform">
+                                    <HeartPulse size={20} />
+                                </div>
+                                <div className="truncate">
+                                    <span className="block text-white font-bold text-sm md:text-base group-hover:text-rose-300 transition-colors truncate">
+                                        Care Center Registration
+                                    </span>
+                                    <span className="block text-[11px] text-rose-200/70 font-medium">Click to register</span>
+                                </div>
+                            </div>
+                            <ExternalLink size={16} className="text-rose-400 opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0 ml-2" />
+                        </a>
                     </div>
                 </div>
 
