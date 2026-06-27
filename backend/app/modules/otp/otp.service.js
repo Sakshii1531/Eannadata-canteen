@@ -174,7 +174,9 @@ export async function sendSmsOtp({ mobile, userType, purpose, ipAddress = "unkno
   }
 
   let otp = generateOTP();
-  if (normalizedMobile === "7777777777" && userType === "Delivery") {
+  const isMockDelivery = (normalizedMobile.endsWith("7777777777") || normalizedMobile.endsWith("7389961407")) && userType === "Delivery";
+  const isMockCustomer = normalizedMobile.endsWith("7389961407") && userType === "Customer";
+  if (isMockDelivery || isMockCustomer) {
     otp = "1234";
   }
   const expiresAt = new Date(Date.now() + getExpiryMinutes() * 60 * 1000);
@@ -225,7 +227,10 @@ export async function verifySmsOtp({ mobile, otp, userType, purpose, ipAddress =
 
   const normalizedMobile = assertValidMobile(mobile);
   const code = String(otp || "").trim();
-  const expectedLength = (normalizedMobile === "7777777777" && userType === "Delivery") ? 4 : getOtpLength();
+  const isMockDelivery = (normalizedMobile.endsWith("7777777777") || normalizedMobile.endsWith("7389961407")) && userType === "Delivery";
+  const isMockCustomer = normalizedMobile.endsWith("7389961407") && userType === "Customer";
+  const isMockCredential = isMockDelivery || isMockCustomer;
+  const expectedLength = isMockCredential ? 4 : getOtpLength();
   const otpPattern = new RegExp(`^\\d{${expectedLength}}$`);
   if (!otpPattern.test(code)) {
     const error = new Error(`OTP must be exactly ${expectedLength} digits`);

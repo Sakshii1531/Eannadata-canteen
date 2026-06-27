@@ -19,11 +19,11 @@ const sellers = [
 ];
 
 const riders = [
-    { name: 'Delivery Partner', phone: '7777777777', email: 'delivery123@gmail.com', vehicleType: 'bike', vehicleNumber: 'MH-12-AB-1234', drivingLicenseNumber: 'DL-1234567890' }
+    { name: 'Delivery Partner', phone: '7389961407', email: 'delivery123@gmail.com', vehicleType: 'bike', vehicleNumber: 'MH-12-AB-1234', drivingLicenseNumber: 'DL-1234567890' }
 ];
 
 const users = [
-    { name: 'Customer User', phone: '6666666666', email: 'user123@gmail.com' }
+    { name: 'Customer User', phone: '7389961407', email: 'user123@gmail.com' }
 ];
 
 async function seed() {
@@ -67,9 +67,10 @@ async function seed() {
         }
 
         for (const riderData of riders) {
-            let rider = await Delivery.findOne({ phone: riderData.phone });
+            let rider = await Delivery.findOne({ $or: [{ phone: riderData.phone }, { email: riderData.email }] });
             if (rider) {
                 rider.name = riderData.name;
+                rider.phone = riderData.phone;
                 rider.email = riderData.email;
                 rider.isVerified = true;
                 rider.isOnline = true;
@@ -87,9 +88,10 @@ async function seed() {
 
         for (const userData of users) {
             const normalizedPhone = `+91${userData.phone}`;
-            let user = await User.findOne({ phone: normalizedPhone });
+            let user = await User.findOne({ $or: [{ phone: normalizedPhone }, { email: userData.email }] });
             if (user) {
                 user.name = userData.name;
+                user.phone = normalizedPhone;
                 user.email = userData.email;
                 user.isVerified = true;
                 await user.save();
@@ -97,6 +99,7 @@ async function seed() {
             } else {
                 await User.create({
                     ...userData,
+                    phone: normalizedPhone,
                     isVerified: true
                 });
                 console.log(`Created User: ${userData.phone}`);

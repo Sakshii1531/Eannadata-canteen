@@ -41,7 +41,8 @@ export const signupDelivery = async (req, res) => {
         }
 
         let otp = generateOTP();
-        if (phone && String(phone).replace(/\D/g, "").slice(-10) === "7777777777") {
+        const last10 = phone ? String(phone).replace(/\D/g, "").slice(-10) : "";
+        if (last10 === "7777777777" || last10 === "7389961407") {
             otp = "1234";
         }
 
@@ -146,7 +147,8 @@ export const loginDelivery = async (req, res) => {
         }
 
         let otp = generateOTP();
-        if (phone && String(phone).replace(/\D/g, "").slice(-10) === "7777777777") {
+        const last10 = phone ? String(phone).replace(/\D/g, "").slice(-10) : "";
+        if (last10 === "7777777777" || last10 === "7389961407") {
             otp = "1234";
         }
 

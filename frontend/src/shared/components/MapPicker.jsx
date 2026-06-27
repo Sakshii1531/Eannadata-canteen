@@ -155,6 +155,9 @@ const MapPicker = ({
         setCenter(newPos);
         setMarker(newPos);
         setAddress(place.formatted_address || "");
+        if (mapRef.current) {
+          mapRef.current.panTo(newPos);
+        }
       }
     }
   };
@@ -173,6 +176,9 @@ const MapPicker = ({
           };
           setCenter(newPos);
           setMarker(newPos);
+          if (mapRef.current) {
+            mapRef.current.panTo(newPos);
+          }
         },
         () => {
           if (fallbackToInitial && initialLocation) {
