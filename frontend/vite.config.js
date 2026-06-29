@@ -66,6 +66,7 @@ export default defineConfig({
   build: {
     minify: 'esbuild',
     sourcemap: false,
+    chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -83,8 +84,12 @@ export default defineConfig({
           if (id.includes('framer-motion')) return 'vendor-motion'
           if (id.includes('firebase')) return 'vendor-firebase'
           if (id.includes('recharts')) return 'vendor-charts'
+          if (id.includes('jspdf') || id.includes('tesseract.js')) return 'vendor-heavy-tools'
+          if (id.includes('lucide-react') || id.includes('react-icons')) return 'vendor-icons'
+          if (id.includes('@react-google-maps')) return 'vendor-maps'
         },
       },
     },
   },
 })
+
