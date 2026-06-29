@@ -35,6 +35,16 @@ const DeliveryLayout = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  useEffect(() => {
+    if (user && user.isVerified === false) {
+      const allowedPaths = ["/delivery/pending-approval", "/delivery/auth", "/delivery/splash"];
+      const isAllowed = allowedPaths.some((p) => location.pathname.includes(p));
+      if (!isAllowed) {
+        navigate("/delivery/pending-approval", { replace: true });
+      }
+    }
+  }, [user, location.pathname, navigate]);
+
   const [activeOrder, setActiveOrder] = useState(null);
   const [timeLeft, setTimeLeft] = useState(60);
   const [acceptWindowTotal, setAcceptWindowTotal] = useState(60);
@@ -236,6 +246,7 @@ const DeliveryLayout = () => {
   const hideBottomNavRoutes = [
     "/delivery/login",
     "/delivery/auth",
+    "/delivery/pending-approval",
     "/delivery/splash",
     "/delivery/navigation",
     "/delivery/confirm-delivery",

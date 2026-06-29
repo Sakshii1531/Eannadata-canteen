@@ -1,6 +1,7 @@
 import Delivery from "../../models/delivery.js";
 import Order from "../../models/order.js";
 import Transaction from "../../models/transaction.js";
+import Notification from "../../models/notification.js";
 import handleResponse from "../../utils/helper.js";
 import getPagination from "../../utils/pagination.js";
 
@@ -113,6 +114,23 @@ export const approveDeliveryPartner = async (req, res) => {
 
     if (!rider) {
       return handleResponse(res, 404, "Rider not found");
+    }
+
+    try {
+      await Notification.create({
+        recipient: rider._id,
+        recipientModel: "Delivery",
+        userId: rider._id,
+        role: "delivery",
+        title: "Account Activated!",
+        message: "Congratulations! Your delivery partner account has been approved and activated. You can now go online to accept orders.",
+        body: "Congratulations! Your delivery partner account has been approved and activated. You can now go online to accept orders.",
+        type: "alert",
+        status: "sent",
+        channel: "in_app"
+      });
+    } catch (notifErr) {
+      console.error("Failed to send approval notification:", notifErr);
     }
 
     return handleResponse(res, 200, "Rider approved successfully", rider);

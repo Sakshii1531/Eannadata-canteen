@@ -36,29 +36,30 @@ const BankAccount = () => {
 
       <div className="p-4 max-w-lg mx-auto space-y-6">
         {/* Bank Card Visual */}
-        <div className="bg-gradient-to-br from-brand-900 to-brand-800 text-white p-6 rounded-2xl shadow-xl relative overflow-hidden">
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white p-6 rounded-2xl shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
           
           <div className="flex justify-between items-start mb-8 relative z-10">
             <Landmark size={32} className="text-white/80" />
-            <span className="bg-brand-500/20 text-brand-300 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-brand-500/30 flex items-center">
-              <CheckCircle2 size={12} className="mr-1" /> Active
+            <span className="bg-white/10 text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-white/20 flex items-center gap-1">
+              <CheckCircle2 size={12} /> Active
             </span>
           </div>
 
           <div className="space-y-1 relative z-10">
-            <p className="text-brand-200 text-xs uppercase tracking-wider">Account Number</p>
-            <p className="font-mono text-2xl tracking-widest">{bankDetails.accountNumber}</p>
+            <p className="text-white/60 text-xs uppercase tracking-wider">Account Number</p>
+            <p className="font-mono text-2xl tracking-widest text-white">{bankDetails.accountNumber}</p>
           </div>
 
           <div className="flex justify-between items-end mt-8 relative z-10">
             <div>
-              <p className="text-brand-200 text-xs uppercase tracking-wider mb-1">Account Holder</p>
-              <p className="font-bold text-lg">{bankDetails.accountHolder}</p>
+              <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Account Holder</p>
+              <p className="font-bold text-lg text-white">{bankDetails.accountHolder}</p>
             </div>
             <div className="text-right">
               <p className="text-white font-bold">{bankDetails.bankName}</p>
-              <p className="text-brand-200 text-xs">{bankDetails.ifsc}</p>
+              <p className="text-white/60 text-xs">{bankDetails.ifsc}</p>
             </div>
           </div>
         </div>

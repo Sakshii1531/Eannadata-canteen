@@ -42,22 +42,33 @@ const PendingDeliveryBoys = () => {
             const list = Array.isArray(payload.items) ? payload.items : (response.data.results || []);
 
             // Map backend data to frontend format
+            const docLabels = {
+                aadhar: "Aadhar Card",
+                pan: "PAN Card",
+                drivingLicense: "Driving License",
+                vehicleRegistration: "Vehicle RC Document"
+            };
+
             const mappedRiders = list.map(r => ({
                 id: r._id,
                 name: r.name,
                 phone: r.phone,
-                email: r.email,
+                email: r.email || 'N/A',
                 avatar: r.profileImage,
                 appliedDate: new Date(r.createdAt).toLocaleDateString(),
                 location: r.currentArea || 'Unknown',
                 vehicle: r.vehicleType,
                 vehicleNumber: r.vehicleNumber,
+                drivingLicenseNumber: r.drivingLicenseNumber,
                 vehicleRegistrationNumber: r.vehicleRegistrationNumber,
+                accountHolder: r.accountHolder,
+                accountNumber: r.accountNumber,
+                ifsc: r.ifsc,
                 documents: Object.entries(r.documents || {})
                     .filter(([key, val]) => val)
-                    .map(([key, val]) => ({ name: key, url: val })),
+                    .map(([key, val]) => ({ name: docLabels[key] || key, key, url: val })),
                 status: r.isVerified ? 'approved' : 'pending_review',
-                experience: 'Not Specified', // Mock for now
+                experience: 'Verified Applicant',
                 preferredArea: r.currentArea || 'Not Specified'
             }));
 
@@ -78,6 +89,21 @@ React.useEffect(() => {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [searchTerm, filterStatus]);
+
+React.useEffect(() => {
+    if (!viewingRider) return;
+
+    const preventScroll = (e) => e.preventDefault();
+
+    // Must use { passive: false } so preventDefault() actually works on wheel/touch
+    document.addEventListener('wheel', preventScroll, { passive: false });
+    document.addEventListener('touchmove', preventScroll, { passive: false });
+
+    return () => {
+        document.removeEventListener('wheel', preventScroll);
+        document.removeEventListener('touchmove', preventScroll);
+    };
+}, [viewingRider]);
 
 const filteredRiders = useMemo(() => {
     return pendingRiders.filter(r => {
@@ -276,27 +302,34 @@ return (
         {/* Application Review Modal */}
         <AnimatePresence>
             {viewingRider && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 lg:p-8">
+                <div
+                    className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 lg:p-8 overflow-hidden"
+                    onWheel={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
+                >
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl"
                         onClick={() => setViewingRider(null)}
+                        onWheel={(e) => e.preventDefault()}
+                        onTouchMove={(e) => e.preventDefault()}
                     />
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9, y: 30 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                        className="w-full max-w-5xl relative z-10 bg-white rounded-[48px] shadow-3xl overflow-hidden flex flex-col lg:flex-row"
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full max-w-5xl my-auto relative z-10 bg-white rounded-[32px] sm:rounded-[40px] shadow-3xl overflow-hidden flex flex-col lg:flex-row max-h-[90vh]"
                     >
                         {/* Left: Applicant Profile Info */}
-                        <div className="lg:w-80 bg-slate-50 p-5 border-r border-slate-100">
-                            <div className="text-center mb-10">
+                        <div className="lg:w-80 bg-slate-50 p-6 border-r border-slate-100 overflow-y-auto overscroll-contain">
+                            <div className="flex flex-col items-center text-center mb-8">
                                 <img 
                                    src={viewingRider.avatar && !viewingRider.avatar.includes('emoji') && !viewingRider.avatar.includes('avatar') ? viewingRider.avatar : "https://cdn-icons-png.flaticon.com/512/149/149071.png"} 
                                    alt="" 
-                                   className="h-24 w-24 rounded-2xl bg-white shadow-xl object-cover ring-4 ring-white" 
+                                   className="h-24 w-24 mx-auto mb-3 rounded-2xl bg-white shadow-xl object-cover ring-4 ring-white" 
                                 />
                                 <h3 className="ds-h2">{viewingRider.name}</h3>
                                 <p className="ds-label text-primary mt-1">Applicant Node</p>
@@ -328,98 +361,130 @@ return (
                         </div>
 
                         {/* Right: Document & Action Section */}
-                        <div className="flex-1 p-5 lg:p-14 bg-white">
-                            <div className="flex justify-between items-start mb-10">
+                        <div className="flex-1 p-5 lg:p-8 bg-white flex flex-col h-full min-h-0 overflow-hidden">
+                            <div className="flex justify-between items-start mb-4 shrink-0">
                                 <div>
                                     <h2 className="ds-h1">Vetting Protocol</h2>
                                     <p className="ds-description mt-1">Check submitted legal documents for platform entry.</p>
                                 </div>
-                                <button onClick={() => setViewingRider(null)} className="p-3 hover:bg-slate-50 rounded-2xl transition-all">
+                                <button onClick={() => setViewingRider(null)} className="p-2.5 hover:bg-slate-50 rounded-2xl transition-all">
                                     <X className="h-6 w-6 text-slate-400" />
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
-                                <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contact Records</h4>
-                                    <div className="p-6 bg-slate-50 rounded-xl space-y-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary">
-                                                <Phone className="h-5 w-5" />
+                            <div className="flex-1 overflow-y-auto overscroll-contain pr-2 space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contact Records</h4>
+                                        <div className="p-6 bg-slate-50 rounded-xl space-y-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary">
+                                                    <Phone className="h-5 w-5" />
+                                                </div>
+                                                <span className="text-sm font-bold text-slate-900">{viewingRider.phone}</span>
                                             </div>
-                                            <span className="text-sm font-bold text-slate-900">{viewingRider.phone}</span>
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary">
+                                                    <Mail className="h-5 w-5" />
+                                                </div>
+                                                <span className="text-sm font-bold text-slate-900">{viewingRider.email}</span>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary">
-                                                <Mail className="h-5 w-5" />
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Vehicle & License Details</h4>
+                                        <div className="p-6 bg-slate-50 rounded-xl border-2 border-brand-500/10 space-y-2">
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-brand-600">
+                                                    <Truck className="h-6 w-6" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black text-slate-900 capitalize">{viewingRider.vehicle}</p>
+                                                    <p className="text-[9px] font-bold text-brand-600 uppercase tracking-widest mt-0.5">Active Fleet Candidate</p>
+                                                </div>
                                             </div>
-                                            <span className="text-sm font-bold text-slate-900">{viewingRider.email}</span>
+                                            <div className="text-xs font-bold text-slate-700 space-y-1.5 pt-3 border-t border-slate-200">
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Plate Number:</span>
+                                                    <span>{viewingRider.vehicleNumber || 'N/A'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">DL Number:</span>
+                                                    <span>{viewingRider.drivingLicenseNumber || 'N/A'}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Registration (RC):</span>
+                                                    <span>{viewingRider.vehicleRegistrationNumber || 'N/A'}</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Vehicle Identification</h4>
-                                    <div className="p-6 bg-slate-50 rounded-xl border-2 border-brand-500/10 space-y-2">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-12 w-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-brand-600">
-                                                <Truck className="h-6 w-6" />
+                                {/* Financial / Bank Account Details */}
+                                {(viewingRider.accountNumber || viewingRider.ifsc) && (
+                                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Bank Settlement Details</h4>
+                                        <div className="grid grid-cols-3 gap-4 text-xs font-bold">
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 font-normal uppercase">Account Holder</p>
+                                                <p className="text-slate-900 mt-0.5">{viewingRider.accountHolder || 'N/A'}</p>
                                             </div>
                                             <div>
-                                                <p className="text-sm font-black text-slate-900 capitalize">{viewingRider.vehicle}</p>
-                                                <p className="text-[9px] font-bold text-brand-600 uppercase tracking-widest mt-0.5">Eco-Friendly Ready</p>
+                                                <p className="text-[10px] text-slate-400 font-normal uppercase">Account Number</p>
+                                                <p className="text-slate-900 mt-0.5">{viewingRider.accountNumber || 'N/A'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 font-normal uppercase">IFSC Code</p>
+                                                <p className="text-slate-900 mt-0.5">{viewingRider.ifsc || 'N/A'}</p>
                                             </div>
                                         </div>
-                                        <div className="text-xs font-bold text-slate-700 space-y-1 pt-2 border-t border-slate-200">
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-400">Plate Number:</span>
-                                                <span>{viewingRider.vehicleNumber || 'N/A'}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-400">Registration No (RC):</span>
-                                                <span>{viewingRider.vehicleRegistrationNumber || 'N/A'}</span>
-                                            </div>
-                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-4">
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Submitted Documents ({viewingRider.documents.length})</h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {viewingRider.documents.map((doc, idx) => (
+                                            <a key={idx} href={doc.url} target="_blank" rel="noopener noreferrer" className="group relative aspect-[4/3] bg-slate-100 rounded-[24px] overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all shadow-sm">
+                                                {doc.url && /^https?:\/\//i.test(doc.url) ? (
+                                                    <img src={doc.url} alt={doc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                                ) : (
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+                                                        <FileSearch className="h-8 w-8 text-slate-400 group-hover:text-primary transition-colors" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute inset-x-0 bottom-0 bg-slate-900/80 backdrop-blur-sm p-2 text-center">
+                                                    <p className="text-[9px] font-black text-white uppercase tracking-wider truncate">{doc.name}</p>
+                                                </div>
+                                            </a>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-4 mb-14">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Submitted Documents ({viewingRider.documents.length})</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {viewingRider.documents.map((doc, idx) => (
-                                        <a key={idx} href={doc.url} target="_blank" rel="noopener noreferrer" className="group relative aspect-[4/3] bg-slate-100 rounded-[24px] overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all">
-                                            <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
-                                                <FileSearch className="h-8 w-8 text-slate-400 group-hover:text-primary transition-colors" />
-                                                <p className="text-[9px] font-black text-slate-500 uppercase mt-2 text-center">{doc.name}</p>
-                                            </div>
-                                            <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/5 transition-colors" />
-                                        </a>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row gap-2.5 shrink-0 bg-white">
                                 <button
                                     disabled={isProcessing}
                                     onClick={() => handleApprove(viewingRider.id)}
-                                    className="flex-1 py-5 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                    className="flex-1 py-1.5 h-9 bg-slate-900 text-white rounded-lg font-black text-xs uppercase tracking-widest shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
                                     {isProcessing ? (
                                         <>
-                                            <div className="h-4 w-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                            <div className="h-3.5 w-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                                             Processing Vetting...
                                         </>
                                     ) : (
                                         <>
-                                            <Check className="h-4 w-4" />
+                                            <Check className="h-3.5 w-3.5" />
                                             APPROVE & ACTIVATE RIDER
                                         </>
                                     )}
                                 </button>
                                 <button
                                     onClick={() => handleReject(viewingRider.id)}
-                                    className="py-5 px-5 bg-rose-50 text-rose-600 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-rose-100 transition-all active:scale-95"
+                                    className="py-1.5 h-9 px-4 bg-rose-50 text-rose-600 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-rose-100 transition-all active:scale-95"
                                 >
                                     REJECT APPLICATION
                                 </button>
