@@ -3,6 +3,8 @@ import Card from '@shared/components/ui/Card';
 import PageHeader from '@shared/components/ui/PageHeader';
 import StatCard from '@shared/components/ui/StatCard';
 import Badge from '@shared/components/ui/Badge';
+import { CardSkeleton } from '@shared/components/ui';
+
 import { adminApi } from '../services/adminApi';
 import {
     Users,
@@ -54,12 +56,22 @@ const AdminDashboard = () => {
 
     if (loading) {
         return (
-            <div className="h-[80vh] flex flex-col items-center justify-center space-y-4">
-                <Loader2 className="h-10 w-10 text-primary animate-spin" />
-                <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Synchronizing Data...</p>
+            <div className="space-y-6 p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <CardSkeleton key={i} />
+                    ))}
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2">
+                        <CardSkeleton />
+                    </div>
+                    <CardSkeleton />
+                </div>
             </div>
         );
     }
+
 
     const overview = statsData?.overview || {};
     const formatLastUpdated = (value) => {

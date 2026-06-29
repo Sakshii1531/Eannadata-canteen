@@ -13,6 +13,8 @@ import ProductDetailSheet from '../components/shared/ProductDetailSheet';
 import { useProductDetail } from '../context/ProductDetailContext';
 import { customerApi } from '../services/customerApi';
 import MiniCart from '../components/shared/MiniCart';
+import { ProductCardSkeleton } from '@/shared/components/ui';
+
 import SectionRenderer from "../components/experience/SectionRenderer";
 import { useLocation as useAppLocation } from '../context/LocationContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -211,11 +213,18 @@ const CategoryProductsPage = () => {
                         {/* Content */}
                         <main className="flex-1 p-2 pb-24 bg-white space-y-4 overflow-x-hidden">
                             <div className="grid grid-cols-2 gap-x-2 gap-y-3">
-                                {filteredProducts.map((product) => (
-                                    <ProductCard key={product.id} product={product} compact={true} />
-                                ))}
+                                {isLoading ? (
+                                    Array.from({ length: 6 }).map((_, i) => (
+                                        <ProductCardSkeleton key={i} />
+                                    ))
+                                ) : (
+                                    filteredProducts.map((product) => (
+                                        <ProductCard key={product.id} product={product} compact={true} />
+                                    ))
+                                )}
                             </div>
                         </main>
+
                     </>
                 )}
             </div>

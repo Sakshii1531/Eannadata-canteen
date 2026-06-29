@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Package, ChevronRight, Clock, CheckCircle, Loader2, ChevronLeft } from 'lucide-react';
+import { Package, ChevronRight, Clock, CheckCircle, ChevronLeft } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { getOrderStatusLabel, getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { CardSkeleton } from '@/shared/components/ui';
 
 const OrdersPage = () => {
     const navigate = useNavigate();
@@ -14,9 +15,6 @@ const OrdersPage = () => {
         const fetchOrders = async () => {
             try {
                 const response = await customerApi.getMyOrders();
-                // Backend uses handleResponse():
-                // - arrays => { results: [...] }
-                // - objects => { result: { items: [...] } }
                 const payload = response?.data;
                 const items =
                     payload?.result?.items ||
@@ -26,7 +24,6 @@ const OrdersPage = () => {
             } catch (error) {
                 console.error("Failed to fetch orders:", error);
                 const apiMessage = error?.response?.data?.message;
-                // Orders page is a primary screen; surface failures instead of silently showing empty state.
                 if (apiMessage) {
                     console.warn("[OrdersPage] API error:", apiMessage);
                 }
@@ -40,14 +37,18 @@ const OrdersPage = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white shadow-sm border border-slate-100">
-                    <Loader2 className="animate-spin text-brand-600" size={22} />
-                    <span className="text-sm font-medium text-slate-600">Loading your orders…</span>
+            <div className="min-h-screen bg-slate-50 p-4 space-y-4 max-w-lg mx-auto">
+                <div className="flex items-center gap-2 mb-4">
+                    <ChevronLeft size={22} className="text-slate-800" />
+                    <h1 className="text-xl font-bold text-slate-800">My Orders</h1>
                 </div>
+                {Array.from({ length: 4 }).map((_, i) => (
+                    <CardSkeleton key={i} />
+                ))}
             </div>
         );
     }
+
 
     return (
         <div className="min-h-screen bg-slate-50 pb-24">
