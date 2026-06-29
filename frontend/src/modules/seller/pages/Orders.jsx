@@ -36,8 +36,6 @@ import { Loader2 } from 'lucide-react';
 import Pagination from '@shared/components/ui/Pagination';
 import { DatePicker } from "@/components/ui/date-picker";
 import { getOrderStatusVariant } from '../components/orders';
-import { CardSkeleton } from '@shared/components/ui';
-
 
 
 const Orders = () => {
@@ -303,13 +301,11 @@ const Orders = () => {
 
             {/* Quick Stats */}
             {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                        <CardSkeleton key={i} />
-                    ))}
+                <div className="min-h-[400px] flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-100 shadow-sm">
+                    <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                    <p className="text-slate-600 font-bold mt-4 uppercase tracking-widest text-xs">Fetching Active Orders...</p>
                 </div>
             ) : (
-
                 <>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                         {stats.map((stat, i) => (
