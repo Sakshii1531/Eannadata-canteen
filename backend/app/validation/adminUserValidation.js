@@ -25,6 +25,10 @@ export const createAdminUserSchema = Joi.object({
   "District Name": Joi.string().trim().allow('').default("N/A"),
   "Block Name": Joi.string().trim().allow('').default("N/A"),
   "Village Name": Joi.string().trim().allow('').default("N/A"),
+  "A/C Holder Name": Joi.string().trim().allow('').default("N/A"),
+  "Bank Name": Joi.string().trim().allow('').default("N/A"),
+  "A/C Number": Joi.string().trim().allow('').default("N/A"),
+  "Ifsc Code": Joi.string().trim().allow('').default("N/A"),
   status: Joi.string().valid("active", "inactive").default("active"),
 });
 
@@ -44,8 +48,13 @@ export const updateAdminUserSchema = Joi.object({
   "District Name": Joi.string().trim().allow('').optional(),
   "Block Name": Joi.string().trim().allow('').optional(),
   "Village Name": Joi.string().trim().allow('').optional(),
+  "A/C Holder Name": Joi.string().trim().allow('').optional(),
+  "Bank Name": Joi.string().trim().allow('').optional(),
+  "A/C Number": Joi.string().trim().allow('').optional(),
+  "Ifsc Code": Joi.string().trim().allow('').optional(),
   status: Joi.string().valid("active", "inactive").optional(),
 });
+
 
 export function validateAdminSchema(schema, payload) {
   const { error, value } = schema.validate(payload, {

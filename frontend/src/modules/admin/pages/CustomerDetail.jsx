@@ -122,7 +122,11 @@ const CustomerDetail = () => {
         "State Name": '',
         "District Name": '',
         "Block Name": '',
-        "Village Name": ''
+        "Village Name": '',
+        "A/C Holder Name": '',
+        "Bank Name": '',
+        "A/C Number": '',
+        "Ifsc Code": ''
     });
 
     const fetchCustomerDetails = async () => {
@@ -146,10 +150,15 @@ const CustomerDetail = () => {
                     "State Name": customerData["State Name"] || '',
                     "District Name": customerData["District Name"] || '',
                     "Block Name": customerData["Block Name"] || '',
-                    "Village Name": customerData["Village Name"] || ''
+                    "Village Name": customerData["Village Name"] || '',
+                    "A/C Holder Name": customerData["A/C Holder Name"] || '',
+                    "Bank Name": customerData["Bank Name"] || '',
+                    "A/C Number": customerData["A/C Number"] || '',
+                    "Ifsc Code": customerData["Ifsc Code"] || ''
                 });
             }
         } catch (error) {
+
             console.error("Error fetching customer details:", error);
             showToast("Failed to load customer profile", "error");
         } finally {
@@ -444,8 +453,25 @@ const CustomerDetail = () => {
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Created By Admin ID</p>
                                 <p className="font-bold text-slate-500 mt-0.5 truncate">{customer.created_by || 'System Bootstrap / Signup'}</p>
                             </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">A/C Holder Name</p>
+                                <p className="font-bold text-slate-800 mt-0.5">{customer["A/C Holder Name"] || 'N/A'}</p>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Name</p>
+                                <p className="font-bold text-slate-800 mt-0.5">{customer["Bank Name"] || 'N/A'}</p>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">A/C Number</p>
+                                <p className="font-bold text-slate-800 mt-0.5">{customer["A/C Number"] || 'N/A'}</p>
+                            </div>
+                            <div className="border-b border-slate-50 pb-2">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IFSC Code</p>
+                                <p className="font-bold text-slate-800 mt-0.5">{customer["Ifsc Code"] || 'N/A'}</p>
+                            </div>
                         </div>
                     </Card>
+
 
                     {/* DBT Subsidy Status */}
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl p-6">
@@ -832,7 +858,48 @@ const CustomerDetail = () => {
                                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">A/C Holder Name</label>
+                            <input
+                                type="text"
+                                value={editForm["A/C Holder Name"]}
+                                onChange={(e) => setEditForm({ ...editForm, "A/C Holder Name": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Bank Name</label>
+                            <input
+                                type="text"
+                                value={editForm["Bank Name"]}
+                                onChange={(e) => setEditForm({ ...editForm, "Bank Name": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">A/C Number</label>
+                            <input
+                                type="text"
+                                value={editForm["A/C Number"]}
+                                onChange={(e) => setEditForm({ ...editForm, "A/C Number": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">IFSC Code</label>
+                            <input
+                                type="text"
+                                value={editForm["Ifsc Code"]}
+                                onChange={(e) => setEditForm({ ...editForm, "Ifsc Code": e.target.value.toUpperCase() })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm uppercase"
+                            />
+                        </div>
                     </div>
+
                     <button type="submit" className="w-full mt-4 py-3 bg-black hover:bg-brand-600 text-primary-foreground rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95">
                         SAVE CHANGES
                     </button>

@@ -105,6 +105,10 @@ export const createUser = async (req, res) => {
       "District Name": payload["District Name"],
       "Block Name": payload["Block Name"],
       "Village Name": payload["Village Name"],
+      "A/C Holder Name": payload["A/C Holder Name"],
+      "Bank Name": payload["Bank Name"],
+      "A/C Number": payload["A/C Number"],
+      "Ifsc Code": payload["Ifsc Code"],
       "Registration Date": payload["eAnnadata Card Registration Date"], // Store Excel/Form registration date in db
       status: payload.status || "active",
       isActive: payload.status !== "inactive",
@@ -182,10 +186,15 @@ export const updateUser = async (req, res) => {
     if (payload["District Name"] !== undefined) user["District Name"] = payload["District Name"];
     if (payload["Block Name"] !== undefined) user["Block Name"] = payload["Block Name"];
     if (payload["Village Name"] !== undefined) user["Village Name"] = payload["Village Name"];
+    if (payload["A/C Holder Name"] !== undefined) user["A/C Holder Name"] = payload["A/C Holder Name"];
+    if (payload["Bank Name"] !== undefined) user["Bank Name"] = payload["Bank Name"];
+    if (payload["A/C Number"] !== undefined) user["A/C Number"] = payload["A/C Number"];
+    if (payload["Ifsc Code"] !== undefined) user["Ifsc Code"] = payload["Ifsc Code"];
     if (payload.status !== undefined) {
       user.status = payload.status;
       user.isActive = payload.status !== "inactive";
     }
+
 
     await user.save();
 
@@ -281,10 +290,19 @@ export const bulkUploadUsers = async (req, res) => {
           normalized["Block Name"] = value;
         } else if (cleanKey === "village" || cleanKey === "villagename") {
           normalized["Village Name"] = value;
+        } else if (["acholdername", "accountholdername", "acholder", "accountholder", "holdername", "bankholdername"].includes(cleanKey)) {
+          normalized["A/C Holder Name"] = value;
+        } else if (["bankname", "bank", "nameofbank"].includes(cleanKey)) {
+          normalized["Bank Name"] = value;
+        } else if (["acnumber", "accountnumber", "acno", "accountno", "accountnum", "acnum", "bankaccountnumber", "bankacnumber"].includes(cleanKey)) {
+          normalized["A/C Number"] = value;
+        } else if (["ifsccode", "ifsc", "ifsc_code", "bankifsc", "bankifsccode"].includes(cleanKey)) {
+          normalized["Ifsc Code"] = value;
         } else if (cleanKey === "status") {
           normalized.status = value;
         }
       });
+
 
       // Backup fallbacks for common columns if header is not exact
       if (!normalized["Farmer Name"]) {
@@ -423,7 +441,12 @@ export const bulkUploadUsers = async (req, res) => {
             "District Name": row["District Name"],
             "Block Name": row["Block Name"],
             "Village Name": row["Village Name"],
+            "A/C Holder Name": row["A/C Holder Name"],
+            "Bank Name": row["Bank Name"],
+            "A/C Number": row["A/C Number"],
+            "Ifsc Code": row["Ifsc Code"],
             "Registration Date": row["eAnnadata Card Registration Date"], // Store Excel/Form registration date in db
+
             status: row.status || "active",
             isActive: row.status !== "inactive",
             created_by: req.user.id,

@@ -62,8 +62,13 @@ const CustomerManagement = () => {
         "District Name": '',
         "Block Name": '',
         "Village Name": '',
+        "A/C Holder Name": '',
+        "Bank Name": '',
+        "A/C Number": '',
+        "Ifsc Code": '',
         status: 'active'
     };
+
     const [createForm, setCreateForm] = useState(initialCreateForm);
     const [createError, setCreateError] = useState('');
 
@@ -345,15 +350,17 @@ const CustomerManagement = () => {
             <Card className="ds-card-compact">
                 <div className="flex flex-col lg:flex-row gap-3">
                     <div className="flex-1 relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 ds-icon-sm text-gray-400 group-focus-within:text-primary transition-colors" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 ds-icon-sm text-gray-400 group-focus-within:text-primary transition-colors pointer-events-none z-10" />
                         <input
                             type="text"
                             placeholder="Search by name, card number or phone..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="ds-input pl-9"
+                            className="ds-input w-full !pl-10"
+                            style={{ paddingLeft: '2.5rem' }}
                         />
                     </div>
+
 
                     <div className="flex items-center gap-2">
                         <div className="flex bg-gray-100 p-0.5 rounded-lg">
@@ -710,7 +717,48 @@ const CustomerManagement = () => {
                                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
                             />
                         </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">A/C Holder Name</label>
+                            <input
+                                type="text"
+                                value={createForm["A/C Holder Name"]}
+                                onChange={(e) => setCreateForm({ ...createForm, "A/C Holder Name": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Bank Name</label>
+                            <input
+                                type="text"
+                                value={createForm["Bank Name"]}
+                                onChange={(e) => setCreateForm({ ...createForm, "Bank Name": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm capitalize"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">A/C Number</label>
+                            <input
+                                type="text"
+                                value={createForm["A/C Number"]}
+                                onChange={(e) => setCreateForm({ ...createForm, "A/C Number": e.target.value })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">IFSC Code</label>
+                            <input
+                                type="text"
+                                value={createForm["Ifsc Code"]}
+                                onChange={(e) => setCreateForm({ ...createForm, "Ifsc Code": e.target.value.toUpperCase() })}
+                                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-brand-500/10 transition-all shadow-sm uppercase"
+                            />
+                        </div>
                     </div>
+
 
                     <div className="flex gap-3 pt-4 border-t border-slate-100">
                         <button

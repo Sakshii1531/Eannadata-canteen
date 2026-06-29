@@ -119,10 +119,32 @@ const userSchema = new mongoose.Schema(
             trim: true,
         },
 
+        "A/C Holder Name": {
+            type: String,
+            trim: true,
+        },
+
+        "Bank Name": {
+            type: String,
+            trim: true,
+        },
+
+        "A/C Number": {
+            type: String,
+            trim: true,
+        },
+
+        "Ifsc Code": {
+            type: String,
+            uppercase: true,
+            trim: true,
+        },
+
         "Registration Date": {
             type: Date,
             default: Date.now,
         },
+
 
         status: {
             type: String,
