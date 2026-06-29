@@ -1,7 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { Home, IndianRupee, History, User } from "lucide-react";
-import { motion } from "framer-motion";
 
 const BottomNav = () => {
   const navItems = [
@@ -12,42 +11,44 @@ const BottomNav = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200/50 py-2 px-6 flex justify-between items-center z-40 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] max-w-md mx-auto">
-      {navItems.map(({ path, label, icon: Icon }) => (
-        <NavLink
-          key={path}
-          to={path}
-          className={({ isActive }) =>
-            `relative flex flex-col items-center justify-center space-y-1 w-full h-14 transition-colors duration-300 ${
-              isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
-            }`
-          }>
-          {({ isActive }) => (
-            <>
-              {isActive && (
-                <motion.div
-                  layoutId="nav-indicator"
-                  className="absolute -top-2 w-8 h-1 bg-primary rounded-full"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)]">
+      <div className="flex items-center justify-around h-16 max-w-md mx-auto px-2">
+        {navItems.map(({ path, label, icon: Icon }) => (
+          <NavLink
+            key={path}
+            to={path}
+            className="flex-1 flex flex-col items-center justify-center h-full relative transition-all"
+          >
+            {({ isActive }) => (
+              <div
+                className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-full transition-all duration-300 min-w-[64px] ${
+                  isActive
+                    ? "bg-primary/10 text-primary scale-105"
+                    : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                <Icon
+                  size={21}
+                  strokeWidth={isActive ? 2.5 : 2}
+                  className={`transition-colors duration-300 ${
+                    isActive ? "text-primary" : "text-slate-400"
+                  }`}
                 />
-              )}
-              <motion.div
-                animate={{ scale: isActive ? 1.1 : 1, y: isActive ? -2 : 0 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}>
-                <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
-              </motion.div>
-              <span
-                className={`text-[10px] font-bold ${isActive ? "opacity-100" : "opacity-80"}`}>
-                {label}
-              </span>
-            </>
-          )}
-        </NavLink>
-      ))}
+                <span
+                  className={`text-[10px] font-bold tracking-tight mt-0.5 transition-colors duration-300 leading-tight ${
+                    isActive ? "text-primary" : "text-slate-400"
+                  }`}
+                >
+                  {label}
+                </span>
+              </div>
+            )}
+          </NavLink>
+        ))}
+      </div>
     </div>
   );
 };
 
 export default BottomNav;
+
