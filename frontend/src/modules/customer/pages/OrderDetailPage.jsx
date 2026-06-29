@@ -980,7 +980,11 @@ const OrderDetailPage = () => {
         <DeliveryOtpDisplay
           orderId={order?.orderId || orderId}
           checkoutGroupId={order?.checkoutGroupId || orderId}
+          initialOtp={order?.deliveryOtp || handoffOtp}
+          initialExpiresAt={order?.deliveryOtpExpiresAt}
+          deliveryPersonNearby={order?.deliveryPersonNearby ?? true}
         />
+
 
         {/* Delivery Partner Card - Redesigned */}
         {order.deliveryBoy && status !== "delivered" && status !== "cancelled" && (

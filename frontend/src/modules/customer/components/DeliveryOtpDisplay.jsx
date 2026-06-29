@@ -33,7 +33,13 @@ const matchesOrderIdentifier = (payloadOrderId, identifiers = []) => {
     .includes(normalizedPayloadId);
 };
 
-const DeliveryOtpDisplay = ({ orderId, checkoutGroupId = null }) => {
+const DeliveryOtpDisplay = ({
+  orderId,
+  checkoutGroupId = null,
+  initialOtp = null,
+  initialExpiresAt = null,
+  deliveryPersonNearby = true,
+}) => {
   const [otpData, setOtpData] = useState(null);
   const [isDelivered, setIsDelivered] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
@@ -47,6 +53,24 @@ const DeliveryOtpDisplay = ({ orderId, checkoutGroupId = null }) => {
     const diff = Math.floor((expiry - now) / 1000);
     return Math.max(0, diff);
   };
+
+  // Sync initial OTP from props (e.g. from REST API on page load / refresh)
+  useEffect(() => {
+    if (initialOtp) {
+      const expiresAt = initialExpiresAt || new Date(Date.now() + 600000).toISOString();
+      const rem = calculateRemainingTime(expiresAt);
+      if (rem > 0) {
+        setOtpData({
+          otp: initialOtp,
+          expiresAt,
+          deliveryPersonNearby: deliveryPersonNearby ?? true,
+        });
+        setIsDelivered(false);
+        setRemainingSeconds(rem);
+      }
+    }
+  }, [initialOtp, initialExpiresAt, deliveryPersonNearby]);
+
 
   // Format seconds to MM:SS
   const formatTime = (seconds) => {

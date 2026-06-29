@@ -2,6 +2,7 @@ import Order from "../models/order.js";
 import Delivery from "../models/delivery.js";
 import Seller from "../models/seller.js";
 import CheckoutGroup from "../models/checkoutGroup.js";
+import OrderOtp from "../models/orderOtp.js";
 import { WORKFLOW_STATUS } from "../constants/orderWorkflow.js";
 import { distanceMeters } from "../utils/geoUtils.js";
 import {
@@ -581,11 +582,40 @@ export async function getOrderWithAccess(orderId, userId, role) {
     );
   }
 
+  const isOutForDelivery =
+    order.workflowStatus === WORKFLOW_STATUS.OUT_FOR_DELIVERY ||
+    String(order.status || "").toLowerCase() === "out_for_delivery";
+
+  if (isOutForDelivery) {
+    try {
+      const activeOtp = await OrderOtp.findOne({
+        orderId: order.orderId,
+        type: "delivery",
+        consumedAt: null,
+        expiresAt: { $gt: new Date() },
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      if (activeOtp) {
+        order.deliveryOtp = activeOtp.code;
+        order.deliveryOtpExpiresAt = activeOtp.expiresAt;
+        order.deliveryPersonNearby = true;
+      }
+    } catch (e) {
+      logger.warn("Failed to fetch active OrderOtp for order details", {
+        orderId: order.orderId,
+        error: e?.message || e,
+      });
+    }
+  }
+
   return {
     isGroupSummary: false,
     payload: order,
   };
 }
+
 
 /**
  * Returns paginated seller/admin view of orders with active return status.
