@@ -520,7 +520,8 @@ export async function createPaymentOrderForOrderRef({
   );
 
   const provider = getActivePaymentProvider();
-  const redirectUrl = `${process.env.FRONTEND_URL}/payment-status?merchantOrderId=${merchantOrderId}`;
+  const frontendBaseUrl = (process.env.FRONTEND_URL || "http://localhost:5173").split(",")[0].trim();
+  const redirectUrl = `${frontendBaseUrl}/payment-status?merchantOrderId=${merchantOrderId}`;
 
   const initResult = await provider.initiatePayment({
     merchantOrderId,
