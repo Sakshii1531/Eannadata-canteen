@@ -140,6 +140,13 @@ jest.unstable_mockModule("../app/services/finance/orderFinanceService.js", () =>
   }),
 }));
 
+jest.unstable_mockModule("../app/services/finance/financeSettingsService.js", () => ({
+  getOrCreateFinanceSettings: jest.fn().mockResolvedValue({
+    codEnabled: true,
+    onlineEnabled: true,
+  }),
+}));
+
 jest.unstable_mockModule("../app/services/idempotencyService.js", () => ({
   checkIdempotency: mockCheckIdempotency,
   acquireIdempotencyLock: mockAcquireIdempotencyLock,
@@ -306,5 +313,51 @@ describe("Phase 0 atomic order placement", () => {
     expect(mockSession.abortTransaction).toHaveBeenCalled();
     expect(mockSession.commitTransaction).not.toHaveBeenCalled();
     expect(mockTransactionCreate).not.toHaveBeenCalled();
+  });
+
+  it("throws 400 when COD is disabled and customer orders via COD", async () => {
+    const { getOrCreateFinanceSettings } = await import("../app/services/finance/financeSettingsService.js");
+    getOrCreateFinanceSettings.mockResolvedValueOnce({
+      codEnabled: false,
+      onlineEnabled: true,
+    });
+
+    await expect(
+      placeOrderAtomic({
+        customerId: "67f0000000000000000000c1",
+        payload: {
+          items: [{ product: "67f000000000000000000011", quantity: 1 }],
+          address: { city: "Indore" },
+          paymentMode: "COD",
+        },
+        idempotencyKey: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      }),
+    ).rejects.toMatchObject({
+      message: "Cash on Delivery (COD) payment mode is currently disabled",
+      statusCode: 400,
+    });
+  });
+
+  it("throws 400 when ONLINE is disabled and customer orders via ONLINE", async () => {
+    const { getOrCreateFinanceSettings } = await import("../app/services/finance/financeSettingsService.js");
+    getOrCreateFinanceSettings.mockResolvedValueOnce({
+      codEnabled: true,
+      onlineEnabled: false,
+    });
+
+    await expect(
+      placeOrderAtomic({
+        customerId: "67f0000000000000000000c1",
+        payload: {
+          items: [{ product: "67f000000000000000000011", quantity: 1 }],
+          address: { city: "Indore" },
+          paymentMode: "ONLINE",
+        },
+        idempotencyKey: "ffffffffffffffffffffffffffffffff",
+      }),
+    ).rejects.toMatchObject({
+      message: "Online payment mode is currently disabled",
+      statusCode: 400,
+    });
   });
 });

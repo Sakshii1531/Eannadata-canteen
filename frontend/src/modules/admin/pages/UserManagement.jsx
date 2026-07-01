@@ -34,7 +34,6 @@ const PERMISSIONS_LIST = [
   { key: "orders", label: "Orders", desc: "Manage preparing list, delivery state, and order returns" },
   { key: "billing", label: "Fees & Charges", desc: "Configure global fees and platform charges" },
   { key: "settings", label: "Settings", desc: "Manage global canteen and platform settings" },
-  { key: "systemSettings", label: "System Settings", desc: "Review environment configuration and settings" },
 ];
 
 const UserManagement = () => {

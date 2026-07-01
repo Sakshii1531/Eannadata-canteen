@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSettings } from '@core/context/SettingsContext';
-import { ExternalLink, UserCheck, Utensils, HeartPulse } from 'lucide-react';
+import { ExternalLink, UserCheck, Utensils, HeartPulse, IdCard } from 'lucide-react';
 
 const MobileFooterMessage = () => {
     const { settings } = useSettings();
@@ -60,6 +60,21 @@ const MobileFooterMessage = () => {
                             <span className="font-bold text-xs text-rose-950">Care Center Registration</span>
                         </div>
                         <ExternalLink size={14} className="text-rose-600" />
+                    </a>
+
+                    <a
+                        href="https://eannadata.in/Customer/FarmerReg"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 rounded-xl bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200/80 text-blue-950 active:scale-98 transition-all shadow-sm"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                <IdCard size={16} />
+                            </div>
+                            <span className="font-bold text-xs text-blue-950">eAnnadata Card Registration</span>
+                        </div>
+                        <ExternalLink size={14} className="text-blue-600" />
                     </a>
                 </div>
             </div>

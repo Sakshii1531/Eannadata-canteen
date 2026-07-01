@@ -56,11 +56,22 @@ Redis is **mandatory in production** (`NODE_ENV=production`). Startup fails if n
 | `OTP_SEND_RATE_LIMIT_MAX` | `5` | No | Max send OTP requests per window |
 | `OTP_VERIFY_RATE_LIMIT_WINDOW_MS` | `900000` | No | Verify OTP rate-limit window |
 | `OTP_VERIFY_RATE_LIMIT_MAX` | `10` | No | Max verify OTP requests per window |
-| `SMS_INDIA_HUB_API_KEY` | â€” | Real SMS: **Yes** | SMS India HUB API key |
-| `SMS_INDIA_HUB_SENDER_ID` | â€” | Real SMS: **Yes** | DLT-registered sender ID |
-| `SMS_INDIA_HUB_DLT_TEMPLATE_ID` | â€” | Real SMS: **Yes** | Approved DLT template ID |
+| `SMS_INDIA_HUB_API_KEY` | — | Real SMS: **Yes** | SMS India HUB API key |
+| `SMS_INDIA_HUB_SENDER_ID` | — | Real SMS: **Yes** | DLT-registered sender ID |
+| `SMS_INDIA_HUB_DLT_TEMPLATE_ID` | — | Real SMS: **Yes** | Approved DLT template ID |
 | `SMS_INDIA_HUB_URL` | `http://cloud.smsindiahub.in/vendorsms/pushsms.aspx` | No | SMS India HUB endpoint |
 | `SMS_INDIA_HUB_TIMEOUT_MS` | `10000` | No | SMS provider request timeout |
+| `SMS_PROVIDER` | `sms_india_hub` | No | SMS provider selection (`sms_india_hub` or `icloud_sms`) |
+| `ICLOUD_SMS_AUTH_KEY` | — | If `SMS_PROVIDER=icloud_sms` | Authentication Key for iCloud SMS / MsgClub |
+| `ICLOUD_SMS_SENDER_ID` | `DEMOOS` | No | Sender ID for iCloud SMS (max 6 characters) |
+| `ICLOUD_SMS_ROUTE_ID` | `1` | No | Route ID (1 = Transactional, 8 = OTP Route, etc.) |
+| `ICLOUD_SMS_URL` | `http://msg.icloudsms.com/rest/services/sendSMS/sendGroupSms` | No | iCloud SMS endpoint |
+| `ICLOUD_SMS_ENTITY_ID` | `NoneedIfAddedInPanel` | No | DLT Entity ID |
+| `ICLOUD_SMS_TEMPLATE_ID` | `NoneedIfAddedInPanel` | No | DLT Template ID |
+| `ICLOUD_SMS_TMID` | `140200000022` | No | DLT Telemarketer ID |
+| `ICLOUD_SMS_CONTENT_TYPE` | `english` | No | Content type (`english` or `unicode`) |
+| `ICLOUD_SMS_CONCENT_FAILOVER_ID` | `30` | No | Consent failover ID |
+| `ICLOUD_SMS_TIMEOUT_MS` | `10000` | No | Request timeout for iCloud SMS in milliseconds |
 
 ## Email / SMTP
 

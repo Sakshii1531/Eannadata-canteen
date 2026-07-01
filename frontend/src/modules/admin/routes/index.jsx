@@ -236,7 +236,6 @@ const navItems = [
     permissionKey: "settings",
   },
   { label: "My Profile", path: "/admin/profile", icon: User, color: "indigo" },
-  { label: "System Settings", path: "/admin/env", icon: Terminal, color: "dark", permissionKey: "systemSettings" },
 ];
 
 const BillingCharges = React.lazy(() => import("../pages/BillingCharges"));
@@ -331,7 +330,6 @@ const AdminRoutes = () => {
         <Route path="/returns" element={hasAccess("orders") ? <Returns /> : <Navigate to="/admin" replace />} />
         <Route path="/billing" element={hasAccess("billing") ? <BillingCharges /> : <Navigate to="/admin" replace />} />
         <Route path="/settings" element={hasAccess("settings") ? <AdminSettings /> : <Navigate to="/admin" replace />} />
-        <Route path="/env" element={hasAccess("systemSettings") ? <EnvSettings /> : <Navigate to="/admin" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </DashboardLayout>

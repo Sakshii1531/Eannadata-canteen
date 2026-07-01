@@ -72,6 +72,8 @@ const AdminSettings = () => {
         keywords: [],
         returnDeliveryCommission: 0,
         lowStockAlertsEnabled: true,
+        codEnabled: true,
+        onlineEnabled: true,
         productApproval: {
             sellerCreateRequiresApproval: false,
             sellerEditRequiresApproval: false,
@@ -98,6 +100,8 @@ const AdminSettings = () => {
                         productApproval: normalizeProductApprovalConfig(data || {}),
                         keywords: Array.isArray(data.keywords) ? data.keywords : (data.metaKeywords ? data.metaKeywords.split(',').map(k => k.trim()).filter(Boolean) : []),
                         returnDeliveryCommission: data.returnDeliveryCommission ?? 0,
+                        codEnabled: data.codEnabled ?? true,
+                        onlineEnabled: data.onlineEnabled ?? true,
                     }));
                 }
             } catch (error) {
@@ -347,6 +351,56 @@ const AdminSettings = () => {
                                             className={cn(
                                                 "inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform duration-200",
                                                 settings.lowStockAlertsEnabled ? "translate-x-7" : "translate-x-1"
+                                            )}
+                                        />
+                                    </button>
+                                </div>
+                                <div className="md:col-span-2 rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 flex items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-sm font-black text-slate-900">Enable Cash on Delivery (COD)</p>
+                                        <p className="text-xs font-bold text-slate-500 mt-1">
+                                            Allow customers to pay in cash upon receiving their orders.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={settings.codEnabled}
+                                        onClick={() => handleInputChange('codEnabled', !settings.codEnabled)}
+                                        className={cn(
+                                            "relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-200",
+                                            settings.codEnabled ? "bg-emerald-500" : "bg-slate-300"
+                                        )}
+                                    >
+                                        <span
+                                            className={cn(
+                                                "inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform duration-200",
+                                                settings.codEnabled ? "translate-x-7" : "translate-x-1"
+                                            )}
+                                        />
+                                    </button>
+                                </div>
+                                <div className="md:col-span-2 rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 flex items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-sm font-black text-slate-900">Enable Online Payment</p>
+                                        <p className="text-xs font-bold text-slate-500 mt-1">
+                                            Allow customers to pay online using cards, UPI, or NetBanking.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={settings.onlineEnabled}
+                                        onClick={() => handleInputChange('onlineEnabled', !settings.onlineEnabled)}
+                                        className={cn(
+                                            "relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-200",
+                                            settings.onlineEnabled ? "bg-emerald-500" : "bg-slate-300"
+                                        )}
+                                    >
+                                        <span
+                                            className={cn(
+                                                "inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform duration-200",
+                                                settings.onlineEnabled ? "translate-x-7" : "translate-x-1"
                                             )}
                                         />
                                     </button>

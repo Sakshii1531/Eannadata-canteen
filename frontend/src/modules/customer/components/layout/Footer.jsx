@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, Twitter, Instagram, Youtube, Mail, MapPin, Phone, ExternalLink, UserCheck, Utensils, HeartPulse } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Youtube, Mail, MapPin, Phone, ExternalLink, UserCheck, Utensils, HeartPulse, IdCard } from 'lucide-react';
 import Logo from '@/assets/Logo.png';
 import { useSettings } from '@core/context/SettingsContext';
 
@@ -108,7 +108,7 @@ const Footer = () => {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
                         {/* Service Partner Registration */}
                         <a
                             href="https://eannadata.in/Customer/PartnerRegistration"
@@ -170,6 +170,27 @@ const Footer = () => {
                                 </div>
                             </div>
                             <ExternalLink size={16} className="text-rose-400 opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0 ml-2" />
+                        </a>
+
+                        {/* eAnnadata Card Registration */}
+                        <a
+                            href="https://eannadata.in/Customer/FarmerReg"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group relative flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/30 hover:border-blue-400 hover:bg-blue-500/20 transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-blue-950/40 active:scale-[0.98]"
+                        >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                                <div className="h-10 w-10 rounded-lg bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 transition-transform">
+                                    <IdCard size={20} />
+                                </div>
+                                <div className="truncate">
+                                    <span className="block text-white font-bold text-sm md:text-base group-hover:text-blue-300 transition-colors truncate">
+                                        eAnnadata Card Registration
+                                    </span>
+                                    <span className="block text-[11px] text-blue-200/70 font-medium">Click to register</span>
+                                </div>
+                            </div>
+                            <ExternalLink size={16} className="text-blue-400 opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0 ml-2" />
                         </a>
                     </div>
                 </div>

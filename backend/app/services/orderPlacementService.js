@@ -28,6 +28,7 @@ import {
   generateUniquePublicOrderId,
 } from "./orderIdService.js";
 import { afterPlaceOrderV2 } from "./orderWorkflowService.js";
+import { getOrCreateFinanceSettings } from "./finance/financeSettingsService.js";
 import {
   computeStockReservationWindow,
   reserveStockForItems,
@@ -360,6 +361,20 @@ export async function placeOrderAtomic({
     });
 
     const paymentMode = normalizePaymentMode(normalizedPayload.paymentMode);
+
+    // Validate payment mode availability against platform settings
+    const currentSettings = await getOrCreateFinanceSettings({ session });
+    if (paymentMode === "COD" && currentSettings.codEnabled === false) {
+      const error = new Error("Cash on Delivery (COD) payment mode is currently disabled");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (paymentMode === "ONLINE" && currentSettings.onlineEnabled === false) {
+      const error = new Error("Online payment mode is currently disabled");
+      error.statusCode = 400;
+      throw error;
+    }
+
     const normalizedAddress = normalizeAddress(normalizedPayload.address);
     const idempotencyKeyExpiry = idempotencyKey
       ? new Date(Date.now() + IDEMPOTENCY_RECORD_TTL_MS)

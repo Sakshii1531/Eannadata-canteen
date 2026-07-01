@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@core/context/AuthContext";
@@ -48,39 +48,88 @@ const REQUIRED_DOCUMENT_CONFIG = [
 ];
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(() => {
+    const saved = localStorage.getItem("seller_auth_is_login");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitBlocked, setIsSubmitBlocked] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [signupStep, setSignupStep] = useState(1);
+  const [signupStep, setSignupStep] = useState(() => {
+    const saved = localStorage.getItem("seller_auth_signup_step");
+    return saved !== null ? JSON.parse(saved) : 1;
+  });
   const [isMapOpen, setIsMapOpen] = useState(false);
   const { login } = useAuth();
   const { settings } = useSettings();
   const navigate = useNavigate();
   const appName = settings?.appName || "eAnnadata canteen";
   const logoUrl = settings?.logoUrl || "";
-  const [verifications, setVerifications] = useState({
-    email: createInitialVerificationState(),
-    phone: createInitialVerificationState(),
+  
+  const [verifications, setVerifications] = useState(() => {
+    const saved = localStorage.getItem("seller_auth_verifications");
+    return saved !== null ? JSON.parse(saved) : {
+      email: createInitialVerificationState(),
+      phone: createInitialVerificationState(),
+    };
   });
 
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    name: "",
-    shopName: "",
-    registrationNumber: "",
-    phone: "",
-    locality: "",
-    pincode: "",
-    city: "",
-    state: "",
-    category: "",
-    description: "",
-    lat: null,
-    lng: null,
-    radius: 5,
-    address: "",
+  const [formData, setFormData] = useState(() => {
+    const saved = localStorage.getItem("seller_auth_form_data");
+    const defaultData = {
+      email: "",
+      password: "",
+      name: "",
+      shopName: "",
+      registrationNumber: "",
+      phone: "",
+      locality: "",
+      pincode: "",
+      city: "",
+      state: "",
+      category: "",
+      description: "",
+      lat: null,
+      lng: null,
+      radius: 5,
+      address: "",
+    };
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...defaultData, ...parsed, password: "" };
+      } catch (e) {
+        return defaultData;
+      }
+    }
+    return defaultData;
   });
+
+  const isProcessingRef = useRef(false);
+
+  useEffect(() => {
+    localStorage.setItem("seller_auth_is_login", JSON.stringify(isLogin));
+  }, [isLogin]);
+
+  useEffect(() => {
+    localStorage.setItem("seller_auth_signup_step", JSON.stringify(signupStep));
+  }, [signupStep]);
+
+  useEffect(() => {
+    localStorage.setItem("seller_auth_verifications", JSON.stringify(verifications));
+  }, [verifications]);
+
+  useEffect(() => {
+    const { password, ...rest } = formData;
+    localStorage.setItem("seller_auth_form_data", JSON.stringify(rest));
+  }, [formData]);
+
+  const clearPersistedData = () => {
+    localStorage.removeItem("seller_auth_is_login");
+    localStorage.removeItem("seller_auth_signup_step");
+    localStorage.removeItem("seller_auth_verifications");
+    localStorage.removeItem("seller_auth_form_data");
+  };
 
   const handleLocationSelect = (location) => {
     setFormData((prev) => ({
@@ -132,8 +181,22 @@ const Auth = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "name") {
-      // Owner name: only alphabets and spaces
-      const cleaned = value.replace(/[^a-zA-Z\s]/g, "");
+      // Owner name: only alphabets and spaces, max 50 characters, no leading/multiple spaces
+      let cleaned = value.replace(/[^a-zA-Z\s]/g, "");
+      cleaned = cleaned.replace(/^\s+/, "");
+      cleaned = cleaned.replace(/\s{2,}/g, " ");
+      cleaned = cleaned.slice(0, 50);
+      setFormData({ ...formData, [name]: cleaned });
+    } else if (name === "shopName") {
+      // Shop/Business name: alphanumeric and spaces, max 100 characters, no leading/consecutive spaces
+      let cleaned = value.replace(/[^a-zA-Z0-9\s]/g, "");
+      cleaned = cleaned.replace(/^\s+/, "");
+      cleaned = cleaned.replace(/\s{2,}/g, " ");
+      cleaned = cleaned.slice(0, 100);
+      setFormData({ ...formData, [name]: cleaned });
+    } else if (name === "registrationNumber") {
+      // Registration number: only digits, max 12 characters
+      const cleaned = value.replace(/[^0-9]/g, "").slice(0, 12);
       setFormData({ ...formData, [name]: cleaned });
     } else if (name === "email") {
       // Business email: trim leading spaces, disallow spaces inside
@@ -157,8 +220,8 @@ const Auth = () => {
       const digitsOnly = value.replace(/[^0-9]/g, "").slice(0, 6);
       setFormData({ ...formData, [name]: digitsOnly });
     } else if (name === "password") {
-      // Password: allow any characters, min length 6
-      setFormData({ ...formData, [name]: value });
+      // Password: allow any characters, min length 6, max 128
+      setFormData({ ...formData, [name]: value.slice(0, 128) });
     } else {
       setFormData({ ...formData, [name]: value });
     }
@@ -267,61 +330,104 @@ const Auth = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    try {
-      // Basic client-side validation for signup
-      if (!isLogin) {
-        const email = formData.email || "";
-        const phone = formData.phone || "";
-        const registrationNumber = formData.registrationNumber || "";
-        if (!registrationNumber.trim() || registrationNumber.trim().length < 3) {
-          toast.error("Please enter a valid registration number (at least 3 characters).");
-          return;
-        }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          toast.error("Please enter a valid business email address.");
-          setIsLoading(false);
-          return;
-        }
-        if (!/^[0-9]{10}$/.test(phone)) {
-          toast.error("Please enter a valid 10-digit contact number.");
-          return;
-        }
-        if (verifications.email.status !== "verified" || !verifications.email.token) {
-          toast.error("Please verify your business email before continuing.");
-          return;
-        }
-        if (verifications.phone.status !== "verified" || !verifications.phone.token) {
-          toast.error("Please verify your contact number before continuing.");
-          return;
-        }
+    if (isLoading || isSubmitBlocked) return;
+
+    toast.dismiss();
+    setIsSubmitBlocked(true);
+
+    const releaseLock = () => {
+      setTimeout(() => {
+        setIsSubmitBlocked(false);
+      }, 500); // 500ms cooldown for validation failure
+    };
+
+    // Run validations first
+    if (!isLogin) {
+      const name = (formData.name || "").trim();
+      if (name.length < 2) {
+        toast.error("Owner name must be at least 2 characters.");
+        releaseLock();
+        return;
       }
-      // Password: min 6 characters
+
+      const shopName = (formData.shopName || "").trim();
+      if (shopName.length < 2) {
+        toast.error("Shop name must be at least 2 characters.");
+        releaseLock();
+        return;
+      }
+
+      const email = formData.email || "";
+      const phone = formData.phone || "";
+      const registrationNumber = (formData.registrationNumber || "").trim();
+      
+      if (!/^[0-9]{12}$/.test(registrationNumber)) {
+        toast.error("Please enter a valid 12-digit registration number.");
+        releaseLock();
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        toast.error("Please enter a valid business email address.");
+        releaseLock();
+        return;
+      }
+      if (!/^[0-9]{10}$/.test(phone)) {
+        toast.error("Please enter a valid 10-digit contact number.");
+        releaseLock();
+        return;
+      }
+      if (verifications.email.status !== "verified" || !verifications.email.token) {
+        toast.error("Please verify your business email before continuing.");
+        releaseLock();
+        return;
+      }
+      if (verifications.phone.status !== "verified" || !verifications.phone.token) {
+        toast.error("Please verify your contact number before continuing.");
+        releaseLock();
+        return;
+      }
       const pwd = (formData.password || "").trim();
-      if (pwd.length < 6) {
+      if (pwd.length < 8) {
+        toast.error("Password must be at least 8 characters.");
+        releaseLock();
+        return;
+      }
+    } else {
+      const pwd = (formData.password || "").trim();
+      if (pwd.length < 8) {
+        toast.error("Password must be at least 8 characters.");
+        releaseLock();
+        return;
+      }
+    }
+
+    // Check if it's a step transition
+    if (!isLogin && signupStep < 3) {
+      setSignupStep((prev) => prev + 1);
+      setTimeout(() => {
+        setIsSubmitBlocked(false);
+      }, 1000); // 1s cooldown for step transitions
+      return;
+    }
+
+    // Final submit (API call) validations
+    if (!isLogin) {
+      const missingRequiredDocuments = getMissingRequiredDocuments();
+      if (missingRequiredDocuments.length > 0) {
         toast.error(
-          "Password must be at least 6 characters.",
+          `Please upload all required documents: ${missingRequiredDocuments
+            .map((doc) => doc.label)
+            .join(", ")}`,
         );
+        releaseLock();
         return;
       }
+    }
 
-      if (!isLogin && signupStep < 3) {
-        setSignupStep((prev) => prev + 1);
-        return;
-      }
+    setIsLoading(true);
+    setIsSubmitBlocked(true);
 
-      if (!isLogin) {
-        const missingRequiredDocuments = getMissingRequiredDocuments();
-        if (missingRequiredDocuments.length > 0) {
-          toast.error(
-            `Please upload all required documents: ${missingRequiredDocuments
-              .map((doc) => doc.label)
-              .join(", ")}`,
-          );
-          return;
-        }
-      }
-
-      setIsLoading(true);
+    try {
       // Note: backend expects a single address string, derive from city + state
       const address =
         formData.address ||
@@ -365,8 +471,10 @@ const Auth = () => {
           return sellerApi.signup(signupPayload);
         })();
 
+      let keepLoading = false;
       if (isLogin) {
         const { token, seller } = response.data.result;
+        clearPersistedData();
         login({
           ...seller,
           token,
@@ -374,7 +482,9 @@ const Auth = () => {
         });
         toast.success("Welcome back, Partner!");
         navigate("/seller");
+        keepLoading = true;
       } else {
+        clearPersistedData();
         setIsLogin(true);
         setSignupStep(1);
         setDocuments({
@@ -400,8 +510,16 @@ const Auth = () => {
             applicationStatus: "pending",
           },
         });
+        keepLoading = true;
+      }
+
+      if (!keepLoading) {
+        setIsLoading(false);
+        setIsSubmitBlocked(false);
       }
     } catch (error) {
+      setIsLoading(false);
+      setIsSubmitBlocked(false);
       if (isLogin && error.response?.status === 403) {
         const applicationStatus =
           error.response?.data?.result?.applicationStatus || "pending";
@@ -417,13 +535,11 @@ const Auth = () => {
         });
       }
       toast.error(error.response?.data?.message || "Authentication failed");
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#fcfaff] p-6 font-['Outfit'] overflow-hidden relative">
+    <div className="flex min-h-screen flex-col items-center bg-[#fcfaff] p-6 pt-8 pb-16 md:pt-12 md:pb-24 font-['Outfit'] relative gap-6">
       {/* Elegant Ambient Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-5%] w-[60%] h-[60%] bg-slate-100/50 rounded-full blur-[120px]" />
@@ -433,7 +549,7 @@ const Auth = () => {
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative z-10 w-full max-w-[1000px] min-h-[600px] max-h-[90vh] bg-white rounded-lg shadow-[0_50px_120px_rgba(0,0,0,0.04)] border border-white flex flex-col md:flex-row overflow-hidden">
+        className="relative z-10 w-full max-w-[1000px] min-h-[600px] max-h-[90vh] bg-white rounded-lg shadow-[0_50px_120px_rgba(0,0,0,0.04)] border border-white flex flex-col md:flex-row overflow-hidden my-auto">
         {/* Visual Side Panel */}
         <div className="hidden md:flex w-[45%] bg-linear-to-br from-slate-900 via-slate-950 to-black relative flex-col items-center justify-center p-10 overflow-hidden">
           {/* Abstract Decorative Circles */}
@@ -544,6 +660,7 @@ const Auth = () => {
                               type="text"
                               name="name"
                               required
+                              maxLength={50}
                               placeholder="Owner Name"
                               className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all placeholder:text-slate-300"
                               value={formData.name}
@@ -558,6 +675,7 @@ const Auth = () => {
                               type="text"
                               name="shopName"
                               required
+                              maxLength={100}
                               placeholder="Shop / Business Name"
                               className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all placeholder:text-slate-300"
                               value={formData.shopName}
@@ -574,6 +692,8 @@ const Auth = () => {
                             type="text"
                             name="registrationNumber"
                             required
+                            maxLength={12}
+                            inputMode="numeric"
                             placeholder="Business Registration Number"
                             className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all placeholder:text-slate-300"
                             value={formData.registrationNumber}
@@ -735,7 +855,8 @@ const Auth = () => {
                         type={showPassword ? "text" : "password"}
                         name="password"
                         required
-                        minLength={6}
+                        minLength={8}
+                        maxLength={128}
                         autoComplete="current-password"
                         placeholder="Enter your password"
                         className="w-full pl-12 pr-14 py-4 bg-slate-50 border-2 border-transparent rounded-lg text-sm font-bold text-slate-700 outline-none focus:bg-white focus:border-slate-200 transition-all placeholder:text-slate-300"
@@ -930,14 +1051,15 @@ const Auth = () => {
                   {!isLogin && signupStep > 1 && (
                     <button
                       type="button"
+                      disabled={isLoading || isSubmitBlocked}
                       onClick={() => setSignupStep((prev) => Math.max(1, prev - 1))}
-                      className="w-1/3 bg-slate-100 text-slate-600 rounded-lg py-4 text-sm font-black tracking-[2px] transition-all hover:bg-slate-200">
+                      className="w-1/3 bg-slate-100 text-slate-600 rounded-lg py-4 text-sm font-black tracking-[2px] transition-all hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed">
                       BACK
                     </button>
                   )}
                   <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isLoading || isSubmitBlocked}
                     className={`${!isLogin && signupStep > 1 ? "w-2/3" : "w-full"} bg-slate-900 text-white rounded-lg py-4 text-sm font-black tracking-[2px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.3)] hover:bg-black transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 group`}>
                     {isLoading
                       ? "WORKING..."
@@ -954,7 +1076,7 @@ const Auth = () => {
                 </div>
               </form>
 
-              <div className="pt-1 border-t border-slate-50 flex flex-col items-center gap-1">
+              <div className="pt-1 border-t border-slate-50 flex flex-col items-center gap-3">
                 <p className="text-slate-600 font-bold text-sm">
                   {isLogin ? "New to the platform?" : "Already part of us?"}{" "}
                   <button
@@ -970,6 +1092,28 @@ const Auth = () => {
                     {isLogin ? "Register Store" : "Sign In"}
                   </button>
                 </p>
+
+                {/* Legal Agreement Footer */}
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">
+                    By continuing, you agree to our
+                  </p>
+                  <div className="flex items-center gap-1.5 underline decoration-slate-200 underline-offset-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate("/seller/terms")}
+                      className="text-[10px] text-slate-600 font-black uppercase tracking-widest hover:text-black transition-colors">
+                      Terms & Conditions
+                    </button>
+                    <span className="text-[8px] text-slate-300">•</span>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/seller/privacy")}
+                      className="text-[10px] text-slate-600 font-black uppercase tracking-widest hover:text-black transition-colors">
+                      Privacy Policy
+                    </button>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </AnimatePresence>
@@ -977,7 +1121,7 @@ const Auth = () => {
       </motion.div>
 
       {/* Bottom Tagline */}
-      <div className="absolute bottom-6 flex items-center gap-4 text-slate-300 text-[10px] font-black uppercase tracking-[6px]">
+      <div className="relative z-10 flex items-center gap-4 text-slate-600 text-[10px] font-black uppercase tracking-[6px] text-center">
         Empowering Business Digitalization
       </div>
 

@@ -1101,43 +1101,58 @@ const CheckoutPage = () => {
             />
 
             {/* Payment Selector */}
-            <CheckoutPaymentSelector
-              paymentMethods={paymentMethods}
-              selectedPayment={selectedPayment}
-              onSelectPayment={setSelectedPayment}
-              useWallet={useWallet}
-              onToggleWallet={() => setUseWallet((v) => !v)}
-              walletBalance={user?.walletBalance || 0}
-              walletAmountToUse={walletAmountToUse}
-            />
+            {paymentMethods.length === 0 ? (
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 text-center shadow-sm">
+                <p className="text-sm font-black text-rose-800 uppercase tracking-wider">
+                  Checkout Currently Unavailable
+                </p>
+                <p className="text-xs font-bold text-rose-600 mt-1">
+                  No payment methods are currently enabled. Please contact support.
+                </p>
+              </div>
+            ) : (
+              <>
+                <CheckoutPaymentSelector
+                  paymentMethods={paymentMethods}
+                  selectedPayment={selectedPayment}
+                  onSelectPayment={setSelectedPayment}
+                  useWallet={useWallet}
+                  onToggleWallet={() => setUseWallet((v) => !v)}
+                  walletBalance={user?.walletBalance || 0}
+                  walletAmountToUse={walletAmountToUse}
+                />
 
-            {/* Desktop Slide to Pay */}
-            <div className="hidden lg:block">
-              <SlideToPay
-                amount={finalAmountToPay}
-                onSuccess={handlePlaceOrder}
-                isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview}
-                text={finalAmountToPay === 0 ? "Place Free Order" : "Order Now"}
-              />
-              <p className="text-center text-[10px] text-slate-400 font-bold mt-4 uppercase tracking-[0.1em]">
-                🔒 SSL encrypted secure checkout
-              </p>
-            </div>
+                {/* Desktop Slide to Pay */}
+                <div className="hidden lg:block">
+                  <SlideToPay
+                    amount={finalAmountToPay}
+                    onSuccess={handlePlaceOrder}
+                    isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview}
+                    text={finalAmountToPay === 0 ? "Place Free Order" : "Order Now"}
+                  />
+                  <p className="text-center text-[10px] text-slate-400 font-bold mt-4 uppercase tracking-[0.1em]">
+                    🔒 SSL encrypted secure checkout
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
 
       {/* Sticky Footer — Mobile Only */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-4 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-50 rounded-t-3xl">
-        <div className="max-w-4xl mx-auto">
-          <SlideToPay
-            amount={finalAmountToPay}
-            onSuccess={handlePlaceOrder}
-            isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview}
-            text={finalAmountToPay === 0 ? "Place Free Order" : "Slide to Pay"}
-          />
+      {paymentMethods.length > 0 && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-4 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-50 rounded-t-3xl">
+          <div className="max-w-4xl mx-auto">
+            <SlideToPay
+              amount={finalAmountToPay}
+              onSuccess={handlePlaceOrder}
+              isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview}
+              text={finalAmountToPay === 0 ? "Place Free Order" : "Slide to Pay"}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Address Selection Modal */}
       <Dialog open={isAddressModalOpen} onOpenChange={setIsAddressModalOpen}>

@@ -48,6 +48,8 @@ const WalletPage = lazy(() => import('../../modules/customer/pages/WalletPage'))
 
 // Lazy load heavy modules
 const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
+const SellerTermsPage = lazy(() => import('../../modules/seller/pages/TermsPage'));
+const SellerPrivacyPage = lazy(() => import('../../modules/seller/pages/PrivacyPage'));
 const AdminModule = lazy(() => import('../../modules/admin/routes/index'));
 const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'));
 
@@ -100,6 +102,14 @@ const AppRouter = () => {
                 {
                     path: 'seller/pending-approval',
                     element: <ApplicationPending />,
+                },
+                {
+                    path: 'seller/terms',
+                    element: <SellerTermsPage />,
+                },
+                {
+                    path: 'seller/privacy',
+                    element: <SellerPrivacyPage />,
                 },
                 {
                     path: 'admin/auth',
